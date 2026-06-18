@@ -14,7 +14,7 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 
-import Logo from '@/assets/Logo.svg';
+import Logo from '@/assets/logo.svg';
 import Company from '@/assets/company.svg';
 
 // Import thêm các icon cần thiết cho nhà hàng
