@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Eye, EyeOff, CircleAlert } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { CustomInput } from '@/components/FormInput';
-import Logo from '@/assets/logo.svg';
+import Logo from '@/assets/logo_app.svg';
 import { GoogleAuthButton } from './GoogleAuthButton';
 
 interface SignUpFormProps {

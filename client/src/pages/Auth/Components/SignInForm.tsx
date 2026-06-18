@@ -4,7 +4,7 @@ import { Eye, EyeOff, CheckCircle2, CircleAlert } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
 import { CustomInput } from '@/components/FormInput';
-import Logo from '@/assets/logo.svg';
+import Logo from '@/assets/logo_app.svg';
 import { GoogleAuthButton } from './GoogleAuthButton';
 
 interface LoginFormProps {
