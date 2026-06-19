@@ -17,11 +17,14 @@ dotenv.config();
 
 // Kết nối cơ sở dữ liệu MongoDB
 connectDB();
+const allowedOriginsEnv = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : ['http://localhost:5173'];
 
 const allowedOrigins = [
-  'http://localhost:5173', // Cổng khi bạn dùng máy tính đang code
-  'http://192.168.1.93:5173', // Cổng IP mạng LAN hiển thị trên Vite của bạn hiện tại
-  'https://abcdef.ngrok-free.app', // Thêm cả URL ngrok vào đây nếu sau này bạn dùng ngrok
+  ...allowedOriginsEnv,
+  'http://192.168.1.93:5173', // Giữ lại ip local nếu cần test điện thoại
+  'https://abcdef.ngrok-free.app', // Ngrok để test nhanh
 ];
 
 // Middleware
