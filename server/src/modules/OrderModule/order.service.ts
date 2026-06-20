@@ -237,7 +237,7 @@ class OrderService {
     // Tận dụng hàm findOrders truyền điều kiện $nin
     return await orderRepository.findOrders({
       restaurant: restaurantId,
-      status: { $nin: ['paid', 'cancelled'] },
+      status: { $nin: ['paid', 'cancelled', 'delivered'] },
     });
   }
 

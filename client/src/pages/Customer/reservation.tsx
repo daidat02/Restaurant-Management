@@ -23,7 +23,6 @@ export default function ReservationPage() {
   const [openModalBooking, setOpenModalBooking] = useState<boolean>(false);
   const [selectedResData, setSelectedResData] = useState<any>(null);
 
-  // Giả định đây là dữ liệu nhà hàng bạn lấy về từ API hoặc Context
   const restaurantConfig = {
     openHours: '15:00',
     closeHours: '22:00',
