@@ -2,9 +2,13 @@
 
 > Hệ thống quản lý nhà hàng full-stack với Node.js + Express + TypeScript (backend) và React + Vite (frontend). Hỗ trợ quản lý bàn, đặt chỗ, menu, order, thanh toán trực tuyến, upload ảnh, thông báo realtime và báo cáo phân tích.
 
-🔗 **Live Demo:** [restaurant-management-client-eta.vercel.app](https://restaurant-management-client-eta.vercel.app)
+🔗 **Live Demo:** [nhamnhitidi.vercel.app](https://nhamnhitidi.vercel.app/)
 📁 **Repository:** [github.com/daidat02/Restaurant-Management](https://github.com/daidat02/Restaurant-Management)
-
+👥 **Tài khoản dùng thử (Test Accounts):**
+*   **Quản trị viên(Admin):** `admin@gmail.com` / Mật khẩu: `123456`
+*   **Quản lý (Manager):** `manager@gmail.com` / Mật khẩu: `123456`
+*   **Nhân viên (Staff):** `staff@gmail.com` / Mật khẩu: `123456`
+*   **Khách hàng (Customer):** `customer@gmail.com` / Mật khẩu: `123456`
 ---
 
 ## 📋 Mục lục
