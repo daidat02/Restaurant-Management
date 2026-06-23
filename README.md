@@ -4,6 +4,7 @@
 
 🔗 **Live Demo:** [nhamnhitidi.vercel.app](https://nhamnhitidi.vercel.app/)
 📁 **Repository:** [github.com/daidat02/Restaurant-Management](https://github.com/daidat02/Restaurant-Management)
+
 👥 **Tài khoản dùng thử (Test Accounts):**
 *   **Quản trị viên(Admin):** `admin@gmail.com` / Mật khẩu: `123456`
 *   **Quản lý (Manager):** `manager@gmail.com` / Mật khẩu: `123456`
