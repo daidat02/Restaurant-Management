@@ -727,33 +727,6 @@ node dist/index.js
 - `NODE_ENV=production`
 - `PORT` (thường do platform cung cấp)
 
-### Docker (tuỳ chọn)
-
-```dockerfile
-# server/Dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-COPY dist/ ./dist/
-EXPOSE 8000
-CMD ["node", "dist/index.js"]
-```
-
----
-
-## 🗺️ Roadmap
-
-- [ ] Đa ngôn ngữ (i18n) — Tiếng Việt / Tiếng Anh
-- [ ] PWA support cho mobile
-- [ ] QR Code đặt bàn tại nhà hàng
-- [ ] In hóa đơn (PDF export)
-- [ ] Tích hợp Zalo OA thông báo
-- [ ] Dashboard analytics nâng cao
-- [ ] Unit tests & Integration tests
-- [ ] CI/CD pipeline với GitHub Actions
-- [ ] Docker Compose cho dev environment
-
 ---
 
 ## 🤝 Đóng góp
@@ -784,12 +757,3 @@ chore:    Cập nhật build tools, dependencies
 
 **datnd.02** — [@daidat02](https://github.com/daidat02)
 
----
-
-## 📄 License
-
-Dự án này được phân phối dưới dạng mã nguồn mở. Xem file [LICENSE](LICENSE) để biết thêm chi tiết.
-
----
-
-_README được tạo với ❤️ cho dự án Restaurant Management System_
