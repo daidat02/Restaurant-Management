@@ -6,10 +6,12 @@
 📁 **Repository:** [github.com/daidat02/Restaurant-Management](https://github.com/daidat02/Restaurant-Management)
 
 👥 **Tài khoản dùng thử (Test Accounts):**
-*   **Quản trị viên(Admin):** `admin@gmail.com` / Mật khẩu: `123456`
-*   **Quản lý (Manager):** `manager@gmail.com` / Mật khẩu: `123456`
-*   **Nhân viên (Staff):** `staff@gmail.com` / Mật khẩu: `123456`
-*   **Khách hàng (Customer):** `customer@gmail.com` / Mật khẩu: `123456`
+
+- **Quản trị viên(Admin):** `admin@gmail.com` / Mật khẩu: `123456`
+- **Quản lý (Manager):** `manager@gmail.com` / Mật khẩu: `123456`
+- **Nhân viên (Staff):** `staff@gmail.com` / Mật khẩu: `123456`
+- **Khách hàng (Customer):** `customer@gmail.com` / Mật khẩu: `123456`
+
 ---
 
 ## 📋 Mục lục
@@ -45,31 +47,34 @@ Restaurant Management System là ứng dụng web full-stack phục vụ quản 
 ## 🛠️ Công nghệ sử dụng
 
 ### Backend (Server)
-| Công nghệ | Mục đích |
-|-----------|----------|
-| Node.js + Express | REST API framework |
-| TypeScript | Type safety, code quality |
-| MongoDB | Database chính (NoSQL) |
-| Socket.IO | Realtime notifications & order updates |
-| JWT | Xác thực & phân quyền (access/refresh token) |
-| Cloudinary | Lưu trữ và quản lý ảnh |
-| PayOS | Thanh toán qua ngân hàng (VN) |
-| VNPAY | Cổng thanh toán điện tử |
+
+| Công nghệ         | Mục đích                                     |
+| ----------------- | -------------------------------------------- |
+| Node.js + Express | REST API framework                           |
+| TypeScript        | Type safety, code quality                    |
+| MongoDB           | Database chính (NoSQL)                       |
+| Socket.IO         | Realtime notifications & order updates       |
+| JWT               | Xác thực & phân quyền (access/refresh token) |
+| Cloudinary        | Lưu trữ và quản lý ảnh                       |
+| PayOS             | Thanh toán qua ngân hàng (VN)                |
+| VNPAY             | Cổng thanh toán điện tử                      |
 
 ### Frontend (Client)
-| Công nghệ | Mục đích |
-|-----------|----------|
-| React + Vite | UI framework, build tool |
-| TypeScript | Type safety |
-| Ant Design Icons | Icon library |
+
+| Công nghệ        | Mục đích                    |
+| ---------------- | --------------------------- |
+| React + Vite     | UI framework, build tool    |
+| TypeScript       | Type safety                 |
+| Ant Design Icons | Icon library                |
 | Socket.IO Client | Kết nối realtime với server |
 
 ### DevOps & Công cụ
-| Công nghệ | Mục đích |
-|-----------|----------|
-| Vercel | Deploy frontend |
+
+| Công nghệ             | Mục đích                     |
+| --------------------- | ---------------------------- |
+| Vercel                | Deploy frontend              |
 | nodemon + tsc --watch | Hot reload trong development |
-| .gitignore | Bảo vệ file nhạy cảm |
+| .gitignore            | Bảo vệ file nhạy cảm         |
 
 ---
 
@@ -186,22 +191,26 @@ Restaurant-Management/
 ## ✨ Tính năng chính
 
 ### 👤 Xác thực & Phân quyền
+
 - Đăng ký / Đăng nhập với JWT (access token + refresh token)
 - Phân quyền theo role: `customer`, `staff`, `manager`, `admin`
 - Middleware `verifyRole` bảo vệ các route nhạy cảm
 - Tự động refresh token khi hết hạn
 
 ### 🏪 Quản lý nhà hàng
+
 - CRUD nhà hàng (admin)
 - Xem danh sách, chi tiết nhà hàng
 - Cài đặt cấu hình nhà hàng (giờ mở cửa, phương thức thanh toán...)
 
 ### 🪑 Quản lý bàn
+
 - Thêm/sửa/xóa bàn theo nhà hàng
 - Cập nhật trạng thái bàn (available, occupied, reserved)
 - Xem danh sách bàn theo nhà hàng
 
 ### 📅 Đặt chỗ (Reservation)
+
 - Khách đặt chỗ online với thông tin: nhà hàng, ngày giờ, số người
 - Xem khung giờ trống theo nhà hàng
 - Nhân viên tạo đặt chỗ thay khách
@@ -209,12 +218,14 @@ Restaurant-Management/
 - Theo dõi lịch sử đặt chỗ cá nhân
 
 ### 🍜 Quản lý menu
+
 - Danh mục món ăn (category) theo nhà hàng
 - CRUD món ăn (menu item) với ảnh upload
 - Bật/tắt availability của từng món
 - Xem danh sách món bán chạy (bestsellers)
 
 ### 📦 Quản lý order
+
 - Tạo order theo bàn hoặc đặt chỗ
 - Thêm món vào order đang hoạt động
 - Cập nhật trạng thái từng item: `pending → preparing → served`
@@ -222,22 +233,26 @@ Restaurant-Management/
 - Lịch sử đơn hàng của khách
 
 ### 💳 Thanh toán
+
 - Khởi tạo thanh toán cho order
 - Chọn phương thức: tiền mặt, chuyển khoản (PayOS), VNPAY
 - Webhook xử lý xác nhận thanh toán tự động
 - Theo dõi trạng thái thanh toán
 
 ### 🖼️ Upload ảnh
+
 - Upload ảnh đơn và nhiều ảnh lên Cloudinary
 - Xóa ảnh theo URL
 - Dùng cho ảnh món ăn, avatar, ảnh nhà hàng
 
 ### 🔔 Thông báo
+
 - Thông báo realtime qua Socket.IO
 - Xem danh sách thông báo theo nhà hàng
 - Đánh dấu đã đọc từng thông báo hoặc tất cả
 
 ### 📊 Báo cáo & Phân tích
+
 - Tổng quan doanh thu (overview)
 - Doanh thu theo giờ trong ngày
 - Thống kê kênh đặt hàng (order channels)
@@ -248,6 +263,7 @@ Restaurant-Management/
 ## 🚀 Cài đặt & Chạy
 
 ### Yêu cầu hệ thống
+
 - Node.js >= 18
 - npm hoặc yarn
 - MongoDB (URI kết nối)
@@ -346,133 +362,134 @@ Tất cả API có prefix `/api`. Server cấu hình `app.use('/api', router)`.
 
 ### 🔐 Authentication — `/api/auth`
 
-| Method | Endpoint | Mô tả | Auth |
-|--------|----------|-------|------|
-| POST | `/register` | Đăng ký tài khoản | ❌ |
-| POST | `/login` | Đăng nhập, nhận token | ❌ |
-| POST | `/refresh` | Làm mới access token | ❌ |
-| GET | `/profile/me` | Lấy thông tin cá nhân | ✅ |
-| PATCH | `/update/me` | Cập nhật thông tin cá nhân | ✅ |
-| GET | `/` | Danh sách users | 👑 Admin |
-| GET | `/profile/:id` | Chi tiết user | 👑 Admin |
-| PUT | `/admin/update/:id` | Cập nhật user | 👑 Admin |
-| DELETE | `/admin/delete/:id` | Xóa user | 👑 Admin |
+| Method | Endpoint            | Mô tả                      | Auth     |
+| ------ | ------------------- | -------------------------- | -------- |
+| POST   | `/register`         | Đăng ký tài khoản          | ❌       |
+| POST   | `/login`            | Đăng nhập, nhận token      | ❌       |
+| POST   | `/refresh`          | Làm mới access token       | ❌       |
+| GET    | `/profile/me`       | Lấy thông tin cá nhân      | ✅       |
+| PATCH  | `/update/me`        | Cập nhật thông tin cá nhân | ✅       |
+| GET    | `/`                 | Danh sách users            | 👑 Admin |
+| GET    | `/profile/:id`      | Chi tiết user              | 👑 Admin |
+| PUT    | `/admin/update/:id` | Cập nhật user              | 👑 Admin |
+| DELETE | `/admin/delete/:id` | Xóa user                   | 👑 Admin |
 
 ### 🏪 Restaurants — `/api/restaurants`
 
-| Method | Endpoint | Mô tả | Auth |
-|--------|----------|-------|------|
-| POST | `/` | Tạo nhà hàng | 👑 Admin |
-| GET | `/` | Danh sách nhà hàng | ❌ |
-| GET | `/:id` | Chi tiết nhà hàng | ❌ |
-| PUT | `/update/:id` | Cập nhật nhà hàng | 👑 Admin |
-| DELETE | `/:id` | Xóa nhà hàng | 👑 Admin |
+| Method | Endpoint      | Mô tả              | Auth     |
+| ------ | ------------- | ------------------ | -------- |
+| POST   | `/`           | Tạo nhà hàng       | 👑 Admin |
+| GET    | `/`           | Danh sách nhà hàng | ❌       |
+| GET    | `/:id`        | Chi tiết nhà hàng  | ❌       |
+| PUT    | `/update/:id` | Cập nhật nhà hàng  | 👑 Admin |
+| DELETE | `/:id`        | Xóa nhà hàng       | 👑 Admin |
 
 ### 🪑 Tables — `/api/tables`
 
-| Method | Endpoint | Mô tả | Auth |
-|--------|----------|-------|------|
-| POST | `/create` | Tạo bàn | 🔧 Manager/Admin |
-| GET | `/:id` | Chi tiết bàn | ✅ |
-| PUT | `/:id` | Cập nhật bàn | 🔧 Manager/Admin |
-| DELETE | `/:id` | Xóa bàn | 🔧 Manager/Admin |
-| GET | `/restaurant/:restaurantId` | Bàn theo nhà hàng | ❌ |
-| PATCH | `/:id/status` | Cập nhật trạng thái bàn | 👥 Staff/Manager/Admin |
+| Method | Endpoint                    | Mô tả                   | Auth                   |
+| ------ | --------------------------- | ----------------------- | ---------------------- |
+| POST   | `/create`                   | Tạo bàn                 | 🔧 Manager/Admin       |
+| GET    | `/:id`                      | Chi tiết bàn            | ✅                     |
+| PUT    | `/:id`                      | Cập nhật bàn            | 🔧 Manager/Admin       |
+| DELETE | `/:id`                      | Xóa bàn                 | 🔧 Manager/Admin       |
+| GET    | `/restaurant/:restaurantId` | Bàn theo nhà hàng       | ❌                     |
+| PATCH  | `/:id/status`               | Cập nhật trạng thái bàn | 👥 Staff/Manager/Admin |
 
 ### 📅 Reservations — `/api/reservations`
 
-| Method | Endpoint | Mô tả | Auth |
-|--------|----------|-------|------|
-| POST | `/create` | Khách đặt chỗ | ✅ |
-| POST | `/create-by-staff` | Nhân viên đặt chỗ | 👥 Staff |
-| GET | `/restaurants` | Nhà hàng còn bàn trống | ❌ |
-| GET | `/tables/slots` | Khung giờ trống | ❌ |
-| GET | `/me` | Đặt chỗ của tôi | ✅ Customer |
-| PUT | `/update/:id` | Cập nhật đặt chỗ | ✅ |
-| PUT | `/update-status/:id` | Cập nhật trạng thái | 👥 Staff/Admin |
-| PUT | `/cancel/:id` | Hủy đặt chỗ | ✅ |
+| Method | Endpoint             | Mô tả                  | Auth           |
+| ------ | -------------------- | ---------------------- | -------------- |
+| POST   | `/create`            | Khách đặt chỗ          | ✅             |
+| POST   | `/create-by-staff`   | Nhân viên đặt chỗ      | 👥 Staff       |
+| GET    | `/restaurants`       | Nhà hàng còn bàn trống | ❌             |
+| GET    | `/tables/slots`      | Khung giờ trống        | ❌             |
+| GET    | `/me`                | Đặt chỗ của tôi        | ✅ Customer    |
+| PUT    | `/update/:id`        | Cập nhật đặt chỗ       | ✅             |
+| PUT    | `/update-status/:id` | Cập nhật trạng thái    | 👥 Staff/Admin |
+| PUT    | `/cancel/:id`        | Hủy đặt chỗ            | ✅             |
 
 ### 🍜 Menu — `/api/menu`
 
-| Method | Endpoint | Mô tả | Auth |
-|--------|----------|-------|------|
-| POST | `/category` | Tạo danh mục | 🔧 Manager |
-| PUT | `/category/:id` | Cập nhật danh mục | 🔧 Manager |
-| GET | `/category/:restaurantId` | Danh mục theo nhà hàng | ❌ |
-| POST | `/item` | Tạo món ăn | 🔧 Manager |
-| PUT | `/item/:id` | Cập nhật món ăn | 🔧 Manager |
-| PUT | `/item/:id/availability` | Bật/tắt món | 🔧 Manager |
-| GET | `/item/category/:catId` | Món theo danh mục | ❌ |
-| GET | `/items/:restaurantId` | Tất cả món của nhà hàng | ❌ |
-| GET | `/item/available/:restaurantId` | Món đang bán | ❌ |
-| GET | `/items/bestsellers/:restaurantId` | Món bán chạy | ❌ |
+| Method | Endpoint                           | Mô tả                   | Auth       |
+| ------ | ---------------------------------- | ----------------------- | ---------- |
+| POST   | `/category`                        | Tạo danh mục            | 🔧 Manager |
+| PUT    | `/category/:id`                    | Cập nhật danh mục       | 🔧 Manager |
+| GET    | `/category/:restaurantId`          | Danh mục theo nhà hàng  | ❌         |
+| POST   | `/item`                            | Tạo món ăn              | 🔧 Manager |
+| PUT    | `/item/:id`                        | Cập nhật món ăn         | 🔧 Manager |
+| PUT    | `/item/:id/availability`           | Bật/tắt món             | 🔧 Manager |
+| GET    | `/item/category/:catId`            | Món theo danh mục       | ❌         |
+| GET    | `/items/:restaurantId`             | Tất cả món của nhà hàng | ❌         |
+| GET    | `/item/available/:restaurantId`    | Món đang bán            | ❌         |
+| GET    | `/items/bestsellers/:restaurantId` | Món bán chạy            | ❌         |
 
 ### 📦 Orders — `/api/orders`
 
-| Method | Endpoint | Mô tả | Auth |
-|--------|----------|-------|------|
-| POST | `/` | Tạo order | ✅ |
-| POST | `/add-item` | Thêm món vào order | ✅ |
-| POST | `/item/:itemId/:status` | Cập nhật trạng thái item | ✅ |
-| GET | `/:id` | Chi tiết order | ✅ |
-| GET | `/restaurant/:id` | Đơn theo nhà hàng | 👥 Staff |
-| GET | `/restaurant/:id/:status` | Đơn theo trạng thái | 👥 Staff |
-| GET | `/active/:restaurantId` | Đơn đang active | 👥 Staff |
-| GET | `/table/:tableId` | Đơn theo bàn | ✅ |
-| GET | `/my-orders` | Đơn của tôi | ✅ |
-| PUT | `/:id` | Cập nhật order | 👥 Staff/Manager |
-| PUT | `/:id/status` | Cập nhật trạng thái order | 👥 Staff/Manager |
+| Method | Endpoint                  | Mô tả                     | Auth             |
+| ------ | ------------------------- | ------------------------- | ---------------- |
+| POST   | `/`                       | Tạo order                 | ✅               |
+| POST   | `/add-item`               | Thêm món vào order        | ✅               |
+| POST   | `/item/:itemId/:status`   | Cập nhật trạng thái item  | ✅               |
+| GET    | `/:id`                    | Chi tiết order            | ✅               |
+| GET    | `/restaurant/:id`         | Đơn theo nhà hàng         | 👥 Staff         |
+| GET    | `/restaurant/:id/:status` | Đơn theo trạng thái       | 👥 Staff         |
+| GET    | `/active/:restaurantId`   | Đơn đang active           | 👥 Staff         |
+| GET    | `/table/:tableId`         | Đơn theo bàn              | ✅               |
+| GET    | `/my-orders`              | Đơn của tôi               | ✅               |
+| PUT    | `/:id`                    | Cập nhật order            | 👥 Staff/Manager |
+| PUT    | `/:id/status`             | Cập nhật trạng thái order | 👥 Staff/Manager |
 
 ### 💳 Payments — `/api/payments`
 
-| Method | Endpoint | Mô tả | Auth |
-|--------|----------|-------|------|
-| GET | `/:paymentId` | Chi tiết thanh toán | ✅ |
-| POST | `/initiate` | Khởi tạo thanh toán | ✅ |
-| POST | `/:paymentId/method/:method` | Chọn phương thức TT | ✅ |
-| PATCH | `/status` | Cập nhật trạng thái TT | 👥 Staff |
-| POST | `/ewallet/:orderId` | Tạo URL ví điện tử | ✅ |
-| POST | `/return/vnpay` | Return URL từ VNPAY | ❌ |
-| POST | `/webhook` | Webhook thanh toán | ❌ |
-| POST | `/banking/:orderId` | Tạo PayOS URL | ✅ |
+| Method | Endpoint                     | Mô tả                  | Auth     |
+| ------ | ---------------------------- | ---------------------- | -------- |
+| GET    | `/:paymentId`                | Chi tiết thanh toán    | ✅       |
+| POST   | `/initiate`                  | Khởi tạo thanh toán    | ✅       |
+| POST   | `/:paymentId/method/:method` | Chọn phương thức TT    | ✅       |
+| PATCH  | `/status`                    | Cập nhật trạng thái TT | 👥 Staff |
+| POST   | `/ewallet/:orderId`          | Tạo URL ví điện tử     | ✅       |
+| POST   | `/return/vnpay`              | Return URL từ VNPAY    | ❌       |
+| POST   | `/webhook`                   | Webhook thanh toán     | ❌       |
+| POST   | `/banking/:orderId`          | Tạo PayOS URL          | ✅       |
 
 ### 🖼️ Upload — `/api/upload`
 
-| Method | Endpoint | Mô tả | Auth |
-|--------|----------|-------|------|
-| POST | `/` | Upload 1 ảnh (field: `image`) | ✅ |
-| POST | `/multiple` | Upload nhiều ảnh (field: `images`) | ✅ |
-| DELETE | `/` | Xóa ảnh theo URL | ✅ |
+| Method | Endpoint    | Mô tả                              | Auth |
+| ------ | ----------- | ---------------------------------- | ---- |
+| POST   | `/`         | Upload 1 ảnh (field: `image`)      | ✅   |
+| POST   | `/multiple` | Upload nhiều ảnh (field: `images`) | ✅   |
+| DELETE | `/`         | Xóa ảnh theo URL                   | ✅   |
 
 ### 🔔 Notifications — `/api/notifications`
 
-| Method | Endpoint | Mô tả | Auth |
-|--------|----------|-------|------|
-| GET | `/:restaurantId` | Danh sách thông báo | ✅ |
-| PATCH | `/:id/read` | Đánh dấu đã đọc | ✅ |
-| POST | `/read-all/:restaurantId` | Đánh dấu tất cả đã đọc | ✅ |
+| Method | Endpoint                  | Mô tả                  | Auth |
+| ------ | ------------------------- | ---------------------- | ---- |
+| GET    | `/:restaurantId`          | Danh sách thông báo    | ✅   |
+| PATCH  | `/:id/read`               | Đánh dấu đã đọc        | ✅   |
+| POST   | `/read-all/:restaurantId` | Đánh dấu tất cả đã đọc | ✅   |
 
 ### 📊 Analytics — `/api/analytics`
 
-| Method | Endpoint | Mô tả | Auth |
-|--------|----------|-------|------|
-| GET | `/overview` | Tổng quan | 🔧 Manager/Admin |
-| GET | `/revenue-hourly` | Doanh thu theo giờ | 🔧 Manager/Admin |
-| GET | `/order-channels` | Thống kê kênh đặt hàng | 🔧 Manager/Admin |
-| GET | `/revenue-channels` | Doanh thu theo kênh | 🔧 Manager/Admin |
+| Method | Endpoint            | Mô tả                  | Auth             |
+| ------ | ------------------- | ---------------------- | ---------------- |
+| GET    | `/overview`         | Tổng quan              | 🔧 Manager/Admin |
+| GET    | `/revenue-hourly`   | Doanh thu theo giờ     | 🔧 Manager/Admin |
+| GET    | `/order-channels`   | Thống kê kênh đặt hàng | 🔧 Manager/Admin |
+| GET    | `/revenue-channels` | Doanh thu theo kênh    | 🔧 Manager/Admin |
 
 ### ⚙️ Settings — `/api/settings`
 
-| Method | Endpoint | Mô tả | Auth |
-|--------|----------|-------|------|
-| POST | `/create` | Tạo cài đặt | 👑 Admin |
-| GET | `/get-or-create/:scope/:model/:targetId` | Lấy hoặc tạo cài đặt | ✅ |
-| GET | `/:id` | Chi tiết cài đặt | ✅ |
-| PUT | `/:id` | Cập nhật cài đặt | ✅ |
-| PATCH | `/:id/payment-method` | Cập nhật PTTT | ✅ |
-| DELETE | `/:id` | Xóa cài đặt | 👑 Admin |
+| Method | Endpoint                                 | Mô tả                | Auth     |
+| ------ | ---------------------------------------- | -------------------- | -------- |
+| POST   | `/create`                                | Tạo cài đặt          | 👑 Admin |
+| GET    | `/get-or-create/:scope/:model/:targetId` | Lấy hoặc tạo cài đặt | ✅       |
+| GET    | `/:id`                                   | Chi tiết cài đặt     | ✅       |
+| PUT    | `/:id`                                   | Cập nhật cài đặt     | ✅       |
+| PATCH  | `/:id/payment-method`                    | Cập nhật PTTT        | ✅       |
+| DELETE | `/:id`                                   | Xóa cài đặt          | 👑 Admin |
 
 **Ký hiệu:**
+
 - ❌ = Public (không cần token)
 - ✅ = Yêu cầu đăng nhập (bất kỳ role)
 - 👥 = Staff / Manager / Admin
@@ -574,14 +591,14 @@ initSocket(server);
 
 ### Events chính
 
-| Event | Hướng | Mô tả |
-|-------|-------|-------|
-| `connection` | Client → Server | Khách kết nối |
-| `join:restaurant` | Client → Server | Tham gia room nhà hàng |
-| `order:update` | Server → Client | Cập nhật trạng thái order |
-| `notification:new` | Server → Client | Thông báo mới |
-| `reservation:new` | Server → Client | Có đặt chỗ mới |
-| `table:status` | Server → Client | Trạng thái bàn thay đổi |
+| Event              | Hướng           | Mô tả                     |
+| ------------------ | --------------- | ------------------------- |
+| `connection`       | Client → Server | Khách kết nối             |
+| `join:restaurant`  | Client → Server | Tham gia room nhà hàng    |
+| `order:update`     | Server → Client | Cập nhật trạng thái order |
+| `notification:new` | Server → Client | Thông báo mới             |
+| `reservation:new`  | Server → Client | Có đặt chỗ mới            |
+| `table:status`     | Server → Client | Trạng thái bàn thay đổi   |
 
 ### Client kết nối
 
@@ -643,21 +660,25 @@ POST /api/payments/return/vnpay
 ## 🔒 Bảo mật
 
 ### Authentication
+
 - JWT với access token ngắn hạn (15 phút) + refresh token dài hạn (7 ngày)
 - Refresh token được lưu HTTP-only cookie để tránh XSS
 - Middleware `verifyToken` kiểm tra signature và expiry
 
 ### Authorization
+
 - Middleware `verifyRole(...roles)` kiểm tra quyền truy cập
 - Các route admin/manager được bảo vệ nghiêm ngặt
 - Người dùng chỉ truy cập được data của chính họ
 
 ### Bảo vệ thông tin nhạy cảm
+
 - Không commit `.env` lên VCS (đã thêm vào `.gitignore`)
 - Các secret key chỉ lưu trong biến môi trường
 - Webhook thanh toán xác thực signature trước khi xử lý
 
 ### Các best practices
+
 ```bash
 # File bị ignore bởi .gitignore
 **/node_modules/
@@ -701,6 +722,7 @@ node dist/index.js
 ```
 
 **Biến môi trường cần set trên server production:**
+
 - Tất cả các biến trong `server/.env`
 - `NODE_ENV=production`
 - `PORT` (thường do platform cung cấp)
@@ -770,4 +792,4 @@ Dự án này được phân phối dưới dạng mã nguồn mở. Xem file [L
 
 ---
 
-*README được tạo với ❤️ cho dự án Restaurant Management System*
+_README được tạo với ❤️ cho dự án Restaurant Management System_
