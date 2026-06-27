@@ -756,13 +756,3 @@ chore:    Cập nhật build tools, dependencies
 ## 👨‍💻 Tác giả
 
 **datnd.02** — [@daidat02](https://github.com/daidat02)
-
----
-
-## 📄 License
-
-Dự án này được phân phối dưới dạng mã nguồn mở. Xem file [LICENSE](LICENSE) để biết thêm chi tiết.
-
----
-
-_README được tạo với ❤️ cho dự án Restaurant Management System_
