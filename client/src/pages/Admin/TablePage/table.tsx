@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useOrder } from '@/hooks/use-order';
 
 import { usePayment } from '@/hooks/use-payment';
-import { extractId } from '@/utils/helpers';
+import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
 import type { IOrder } from '@/types/order.type';
 import { PaymentModal } from '../components/PaymentModal';
 import { TableCard } from './components/TableCard';
@@ -23,6 +23,7 @@ export interface OrderItemProps {
 export default function Table() {
   const { user } = useAuth();
   const currentRole = user?.role || 'staff';
+  const activeRestaurantId = useActiveRestaurantId();
   const { fetchOrderById } = useOrder();
   const { tables, fetchTablesByRestaurant, changeTableStatus } = useTable();
   const { updatePaymentStatus } = usePayment();
@@ -44,8 +45,8 @@ export default function Table() {
   });
 
   useEffect(() => {
-    fetchTablesByRestaurant(extractId(user?.restaurant, '_id'));
-  }, [fetchTablesByRestaurant, updatePaymentStatus, user?.restaurant]);
+    fetchTablesByRestaurant(activeRestaurantId);
+  }, [fetchTablesByRestaurant, updatePaymentStatus, activeRestaurantId]);
 
   return (
     // Đổi sang flex-col lg:flex-row để các cột tự chồng lên nhau trên Mobile
@@ -58,7 +59,7 @@ export default function Table() {
           setIsPaymentModalOpen(false);
           setOrderIdSelected(null);
         }}
-        onPaymentSucess={() => fetchTablesByRestaurant(extractId(user?.restaurant, '_id'))}
+        onPaymentSucess={() => fetchTablesByRestaurant(activeRestaurantId)}
       />
 
       {/* BÊN TRÁI: DANH SÁCH BÀN */}

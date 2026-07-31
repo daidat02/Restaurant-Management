@@ -14,6 +14,7 @@ import { useAppDispatch, useAppSelector } from '@/hooks/redux-hook';
 import type { IOrder } from '@/types/order.type';
 import { clearCart } from '@/redux/slices/cartSlice';
 import { useAuth } from '@/hooks/use-auth';
+import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
 import { useOrder } from '@/hooks/use-order';
 import { usePayment } from '@/hooks/use-payment';
 import { extractId } from '@/utils/helpers';
@@ -35,6 +36,7 @@ export default function PaymentPage() {
   const [searchParams] = useSearchParams();
 
   const { user } = useAuth();
+  const activeRestaurantId = useActiveRestaurantId();
   const { currentOrder, addOrder } = useOrder();
   const { paymentSocketResult, startPayment, createPaymentPayOsUrl, startListeningSocket } =
     usePayment();
@@ -82,11 +84,10 @@ export default function PaymentPage() {
     }));
 
     try {
-      // Nhà hàng lấy từ ngữ cảnh user hoặc URL (?restaurantId=...) — không hardcode
+      // Nhà hàng lấy từ tenant đang hoạt động hoặc URL (?restaurantId=...) — không hardcode
       const createPayload: IOrder = {
         restaurant:
-          extractId(user?.restaurant) ||
-          extractId(user?.restaurantIds?.[0]) ||
+          activeRestaurantId ||
           new URLSearchParams(window.location.search).get('restaurantId') ||
           '',
         items: formattedItems,

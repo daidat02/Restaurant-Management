@@ -14,7 +14,7 @@ export const useAuth = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   // Lấy state từ Redux Store
-  const { user, isAuthenticated, token } = useAppSelector((state) => state.auth);
+  const { user, isAuthenticated, token, currentRestaurantId } = useAppSelector((state) => state.auth);
 
   // Hàm bọc logic xử lý đăng nhập
   const handleLogin = async (credentials: UserCredentials) => {
@@ -39,6 +39,7 @@ export const useAuth = () => {
     user,
     isAuthenticated,
     token,
+    currentRestaurantId,
     login: handleLogin,
     logout: handleLogout,
     register: handleRegister,

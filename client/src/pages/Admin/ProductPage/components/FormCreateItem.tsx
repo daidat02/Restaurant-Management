@@ -8,8 +8,7 @@ import PageHeader from '@/components/PageHeader';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useUpload } from '@/hooks/use-upload';
 import { deleteFile } from '@/api/upload.api';
-import { useAuth } from '@/hooks/use-auth';
-import { extractId } from '@/utils/helpers';
+import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
 import { CustomInput } from '@/components/FormInput';
 import { FormSelect } from '@/components/FormSelect';
 import { CustomTextarea } from '@/components/CustomTextArea';
@@ -27,7 +26,7 @@ const FormMenuItem = () => {
   // Lấy object itemData đã truyền từ trang danh sách
   const initialData = location.state?.itemData;
 
-  const { user } = useAuth();
+  const activeRestaurantId = useActiveRestaurantId();
   const { addItem, editItem, categories, fetchCategories } = useMenu();
   const { uploadMultiple } = useUpload();
   const navigate = useNavigate();
@@ -50,7 +49,7 @@ const FormMenuItem = () => {
 
   // Đổ dữ liệu
   useEffect(() => {
-    fetchCategories(extractId(user?.restaurant));
+    fetchCategories(activeRestaurantId);
     if (initialData) {
       setName(initialData.name || '');
       setPrice(initialData.price?.toString() || '');
@@ -75,7 +74,7 @@ const FormMenuItem = () => {
       setIsAvailable('true');
       setImageFiles([]);
     }
-  }, [initialData, fetchCategories]);
+  }, [initialData, fetchCategories, activeRestaurantId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,7 +82,7 @@ const FormMenuItem = () => {
 
     // 1. Tạo payload cơ bản
     const payload: Partial<IMenuItem> = {
-      restaurant: extractId(user?.restaurant),
+      restaurant: activeRestaurantId,
       name,
       price: Number(price),
       category: categoryId,

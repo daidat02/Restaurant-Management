@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, Grid, List } from 'lucide-react';
-import { useAuth } from '@/hooks/use-auth';
-import { extractId, generateTimeSlots } from '@/utils/helpers';
+import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
+import { generateTimeSlots } from '@/utils/helpers';
 import { useReservation } from '@/hooks/use-reservation';
 
 import type { ITable } from '@/types/table.type';
@@ -17,7 +17,7 @@ import { TimelineView } from './components/TimelineView';
 import { ListView } from './components/ListView';
 
 export default function ReservationPage() {
-  const { user } = useAuth();
+  const activeRestaurantId = useActiveRestaurantId();
   const {
     tableTimeSlots,
     reservations,
@@ -67,13 +67,13 @@ export default function ReservationPage() {
 
   useEffect(() => {
     const fetchSlots = async () => {
-      await fetchTableTimeSlots(extractId(user?.restaurant), selectedDate);
+      await fetchTableTimeSlots(activeRestaurantId, selectedDate);
       setIsLoading(true);
-      await fetchReservationsByRestaurant(extractId(user?.restaurant), selectedDate, statusFilter);
+      await fetchReservationsByRestaurant(activeRestaurantId, selectedDate, statusFilter);
       setIsLoading(false);
     };
     fetchSlots();
-  }, [user?.restaurant, selectedDate, statusFilter]);
+  }, [activeRestaurantId, selectedDate, statusFilter]);
 
   return (
     <div className="h-full overflow-y-auto">

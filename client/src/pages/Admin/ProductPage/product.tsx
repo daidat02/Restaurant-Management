@@ -1,9 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Search, ListFilter, Download, Plus, Eye, Edit2, ChevronRight } from 'lucide-react';
 
-import { useAuth } from '@/hooks/use-auth';
+import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
 import { useMenu } from '@/hooks/use-menu';
-import { extractId } from '@/utils/helpers';
 import type { IMenuItem } from '@/types/category.type';
 
 import { Button } from '@/components/ui/button';
@@ -15,7 +14,7 @@ import { CustomSelect } from '@/components/SelectCustom';
 import { FilterToolbar } from '../OrderPage/management-order';
 
 export default function ProductsPage() {
-  const { user } = useAuth();
+  const activeRestaurantId = useActiveRestaurantId();
   const navigate = useNavigate();
   const {
     items,
@@ -65,23 +64,22 @@ export default function ProductsPage() {
 
   // 1. Lấy danh sách danh mục (Categories) khi component mount
   useEffect(() => {
-    if (user?.restaurant) {
-      fetchCategories(extractId(user.restaurant));
+    if (activeRestaurantId) {
+      fetchCategories(activeRestaurantId);
     }
-  }, [user, fetchCategories]);
+  }, [activeRestaurantId, fetchCategories]);
 
   // 2. Gọi API lấy danh sách món ăn khi đổi danh mục qua ô select
   useEffect(() => {
-    if (user?.restaurant) {
-      const restaurantId = extractId(user.restaurant);
+    if (activeRestaurantId) {
       if (activeCategory === 'all') {
-        fetchAllItems(restaurantId);
+        fetchAllItems(activeRestaurantId);
       } else {
         fetchItemsByCat(activeCategory);
       }
     }
     setCurrentPage(1);
-  }, [user, activeCategory, fetchAllItems, fetchItemsByCat]);
+  }, [activeRestaurantId, activeCategory, fetchAllItems, fetchItemsByCat]);
 
   // 3. Xử lý Lọc & Tìm kiếm cục bộ (Client-side Search & Filter)
   useEffect(() => {

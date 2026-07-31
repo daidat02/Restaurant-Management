@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useOrder } from '@/hooks/use-order';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/use-auth';
+import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
 import { useNavigate } from 'react-router-dom';
 import type { IOrder, IOrderItem } from '@/types/order.type';
 import { extractId } from '@/utils/helpers';
@@ -200,6 +201,7 @@ const FormBillOrder = ({
   // 1. Thêm hàm updateOrder vào đây
   const { addOrder, addItemToOrder } = useOrder();
   const { user } = useAuth();
+  const activeRestaurantId = useActiveRestaurantId();
   const navigate = useNavigate();
 
   const [notes, setNotes] = useState<string>('');
@@ -234,7 +236,7 @@ const FormBillOrder = ({
       return;
     }
 
-    const resId = extractId(user?.restaurant);
+    const resId = activeRestaurantId;
     let existingOrderId = extractId(order, '_id') || extractId(tableInfo?.currentOrder, '_id');
 
     try {

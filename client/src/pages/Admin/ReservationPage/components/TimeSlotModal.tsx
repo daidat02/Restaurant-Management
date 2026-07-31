@@ -2,7 +2,7 @@ import { CustomDatePicker } from '@/components/DatePickerCustom';
 import { DialogCustom } from '@/components/DialogCustom';
 import { CustomSelect } from '@/components/SelectCustom';
 import { StatusTag } from '@/components/StatusTag';
-import { useAuth } from '@/hooks/use-auth';
+import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
 import { useTable } from '@/hooks/use-table';
 import type { IReservation, ReservationStatus } from '@/types/reservation.type';
 import type { ITable } from '@/types/table.type';
@@ -40,7 +40,7 @@ const TimeSlotModal = ({
   onAddReservationByStaff,
   onUpdateReservation,
 }: TimeSlotModalProps) => {
-  const { user } = useAuth();
+  const activeRestaurantId = useActiveRestaurantId();
   const { tables, fetchTablesByRestaurant } = useTable();
 
   const [isEditing, setIsEditing] = useState(false);
@@ -116,10 +116,10 @@ const TimeSlotModal = ({
         setSelectedDate(formatDateToYYYYMMDD(slotInfo.date));
       }
     } else {
-      fetchTablesByRestaurant(extractId(user?.restaurant));
+      fetchTablesByRestaurant(activeRestaurantId);
       setIsEditing(false);
     }
-  }, [isOpen, slotInfo.isEmpty, reservedInfo, table, slotInfo.timeSlot, slotInfo.date]);
+  }, [isOpen, slotInfo.isEmpty, reservedInfo, table, slotInfo.timeSlot, slotInfo.date, activeRestaurantId]);
 
   const hasData = !slotInfo.isEmpty;
 

@@ -12,6 +12,7 @@ import { useReactToPrint } from 'react-to-print';
 import ReceiptTemplate from './ReceiptTemplate';
 import { DialogCustom } from '@/components/DialogCustom';
 import { useAuth } from '@/hooks/use-auth';
+import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
 import { useSetting } from '@/hooks/use-setting';
 import type { IReceiptConfig } from '@/types/setting.type';
 
@@ -36,6 +37,7 @@ interface PaymentFormProps {
 
 export default function PaymentForm({ paymentId, onCancel, onConfirm }: PaymentFormProps) {
   const { user } = useAuth();
+  const activeRestaurantId = useActiveRestaurantId();
   const { currentSetting, fetchSettingById } = useSetting();
   const {
     currentPayment,
@@ -161,8 +163,8 @@ export default function PaymentForm({ paymentId, onCancel, onConfirm }: PaymentF
 
   useEffect(() => {
     if (paymentId) fetchPaymentById(paymentId);
-    fetchSettingById(extractId(user?.restaurant));
-  }, [fetchPaymentById, paymentId]);
+    fetchSettingById(activeRestaurantId);
+  }, [fetchPaymentById, paymentId, activeRestaurantId]);
 
   return (
     <div className="flex flex-col md:flex-row h-[90vh] w-full overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-sm relative">

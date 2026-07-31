@@ -3,10 +3,10 @@ import { CustomTabs } from '@/components/tabsCustom';
 import { useNavigate } from 'react-router-dom';
 import { useOrder } from '@/hooks/use-order';
 import { useAuth } from '@/hooks/use-auth';
+import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
 import type { IOrder } from '@/types/order.type';
 import { PanelsTopLeft } from 'lucide-react';
 
-import { extractId } from '@/utils/helpers';
 import { PaymentModal } from '../components/PaymentModal';
 import { OrderCard } from './components/orderCard';
 import FormBillOrder from '../components/FormBillOrder';
@@ -22,6 +22,7 @@ export interface OrderItemProps {
 export default function Order() {
   const { fetchActiveOrders, orders, fetchOrderById, startListeningRestaurantSocket } = useOrder();
   const { user } = useAuth();
+  const activeRestaurantId = useActiveRestaurantId();
   const navigate = useNavigate();
   const currentRole = user?.role || 'staff';
 
@@ -41,11 +42,11 @@ export default function Order() {
   });
 
   useEffect(() => {
-    if (user?.restaurant) {
-      fetchActiveOrders(extractId(user?.restaurant, '_id'));
-      startListeningRestaurantSocket(extractId(user?.restaurant, '_id'));
+    if (activeRestaurantId) {
+      fetchActiveOrders(activeRestaurantId);
+      startListeningRestaurantSocket(activeRestaurantId);
     }
-  }, [fetchActiveOrders, startListeningRestaurantSocket, user]);
+  }, [fetchActiveOrders, startListeningRestaurantSocket, activeRestaurantId]);
 
   return (
     // Chuyển flex-row thành lg:flex-row và flex-col để responsive
@@ -59,7 +60,7 @@ export default function Order() {
           setOrderIdSelected(null);
         }}
         onPaymentSucess={() => {
-          fetchActiveOrders(extractId(user?.restaurant, '_id'));
+          fetchActiveOrders(activeRestaurantId);
           setSelectedOrder(null);
         }}
       />

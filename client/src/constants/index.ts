@@ -18,6 +18,7 @@ export const API_ENDPOINTS = {
       UPDATE: (id: string) => `${API_BASE_URL}/auth/admin/update/${id}`,
     },
     UPDATE_ME: `${API_BASE_URL}/auth/update/me`,
+    SWITCH_TENANT: `${API_BASE_URL}/auth/switch-tenant`,
   },
 
   // --- PHÂN HỆ THỰC ĐƠN (MENU SYSTEM) ---

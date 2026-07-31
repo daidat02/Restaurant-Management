@@ -14,8 +14,7 @@ import { DialogCustom } from '@/components/DialogCustom';
 import { TabProfile, TabSecurity, TabSystem } from './components/SettingTabContent';
 import { useTable } from '@/hooks/use-table';
 import { useRestaurant } from '@/hooks/use-restaurant';
-import { extractId } from '@/utils/helpers';
-import { useAuth } from '@/hooks/use-auth';
+import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
 import type { IRestaurant } from '@/types/restaurant.type';
 import { FormAddTable } from './components/FormCreateTable';
 import { FormAddCategory } from './components/FormCreateCategory';
@@ -44,7 +43,7 @@ type SettingTab =
   | 'system';
 
 const SettingModal = ({ isOpen, onChangeOpenModal }: SettingModalProps) => {
-  const { user } = useAuth();
+  const activeRestaurantId = useActiveRestaurantId();
   const { selectedRestaurant, selectRestaurant } = useRestaurant();
   const { tables, fetchTablesByRestaurant, addTable, editTable } = useTable();
   const { categories, fetchCategories } = useMenu();
@@ -145,14 +144,13 @@ const SettingModal = ({ isOpen, onChangeOpenModal }: SettingModalProps) => {
     paymentMethodType,
   ]);
   useEffect(() => {
-    if (user?.restaurant) {
-      const resId = extractId(user.restaurant);
-      fetchTablesByRestaurant(resId);
-      selectRestaurant(resId);
-      fetchCategories(resId);
-      fetchSettingById(resId);
+    if (activeRestaurantId) {
+      fetchTablesByRestaurant(activeRestaurantId);
+      selectRestaurant(activeRestaurantId);
+      fetchCategories(activeRestaurantId);
+      fetchSettingById(activeRestaurantId);
     }
-  }, [user]);
+  }, [activeRestaurantId]);
 
   useEffect(() => {
     if (selectedRestaurant) {

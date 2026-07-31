@@ -14,7 +14,8 @@ import ProductDetailPage from './pages/Customer/product-detail';
 import CartPage from './pages/Customer/cart';
 import KitchenOrder from './pages/Admin/KdsPage/kitchen';
 import { useSocket } from './hooks/use-socket';
-import { extractId } from './utils/helpers';
+import { useActiveRestaurantId } from './hooks/use-active-restaurant';
+import RestaurantSwitcher from './pages/Auth/RestaurantSwitcher';
 import { LoadingProvider } from './components/LoadingOverlay';
 import ReservationCustomerPage from './pages/Customer/reservation';
 import AccountLayout from './pages/Customer/account/account-layout';
@@ -39,10 +40,14 @@ const ProtectedRoute = ({
   isAuthenticated,
   userRole,
   allowedRoles,
+  requiresTenant,
+  isTenantSelected,
 }: {
   isAuthenticated: boolean;
   userRole: string;
   allowedRoles: string[];
+  requiresTenant: boolean;
+  isTenantSelected: boolean;
 }) => {
   if (!isAuthenticated) {
     return <Navigate to="/auth" replace />;
@@ -53,6 +58,11 @@ const ProtectedRoute = ({
     if (userRole === 'manager') return <Navigate to="/manager" replace />;
     if (userRole === 'staff') return <Navigate to="/staff" replace />;
     return <Navigate to="/" replace />;
+  }
+
+  // Admin/manager/staff có nhiều nhà hàng nhưng chưa chọn -> bắt chọn trước khi vào admin
+  if (requiresTenant && !isTenantSelected) {
+    return <Navigate to="/select-restaurant" replace />;
   }
 
   return <Outlet />;
@@ -81,19 +91,20 @@ const CustomerRoute = ({
   return <Outlet />;
 };
 export default function App() {
-  const { isAuthenticated, user, token } = useAuth();
+  const { isAuthenticated, user, token, currentRestaurantId } = useAuth();
   const userRole = user?.role || '';
+  const activeRestaurantId = useActiveRestaurantId();
   const { startListeningSocket } = useSocket(socket);
   useEffect(() => {
     // Khách chưa đăng nhập lấy nhà hàng từ URL (?restaurantId=...) — QR scan-to-order
     const resId = isAuthenticated
-      ? extractId(user?.restaurant) || extractId(user?.restaurantIds?.[0])
+      ? activeRestaurantId
       : new URLSearchParams(window.location.search).get('restaurantId') || '';
 
     if (resId) {
       startListeningSocket(resId);
     }
-  }, [user]);
+  }, [user, activeRestaurantId]);
 
   return (
     <Routes>
@@ -129,6 +140,21 @@ export default function App() {
         <Route path="/auth" element={<Auth />} />
       </Route>
 
+      {/* ---------------- CHỌN NHÀ HÀNG (đa tenant) ---------------- */}
+      <Route
+        element={
+          <ProtectedRoute
+            isAuthenticated={isAuthenticated}
+            userRole={userRole}
+            allowedRoles={['admin', 'manager', 'staff']}
+            requiresTenant={false}
+            isTenantSelected={true}
+          />
+        }
+      >
+        <Route path="/select-restaurant" element={<RestaurantSwitcher />} />
+      </Route>
+
       {/* ---------------- PROTECTED ROUTES: ADMIN ---------------- */}
       <Route
         element={
@@ -136,6 +162,8 @@ export default function App() {
             isAuthenticated={isAuthenticated}
             userRole={userRole}
             allowedRoles={['admin']}
+            requiresTenant={true}
+            isTenantSelected={!!currentRestaurantId}
           />
         }
       >
@@ -156,6 +184,8 @@ export default function App() {
             isAuthenticated={isAuthenticated}
             userRole={userRole}
             allowedRoles={['manager']}
+            requiresTenant={true}
+            isTenantSelected={!!currentRestaurantId}
           />
         }
       >
@@ -184,6 +214,8 @@ export default function App() {
             isAuthenticated={isAuthenticated}
             userRole={userRole}
             allowedRoles={['staff']}
+            requiresTenant={true}
+            isTenantSelected={!!currentRestaurantId}
           />
         }
       >

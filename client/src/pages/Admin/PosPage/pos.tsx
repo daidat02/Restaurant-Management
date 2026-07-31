@@ -8,7 +8,7 @@ import type { ITable } from '@/types/table.type';
 import type { IOrder, IOrderItem } from '@/types/order.type';
 import { useOrder } from '@/hooks/use-order';
 import { useAuth } from '@/hooks/use-auth';
-import { extractId } from '@/utils/helpers';
+import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
 import { PaymentModal } from '../components/PaymentModal';
 import FormBillOrder from '../components/FormBillOrder';
 
@@ -93,6 +93,7 @@ export const ItemCard = ({ item, onClick }: ItemCardProps) => {
 
 export default function POS() {
   const { user } = useAuth();
+  const activeRestaurantId = useActiveRestaurantId();
   const { categories, fetchCategories, fetchAllItems, items } = useMenu();
   const { fetchTableById } = useTable();
   const { fetchOrderById, currentOrder } = useOrder();
@@ -116,8 +117,8 @@ export default function POS() {
 
   // FETCH DATA BAN ĐẦU
   useEffect(() => {
-    fetchCategories(extractId(user?.restaurant));
-    fetchAllItems(extractId(user?.restaurant));
+    fetchCategories(activeRestaurantId);
+    fetchAllItems(activeRestaurantId);
 
     if (tableIdFromUrl) {
       const getTableInfo = async () => {

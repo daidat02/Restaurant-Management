@@ -40,6 +40,7 @@ import {
   MessageCircle,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
 
 type MenuItem = {
   title: string;
@@ -63,6 +64,7 @@ interface SideBarProps {
 
 export default function SidebarApp({ onOpenSetting, onOpenMessage }: SideBarProps) {
   const { user } = useAuth();
+  const activeRestaurantId = useActiveRestaurantId();
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
@@ -226,7 +228,7 @@ export default function SidebarApp({ onOpenSetting, onOpenMessage }: SideBarProp
                 Restaurant
               </span>
               <span className="text-sm font-semibold text-gray-900 line-clamp-1">
-                {typeof user?.restaurant !== 'string' ? (user?.restaurant?.name ?? 'N/A') : 'N/A'}
+                {activeRestaurantId ? `Nhà hàng #${activeRestaurantId.slice(-4)}` : 'N/A'}
               </span>
             </div>
           </div>

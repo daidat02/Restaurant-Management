@@ -4,7 +4,7 @@ import { useAnalytic } from '@/hooks/use-analytic';
 import { DatePickerWithRange } from '@/components/DatePickerRange';
 import { format, startOfMonth } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
-import { extractId } from '@/utils/helpers';
+import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
 import { OverviewCards, TopDishesTable } from './components/OverView';
 import { ChartsSection } from './components/ChartsSection';
 
@@ -50,6 +50,7 @@ export default function Home() {
     fetchRevenueChannels,
   } = useAnalytic();
   const { user } = useAuth();
+  const activeRestaurantId = useActiveRestaurantId();
 
   const [date, setDate] = useState<{ from: string; to: string }>({
     from: format(startOfMonth(new Date()), 'yyyy-MM-dd'),
@@ -64,15 +65,15 @@ export default function Home() {
       endDate: date.to,
     };
 
-    // Phân quyền: Nếu không phải Admin thì bắt buộc bọc thêm mã định danh nhà hàng của họ
-    if (user.role !== 'admin') {
-      payload.restaurantId = extractId(user.restaurant);
-    } else {
+    // Luôn gắn tenant đang làm việc (admin/manager/staff thuộc 1 nhà hàng; super-admin gửi param để chọn tenant)
+    payload.restaurantId = activeRestaurantId;
+
+    // revenue-channels chỉ dành cho admin (server verifyRole(['admin']))
+    if (user.role === 'admin') {
       fetchRevenueChannels(payload);
     }
-
     fetchDashboardData(payload);
-  }, [date.from, date.to, user?.role, user?.restaurant]);
+  }, [date.from, date.to, user?.role, activeRestaurantId]);
 
   const handleSelectDate = (val: { from: string; to: string }) => {
     setDate(val);

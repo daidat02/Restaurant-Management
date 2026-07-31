@@ -11,7 +11,7 @@ import { StatusTag } from '@/components/StatusTag';
 import SideDrawer from '@/components/SideDrawer';
 import { AlertDialogCustom } from '@/components/AlertDialog';
 import { useAuth } from '@/hooks/use-auth';
-import { extractId } from '@/utils/helpers';
+import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
 
 import {
   Select,
@@ -28,6 +28,7 @@ export default function UsersPage() {
   // 🌟 ĐÃ LOẠI BỎ: fetchCustomer và fetchStaff khỏi Hook hook useUser
   const { users, isLoading, fetchUsersWithFilter, removeUser } = useUser();
   const { user } = useAuth();
+  const activeRestaurantId = useActiveRestaurantId();
   const { restaurants, fetchRestaurants } = useRestaurant();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<IUser | null>(null);
@@ -46,7 +47,7 @@ export default function UsersPage() {
 
     if (!user?.role) return { rolesToFetch, restaurantId };
 
-    const managerRestaurantId = extractId(user.restaurant);
+    const managerRestaurantId = activeRestaurantId;
 
     if (user.role === 'manager') {
       if (activeTab === 'staff') {

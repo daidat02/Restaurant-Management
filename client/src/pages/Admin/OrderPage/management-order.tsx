@@ -4,7 +4,7 @@ import { Search, ListFilter, Download, Eye, Edit2, ChevronRight } from 'lucide-r
 
 import { useAuth } from '@/hooks/use-auth';
 import { useOrder } from '@/hooks/use-order';
-import { extractId } from '@/utils/helpers';
+import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
 import type { IOrder } from '@/types/order.type';
 
 import { Button } from '@/components/ui/button';
@@ -29,6 +29,7 @@ const translateOrderType = (type: string) => {
 export default function OrderManagement() {
   const { user } = useAuth();
   const currentRole = user?.role || 'staff';
+  const activeRestaurantId = useActiveRestaurantId();
   const navigate = useNavigate();
 
   const { orders, isLoading, fetchOrdersByRestaurant, fetchOrdersByStatus } = useOrder();
@@ -60,21 +61,20 @@ export default function OrderManagement() {
 
   // 1. API Fetching
   useEffect(() => {
-    if (user?.restaurant) {
-      const restaurantId = extractId(user.restaurant, '_id');
+    if (activeRestaurantId) {
       if (activeTab === 'all') {
-        fetchOrdersByRestaurant(restaurantId, '');
+        fetchOrdersByRestaurant(activeRestaurantId, '');
       } else {
         if (fetchOrdersByStatus) {
-          fetchOrdersByStatus(restaurantId, activeTab);
+          fetchOrdersByStatus(activeRestaurantId, activeTab);
         } else {
-          fetchOrdersByRestaurant(restaurantId, activeTab);
+          fetchOrdersByRestaurant(activeRestaurantId, activeTab);
         }
       }
     }
     setCurrentPage(1);
     setSortDirection(null);
-  }, [user, activeTab]);
+  }, [activeRestaurantId, activeTab]);
 
   // 2. Client-side Search, Filter & Sort logic kết hợp liên hoàn
   useEffect(() => {

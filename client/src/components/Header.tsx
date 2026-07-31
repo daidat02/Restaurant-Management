@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { useAuth } from '@/hooks/use-auth';
+import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
 import { SidebarTrigger } from './ui/sidebar';
 import { SelectDropdown } from './SelectDropdown';
 import { useNotification } from '@/hooks/use-notification';
@@ -8,18 +9,18 @@ import { logout } from '@/redux/slices/authSlice';
 import soundNotification from '@/assets/notification_sound.mp3';
 import { MailBoxPopover } from '@/pages/Admin/components/MailBoxPopover';
 import { NotificationPopover } from '@/pages/Admin/components/NotificationPopover';
-import { extractId } from '@/utils/helpers';
 
 export default function Header() {
   const { user } = useAuth();
   const dispatch = useDispatch();
+  const activeRestaurantId = useActiveRestaurantId();
   const { notifications, startLiseningNotification, markReadNoti, markReadAllNoti } =
     useNotification(soundNotification);
 
   // Kích hoạt lắng nghe Socket thông báo khi Header được tải
   useEffect(() => {
-    startLiseningNotification(extractId(user?.restaurant));
-  }, [startLiseningNotification]);
+    startLiseningNotification(activeRestaurantId);
+  }, [startLiseningNotification, activeRestaurantId]);
 
   // DATA MOCK: Tạm thời giữ lại Data Tin Nhắn MailBox
   const mockMessages = [
@@ -76,7 +77,7 @@ export default function Header() {
             notifications={notifications}
             unreadCount={unreadNotificationsCount}
             onMarkReadAll={() => {
-              markReadAllNoti(extractId(user?.restaurant));
+              markReadAllNoti(activeRestaurantId);
             }}
             onMarkAsRead={(id) => {
               markReadNoti(id);
