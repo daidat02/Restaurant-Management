@@ -7,6 +7,7 @@ interface FormInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   actionButton?: React.ReactNode;
   containerClassName?: string;
   autoComplete?: string;
+  error?: string;
 }
 
 export const CustomInput = ({
@@ -14,6 +15,7 @@ export const CustomInput = ({
   icon,
   actionButton,
   containerClassName,
+  error,
   className = '',
   ...props
 }: FormInputProps) => {
@@ -27,6 +29,7 @@ export const CustomInput = ({
             'w-full px-4 py-2 border border-gray-300 rounded-lg text-sm placeholder:text-gray-400 transition-colors',
             'focus:outline-none focus:border-cerulean-blue-500 focus:ring-1 focus:ring-cerulean-blue-500', // Cặp màu mặc định
             icon || actionButton ? 'pr-10' : '',
+            error ? 'border-red-500' : '',
             className, // Class động từ ngoài truyền vào sẽ đè bẹp các class trùng ở trên nhờ hàm cn
           )}
           {...props}
@@ -46,6 +49,13 @@ export const CustomInput = ({
           </div>
         )}
       </div>
+
+      {/* Hiển thị lỗi nếu có */}
+      {error && (
+        <p className="text-xs font-medium text-red-500 animate-in fade-in slide-in-from-top-1">
+          {error}
+        </p>
+      )}
     </div>
   );
 };

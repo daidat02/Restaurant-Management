@@ -67,6 +67,15 @@ class AuthService {
     };
   }
 
+  // Danh sách trường người dùng tự cập nhật cho chính mình (Profile/Settings)
+  private readonly SELF_UPDATE_FIELDS = [
+    'name',
+    'phone',
+    'address',
+    'avatar',
+    'notificationEnabled',
+  ];
+
   /**
    * Cập nhật thông tin cá nhân (Profile)
    */
@@ -84,8 +93,24 @@ class AuthService {
       return { message: 'Bạn không có quyền cập nhật người dùng này!!!', code: 403 };
     }
 
+    // Nếu là user tự cập nhật bản thân: chỉ cho phép cập nhật các trường an toàn,
+    // tránh lộ role/restaurant/password qua endpoint /auth/update/me
+    if (exitUser._id.toString() === id) {
+      const sanitizedData: Partial<IUser> = {};
+      for (const field of this.SELF_UPDATE_FIELDS) {
+        if (field in updateData) {
+          (sanitizedData as any)[field] = (updateData as any)[field];
+        }
+      }
+      updateData = sanitizedData;
+    }
+
     const user = await authRepository.updateProfile(id, updateData);
-    return { message: 'Cập nhật thành công!!!', data: user, code: 200 };
+    if (!user) {
+      return { message: 'Cập nhật thất bại, không tìm thấy người dùng!!!', code: 400 };
+    }
+    const { password, ...userWithoutPassword } = user.toObject();
+    return { message: 'Cập nhật thành công!!!', data: userWithoutPassword, code: 200 };
   }
 
   /**
@@ -102,6 +127,36 @@ class AuthService {
 
     const user = await authRepository.updatePassword(id, newPassword);
     return { message: 'Cập nhật thành công!!!', data: user, code: 200 };
+  }
+
+  /**
+   * Đổi mật khẩu có xác thực mật khẩu hiện tại (Dành cho Customer từ trang Settings)
+   */
+  async changePasswordService(
+    id: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<ServiceResponse<any>> {
+    const exitUser = await authRepository.findOneUser({ _id: id });
+    if (!exitUser) {
+      return { message: 'Không tìm thấy người dùng!!!', code: 400 };
+    }
+
+    const isPasswordValid = await bcrypt.compare(currentPassword, exitUser.password);
+    if (!isPasswordValid) {
+      return { message: 'Mật khẩu hiện tại không chính xác!!!', code: 400 };
+    }
+
+    if (newPassword.length < 6) {
+      return { message: 'Mật khẩu mới phải có ít nhất 6 ký tự!!!', code: 400 };
+    }
+
+    const user = await authRepository.updatePassword(id, newPassword);
+    if (!user) {
+      return { message: 'Đổi mật khẩu thất bại, không tìm thấy người dùng!!!', code: 400 };
+    }
+    const { password, ...userWithoutPassword } = user.toObject();
+    return { message: 'Đổi mật khẩu thành công!!!', data: userWithoutPassword, code: 200 };
   }
 
   /**

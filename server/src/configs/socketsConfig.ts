@@ -7,7 +7,7 @@ let io: SocketIOServer;
 export const initSocket = (server: HttpServer) => {
   io = new SocketIOServer(server, {
     cors: {
-      origin: '*', // hoặc ["http://localhost:5173"] nếu frontend chạy Vite
+      origin: '*',
       methods: ['GET', 'POST'],
     },
   });

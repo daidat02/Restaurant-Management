@@ -277,6 +277,9 @@ class OrderService {
   }
 
   async getMyOrdersService(customerId: string): Promise<ServiceResponse<IOrderDocument[] | null>> {
+    if (!customerId || !/^[0-9a-fA-F]{24}$/.test(customerId)) {
+      return { code: 200, message: 'Chưa có thông tin khách hàng hợp lệ', data: [] };
+    }
     const orders = await orderRepository.findOrders({ customer: customerId });
     if (!orders) return { code: 404, message: 'Không tìm thấy đơn hàng nào của khách hàng' };
     return { code: 200, message: 'Lấy thông tin đơn hàng của khách hàng thành công', data: orders };

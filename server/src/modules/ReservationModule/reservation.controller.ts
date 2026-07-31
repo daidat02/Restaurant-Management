@@ -106,9 +106,9 @@ class ReservationControler {
   }
 
   async getReservationByUser(req: AuthRequest, res: Response) {
-    const { id } = req.user?._id;
+    const userId = req.user?.userId;
     try {
-      const result = await reservationService.getReservationByUserService(id || '');
+      const result = await reservationService.getReservationByUserService(userId || '');
       res.status(result.code).json(result);
     } catch (error) {
       res.status(500).json({ message: 'Lỗi server ...' });

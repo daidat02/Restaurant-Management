@@ -156,7 +156,8 @@ class OrderController {
       const result = await orderService.getMyOrdersService(userId);
       res.status(result.code).json(result);
     } catch (error) {
-      res.status(500).json({ message: 'Lỗi server...' });
+      console.log('error:', error);
+      res.status(500).json({ message: 'Lỗi server... 1' });
     }
   }
 }

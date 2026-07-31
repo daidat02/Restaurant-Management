@@ -96,8 +96,14 @@ export default function Header({ openLoginModal, openSelectRestaurant }: HeaderP
               align="end"
               trigger={
                 <div className="flex items-center gap-2 cursor-pointer border border-gray-100 rounded-xl p-1.5 pr-4 bg-gray-50 hover:bg-gray-100 transition-all select-none">
-                  <div className="h-8 w-8 rounded-lg bg-orange-500 flex items-center justify-center text-white font-bold uppercase text-sm">
-                    {user?.name ? user.name.charAt(0) : <User className="h-4 w-4" />}
+                  <div className="h-8 w-8 rounded-lg bg-orange-500 flex items-center justify-center text-white font-bold uppercase text-sm overflow-hidden">
+                    {user?.avatar ? (
+                      <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" />
+                    ) : user?.name ? (
+                      user.name.charAt(0)
+                    ) : (
+                      <User className="h-4 w-4" />
+                    )}
                   </div>
                   <div className="flex flex-col text-left">
                     <span className="text-xs font-semibold text-gray-700 max-w-[120px] truncate">

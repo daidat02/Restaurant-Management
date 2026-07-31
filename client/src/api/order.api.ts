@@ -67,5 +67,6 @@ export const getOrderByTableId = async (tableId: string) => {
 
 export const getMyOrders = async () => {
   const res = await axiosClient.get<any, ApiResponse<IOrder[]>>(ORDERS.MY_ORDERS);
+  console.log('res.data:', res.data);
   return res.data;
 };

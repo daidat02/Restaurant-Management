@@ -135,6 +135,25 @@ class AuthController {
   }
 
   /**
+   * Đổi mật khẩu có xác thực mật khẩu hiện tại (Dành cho khách hàng từ trang Settings)
+   */
+  async changePassword(req: AuthRequest, res: Response) {
+    const { currentPassword, newPassword } = req.body;
+    try {
+      const id = req.user?.userId;
+      const result = await authService.changePasswordService(
+        id || '',
+        currentPassword,
+        newPassword,
+      );
+      return res.status(result.code).json(result);
+    } catch (error) {
+      console.error('Error changing password:', error);
+      return res.status(500).json({ message: 'Lỗi server khi đổi mật khẩu' });
+    }
+  }
+
+  /**
    * Xóa tài khoản (Xóa mềm bằng Service)
    */
   async deleteUser(req: AuthRequest, res: Response) {
