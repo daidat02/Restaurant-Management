@@ -89,27 +89,31 @@ class OrderService {
 
     const session = await DB_Connection.Order.startSession();
     session.startTransaction();
+    let committed = false;
     try {
       const order = await orderRepository.createOrder(orderData, { session });
       const { totalAmount, totalCount, orderItems } = await this.processOrderItems(
         items,
         new ObjectId(order._id.toString()),
       );
-      console.log(orderData);
-
       order.totalAmount = totalAmount;
       order.itemsCount = totalCount;
       order.items = orderItems as any;
-      await order.save({ session });
+      console.log('order before save:', order);
+      const orderUpdated = await order.save({ session });
 
       if (orderData.table) {
         await tableRepository.updateTable(orderData.table.toString(), {
-          currentOrder: order._id as unknown as Types.ObjectId,
+          currentOrder: orderUpdated._id as unknown as Types.ObjectId,
           status: 'occupied',
         });
       }
 
-      const populatedOrder = await order.populate([
+      await session.commitTransaction();
+      committed = true;
+
+      // Populate và emit SAU commit: query populate không dùng session nên không thấy dữ liệu chưa commit trong transaction
+      const populatedOrder = await orderUpdated.populate([
         { path: 'table', select: 'tableNumber capacity status' },
         { path: 'customer', select: 'name email phone' },
         { path: 'items' },
@@ -125,6 +129,7 @@ class OrderService {
       const targetRoom = `restaurant_${order.restaurant.toString()}`;
 
       if (order.paymentStatus !== 'waiting_paid') {
+        console.log('Emitting order update :', populatedOrder);
         this.emitOrderUpdate({
           targetRoom: targetRoom,
           action: 'CREATE',
@@ -143,10 +148,12 @@ class OrderService {
       console.log('payloadNoti: ', payloadNoti);
 
       await notificationService.createNewNotification(payloadNoti, targetRoom);
-      await session.commitTransaction();
+
       return { code: 201, message: 'Tạo đơn hàng thành công', data: order };
     } catch (error: any) {
-      await session.abortTransaction();
+      if (!committed) {
+        await session.abortTransaction();
+      }
       console.error('Error at createOrderService:', error);
       return { code: 500, message: `Lỗi khi tạo đơn hàng: ${error?.message}` };
     } finally {
