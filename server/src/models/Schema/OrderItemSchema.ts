@@ -9,6 +9,7 @@ export interface IOrderItemDocument extends IOrderItem{
 
 export interface IOrderItem extends Document {
   order: ObjectId;
+  restaurant: ObjectId;
   menuItem: ObjectId;
   nameSnapshot: string;
   priceSnapshot: number;
@@ -22,6 +23,7 @@ export interface IOrderItem extends Document {
 
 const OrderItemSchema = new Schema<IOrderItem>({
   order: { type: ObjectId, ref: 'Order', required: true, index: true },
+  restaurant: { type: ObjectId, ref: 'Restaurant', index: true },
   menuItem: { type: ObjectId, ref: 'MenuItem', required: true },
   nameSnapshot: { type: String, required: true },
   priceSnapshot: { type: Number, required: true },

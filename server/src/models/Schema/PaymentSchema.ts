@@ -9,6 +9,7 @@ export interface IPaymentDocument extends IPayment{
 
 export interface IPayment extends Document {
   order: Types.ObjectId;
+  restaurant: Types.ObjectId;
   orderCode:Number;
   amount: number;
   method: 'cash' | 'card' | 'ewallet'|'banking';
@@ -24,6 +25,7 @@ export interface IPayment extends Document {
 
 const PaymentSchema = new Schema<IPayment>({
   order: { type: ObjectId, ref: 'Order', required: true, unique: true },
+  restaurant: { type: ObjectId, ref: 'Restaurant', index: true },
   orderCode:{type:Number },
   amount: { type: Number, required: true, min: 0 },
   method: { type: String, enum: ['cash', 'card', 'ewallet','banking'], required: true, index: true , default:'cash' },
