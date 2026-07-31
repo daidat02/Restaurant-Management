@@ -11,7 +11,7 @@ export interface AuthRequest extends Request {
 }
 
 export interface SocketCustom extends Socket{
-  user?:JwtPayload & {userId:string,role:string, restaurant?:string}
+  user?:JwtPayload & {userId:string,role:string, restaurantIds?:string[]}
 }
 
 export const verifyToken = async (
@@ -77,14 +77,17 @@ export const authenticateToken = async (socket: SocketCustom, next: any) => {
     if (!user) return next(new Error("User not found"));
 
     // Gắn user vào socket để các handler khác dùng
-    socket.user = {userId:user._id, role:user.role, restaurant:user?.restaurant};
-    
+    const restaurantIds = (user.restaurantIds ?? []).map((id: any) => id.toString());
+    socket.user = { userId: user._id, role: user.role, restaurantIds };
+
     // Auto join phòng phù hợp
     if (user.role === "customer") {
       socket.join(`user_${user._id}`);
     }
-    if (user.role === "staff" && user.restaurantId) {
-      socket.join(`restaurant_${user.restaurantId}`);
+    if (user.role !== "customer") {
+      for (const restaurantId of restaurantIds) {
+        socket.join(`restaurant_${restaurantId}`);
+      }
     }
 
     return next();

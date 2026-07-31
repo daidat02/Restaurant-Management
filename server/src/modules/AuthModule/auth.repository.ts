@@ -11,8 +11,8 @@ class AuthRepository {
   /**
    * Tạo mới một tài khoản người dùng (Đã băm password)
    */
-  async createUser(userData: IUser, options?: { session: ClientSession }): Promise<IUserDocument> {
-    const hashedPassword = await bcrypt.hash(userData.password, 10);
+  async createUser(userData: Partial<IUser>, options?: { session: ClientSession }): Promise<IUserDocument> {
+    const hashedPassword = await bcrypt.hash(userData.password!, 10);
     const user = new DB_Connection.User({
       ...userData,
       password: hashedPassword,
@@ -21,10 +21,10 @@ class AuthRepository {
   }
 
   /**
-   * Tìm nhanh một User bằng ID (Có populate thông tin nhà hàng)
+   * Tìm nhanh một User bằng ID
    */
   async findUserById(id: string): Promise<IUserDocument | null> {
-    return await DB_Connection.User.findById(id).populate('restaurant', 'name').exec();
+    return await DB_Connection.User.findById(id).exec();
   }
 
   /**
@@ -90,17 +90,14 @@ class AuthRepository {
    * Thay thế hoàn toàn cho: findAllUsers, findUserByEmail, findUserByPhone
    */
   async findUsers(filter: FilterQuery<IUserDocument>): Promise<IUserDocument[]> {
-    return await DB_Connection.User.find(filter)
-      .populate('restaurant', 'name')
-      .sort({ createdAt: -1 }) // Ưu tiên người dùng mới tạo lên đầu
-      .exec();
+    return await DB_Connection.User.find(filter).sort({ createdAt: -1 }).exec();
   }
 
   /**
    * Tìm kiếm một User duy nhất dựa trên Filter (Thường dùng cho Login/Verify bằng Email hoặc Phone)
    */
   async findOneUser(filter: FilterQuery<IUserDocument>): Promise<IUserDocument | null> {
-    return await DB_Connection.User.findOne(filter).populate('restaurant', 'name').exec();
+    return await DB_Connection.User.findOne(filter).exec();
   }
 }
 

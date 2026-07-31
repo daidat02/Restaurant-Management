@@ -1,11 +1,21 @@
 import { Schema, model, Document, type ObjectId } from 'mongoose';
 
+export type UserRole = 'customer' | 'staff' | 'manager' | 'admin' | 'super-admin';
+
+export const USER_ROLES: UserRole[] = ['customer', 'staff', 'manager', 'admin', 'super-admin'];
+
 export interface IUser extends Document {
   name: string;
   email: string;
   phone?: string;
   password: string; // hashed
-  role: 'customer' | 'staff' | 'manager' | 'admin';
+  role: UserRole;
+  /** Danh sách nhà hàng mà user thuộc về (đa tenant). staff/manager = 1 phần tử, admin = nhiều, super-admin/customer = rỗng. */
+  restaurantIds: Schema.Types.ObjectId[];
+  /**
+   * @deprecated Field cũ (1 nhà hàng). Giữ lại tạm để dữ liệu cũ chưa backfill và client legacy vẫn hoạt động.
+   * Sẽ xoá sau khi migration (ticket 03) + client migrate sang restaurantIds (ticket 06).
+   */
   restaurant?: Schema.Types.ObjectId;
   avatar?: string;
   address?: string;
@@ -26,7 +36,11 @@ const UserSchema = new Schema<IUserDocument>({
   email: { type: String, required: true, unique: true, lowercase: true, index: true },
   phone: { type: String, trim: true, index: true, },
   password: { type: String, required: true },
-  role: { type: String, enum: ['customer', 'staff', 'manager', 'admin'], default: 'customer', required: true, index: true },
+  role: { type: String, enum: USER_ROLES, default: 'customer', required: true, index: true },
+  restaurantIds: { type: [Schema.Types.ObjectId], ref: 'Restaurant', default: [], index: true },
+  /**
+   * @deprecated Xem IUser.restaurant
+   */
   restaurant: { type: Schema.Types.ObjectId, ref: 'Restaurant' },
   avatar: { type: String },
   address: { type: String },

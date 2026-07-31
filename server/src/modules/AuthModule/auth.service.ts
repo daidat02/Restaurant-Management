@@ -1,4 +1,5 @@
-import type { IUser } from '../../models/Schema/UserSchema.js';
+import type { IUser, IUserDocument, UserRole } from '../../models/Schema/UserSchema.js';
+import type { ObjectId } from 'mongoose';
 import type { ServiceResponse } from '../../shared/type.js';
 import authRepository from './auth.repository.js'; // Nhận instance Singleton trực tiếp, không cần 'new'
 import bcrypt from 'bcrypt';
@@ -18,6 +19,46 @@ const generateRefreshToken = (userId: string, role: string): string => {
 
 class AuthService {
   /**
+   * Chuẩn hoá danh sách restaurantIds từ body.
+   * Hỗ trợ cả field mới `restaurantIds` (mảng) lẫn field cũ `restaurant` (đơn) để client legacy vẫn gửi được.
+   */
+  private buildRestaurantIds(userData: Partial<IUser>): string[] {
+    const ids = Array.isArray(userData.restaurantIds) ? userData.restaurantIds : [];
+    const legacy = userData.restaurant ? [userData.restaurant] : [];
+    const merged = [...ids, ...legacy].filter(Boolean).map((id) => String(id));
+    return Array.from(new Set(merged));
+  }
+
+  /**
+   * Validate số lượng nhà hàng theo role (đa tenant).
+   * staff/manager = đúng 1; admin = nhiều (>=1); super-admin/customer = rỗng.
+   * Trả về message lỗi hoặc null nếu hợp lệ.
+   */
+  private validateRestaurantCount(role: UserRole, count: number): string | null {
+    if (role === 'staff' || role === 'manager') {
+      if (count !== 1) return `Vai trò '${role}' phải thuộc đúng 1 nhà hàng.`;
+    }
+    if (role === 'admin') {
+      if (count < 1) return "Vai trò 'admin' phải thuộc ít nhất 1 nhà hàng.";
+    }
+    if (role === 'customer' || role === 'super-admin') {
+      if (count > 0) return `Vai trò '${role}' không được gán nhà hàng.`;
+    }
+    return null;
+  }
+
+  /**
+   * Serialize user ra DTO cho client: bỏ password, giữ field `restaurant` compat cho client legacy.
+   * Field compat `restaurant` sẽ bị xoá ở ticket 06 sau khi client migrate sang restaurantIds.
+   */
+  private serializeUser(user: IUserDocument) {
+    const { password, restaurantIds, ...rest } = user.toObject();
+    const legacyRestaurant =
+      restaurantIds && restaurantIds.length > 0 ? restaurantIds[0] : user.restaurant;
+    return { ...rest, restaurantIds, restaurant: legacyRestaurant };
+  }
+
+  /**
    * Đăng ký người dùng mới (Mặc định khách hàng)
    */
   async registerUserService(userData: IUser): Promise<ServiceResponse<any>> {
@@ -26,8 +67,16 @@ class AuthService {
       return { message: 'Email đã tồn tại!', code: 400 };
     }
 
-    const user = await authRepository.createUser(userData);
-    return { message: 'Đăng ký thành công!', data: user, code: 201 };
+    // Đăng ký công khai chỉ tạo tài khoản khách hàng, không gán nhà hàng
+    // (loại bỏ field legacy `restaurant` khỏi body để không lọt vào DB)
+    const { restaurant: _legacyRestaurant, ...rest } = userData;
+    const createData: Partial<IUser> = {
+      ...rest,
+      role: 'customer',
+      restaurantIds: [],
+    };
+    const user = await authRepository.createUser(createData);
+    return { message: 'Đăng ký thành công!', data: this.serializeUser(user), code: 201 };
   }
 
   /**
@@ -54,7 +103,7 @@ class AuthService {
     const accessToken = generateAccessToken(exitUser._id.toString(), exitUser.role);
     const refreshToken = generateRefreshToken(exitUser._id.toString(), exitUser.role);
 
-    const { password, ...userWithoutPassword } = exitUser.toObject();
+    const userWithoutPassword = this.serializeUser(exitUser);
 
     return {
       message: 'Đăng nhập thành công!',
@@ -94,7 +143,7 @@ class AuthService {
     }
 
     // Nếu là user tự cập nhật bản thân: chỉ cho phép cập nhật các trường an toàn,
-    // tránh lộ role/restaurant/password qua endpoint /auth/update/me
+    // tránh lộ role/restaurantIds/password qua endpoint /auth/update/me
     if (exitUser._id.toString() === id) {
       const sanitizedData: Partial<IUser> = {};
       for (const field of this.SELF_UPDATE_FIELDS) {
@@ -105,12 +154,28 @@ class AuthService {
       updateData = sanitizedData;
     }
 
+    // Admin cập nhật user khác: nếu đổi nhà hàng, chuẩn hoá + validate theo role của user bị sửa
+    if (exitUser._id.toString() !== id) {
+      if ('restaurantIds' in updateData || 'restaurant' in updateData) {
+        const targetUser = await authRepository.findUserById(id);
+        if (!targetUser) {
+          return { message: 'Không tìm thấy người dùng cần cập nhật!!!', code: 400 };
+        }
+        const restaurantIds = this.buildRestaurantIds(updateData);
+        const error = this.validateRestaurantCount(targetUser.role, restaurantIds.length);
+        if (error) {
+          return { message: error, code: 400 };
+        }
+        const { restaurant: _legacyRestaurant, ...cleanUpdate } = updateData;
+        updateData = { ...cleanUpdate, restaurantIds: restaurantIds as unknown as ObjectId[] };
+      }
+    }
+
     const user = await authRepository.updateProfile(id, updateData);
     if (!user) {
       return { message: 'Cập nhật thất bại, không tìm thấy người dùng!!!', code: 400 };
     }
-    const { password, ...userWithoutPassword } = user.toObject();
-    return { message: 'Cập nhật thành công!!!', data: userWithoutPassword, code: 200 };
+    return { message: 'Cập nhật thành công!!!', data: this.serializeUser(user), code: 200 };
   }
 
   /**
@@ -155,8 +220,7 @@ class AuthService {
     if (!user) {
       return { message: 'Đổi mật khẩu thất bại, không tìm thấy người dùng!!!', code: 400 };
     }
-    const { password, ...userWithoutPassword } = user.toObject();
-    return { message: 'Đổi mật khẩu thành công!!!', data: userWithoutPassword, code: 200 };
+    return { message: 'Đổi mật khẩu thành công!!!', data: this.serializeUser(user), code: 200 };
   }
 
   /**
@@ -169,7 +233,10 @@ class AuthService {
     }
 
     const user = await authRepository.deleteUser(id);
-    return { message: 'Xóa người dùng thành công!!!', data: user, code: 200 };
+    if (!user) {
+      return { message: 'Xóa người dùng thất bại, không tìm thấy người dùng!!!', code: 400 };
+    }
+    return { message: 'Xóa người dùng thành công!!!', data: this.serializeUser(user), code: 200 };
   }
 
   /**
@@ -185,9 +252,22 @@ class AuthService {
       return { message: "Chỉ có thể tạo nhân viên với vai trò 'staff' & 'manager'!!!", code: 400 };
     }
 
-    const user = await authRepository.createUser(userData);
-    const { password, ...userWithoutPassword } = user.toObject();
-    return { message: 'Tạo nhân viên thành công!!!', data: userWithoutPassword, code: 201 };
+    // Chuẩn hoá danh sách nhà hàng (hỗ trợ cả field cũ `restaurant`) + enforce đúng 1 nhà hàng
+    const restaurantIds = this.buildRestaurantIds(userData);
+    const error = this.validateRestaurantCount(userData.role, restaurantIds.length);
+    if (error) {
+      return { message: error, code: 400 };
+    }
+
+    // Loại bỏ field legacy `restaurant` khỏi body để DB mới chỉ lưu restaurantIds
+    const { restaurant: _legacyRestaurant, ...rest } = userData;
+    const createData: Partial<IUser> = {
+      ...rest,
+      role: userData.role,
+      restaurantIds: restaurantIds as unknown as ObjectId[],
+    };
+    const user = await authRepository.createUser(createData);
+    return { message: 'Tạo nhân viên thành công!!!', data: this.serializeUser(user), code: 201 };
   }
 
   /**
@@ -199,10 +279,9 @@ class AuthService {
       return { message: 'Không tìm thấy người dùng!!!', code: 400 };
     }
 
-    const { password, ...userWithoutPassword } = exitUser.toObject();
     return {
       message: 'Lấy thông tin người dùng thành công!!!',
-      data: userWithoutPassword,
+      data: this.serializeUser(exitUser),
       code: 200,
     };
   }
@@ -216,10 +295,7 @@ class AuthService {
       return { message: 'Không có người dùng nào!!!', code: 404 };
     }
 
-    const usersWithoutPassword = users.map((user) => {
-      const { password, ...userWithoutPassword } = user.toObject();
-      return userWithoutPassword;
-    });
+    const usersWithoutPassword = users.map((user) => this.serializeUser(user));
 
     return {
       message: 'Lấy tất cả người dùng thành công!!!',
@@ -240,14 +316,12 @@ class AuthService {
     };
 
     if (restaurantId) {
-      filterQuery.restaurant = restaurantId;
+      // Ưu tiên restaurantIds (mới); fallback `restaurant` cho dữ liệu legacy chưa backfill (sẽ dọn ở ticket 03)
+      filterQuery.$or = [{ restaurantIds: restaurantId }, { restaurant: restaurantId }];
     }
     const users = await authRepository.findUsers(filterQuery);
 
-    const usersWithoutPassword = users.map((user) => {
-      const { password, ...userWithoutPassword } = user.toObject();
-      return userWithoutPassword;
-    });
+    const usersWithoutPassword = users.map((user) => this.serializeUser(user));
 
     return {
       message: 'Lấy tất cả nhân viên thành công!!!',
