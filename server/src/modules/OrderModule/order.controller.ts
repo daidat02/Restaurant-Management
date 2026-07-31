@@ -125,9 +125,9 @@ class OrderController {
 
   async updateStatusOrder(req: AuthRequest, res: Response) {
     const { id } = req.params;
-    const status = req.body;
+    const { status } = req.body;
     try {
-      const result = await orderService.updateStatusOrderService(id || '', status);
+      const result = await orderService.updateStatusOrderService(id || '', status || '');
       const notification = await notificationRepository.createNotification({
         type: 'new_order',
         message: 'Trạng Thái Đơn Hàng Đã Thay Đổi. Vui Lòng Kiểm Tra Chi Tiết',

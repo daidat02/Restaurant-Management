@@ -20,7 +20,7 @@ export interface IOrder extends Document {
   restaurant: ObjectId;
   table?: ObjectId | ITable;
   customer?: ObjectId;
-  orderType: 'dine-in' | 'delivery' | 'go-to';
+  orderType: 'dine-in' | 'delivery' | 'to-go';
   status: 'pending' | 'confirmed' | 'preparing' | 'served' | 'delivered' | 'paid' | 'cancelled';
   paymentStatus: 'waiting_paid' | 'unpaid' | 'partial' | 'paid' | 'refunded';
   totalAmount: number;

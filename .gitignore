@@ -15,7 +15,9 @@ server/build/
 # OpenCode
 opencode.json
 .opencode/
-
+graphify-out/
+.scratch/
+.playwright-mcp/
 # Planning
 ROADMAP.VI.md
 .zcode/

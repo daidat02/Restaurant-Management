@@ -7,6 +7,17 @@ const router = Router();
 // 1. Tạo mới một bản ghi cấu hình (Chỉ Admin hệ thống được quyền khởi tạo)
 router.post('/create', verifyToken, verifyRole(['admin']), SettingController.createSetting);
 
+// Xác thực mã nhà bếp để vào màn hình KDS (Public - không cần đăng nhập)
+router.post('/kds/verify', SettingController.verifyKitchenCode);
+
+// Tạo mã nhà bếp mới cho màn hình KDS (Chỉ admin/manager, mã hiển thị đúng 1 lần)
+router.post(
+  '/:id/kds-code',
+  verifyToken,
+  verifyRole(['admin', 'manager']),
+  SettingController.generateKitchenCode,
+);
+
 router.get(
   '/get-or-create/:scope/:model/:targetId',
   verifyToken,

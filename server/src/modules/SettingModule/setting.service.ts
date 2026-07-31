@@ -1,4 +1,5 @@
 import { encryptKey } from '../../configs/constants.js';
+import jwt from 'jsonwebtoken';
 import type {
   IBankAccountConfig,
   IPayOSConfig,
@@ -154,6 +155,70 @@ class SettingService {
       code: 200,
       message: 'Cập nhật phương thức thanh toán và cấu hình thành công',
       data: updatedSetting as ISetting,
+    };
+  }
+
+  /**
+   * Xác thực mã nhà bếp: tìm cấu hình theo mã, tự suy ra nhà hàng và cấp token nhẹ cho màn hình KDS
+   */
+  async verifyKitchenCodeService(
+    code: string,
+  ): Promise<ServiceResponse<{ token: string; restaurantId: string; restaurantName: string }>> {
+    if (!code || !code.trim()) {
+      return { code: 400, message: 'Thiếu mã nhà bếp' };
+    }
+
+    const setting = await settingRepository.findSettingByKitchenCode(code.trim());
+    if (!setting) {
+      return { code: 401, message: 'Mã nhà bếp không hợp lệ' };
+    }
+
+    const populatedTarget = setting.targetId as any;
+    // Sau khi populate, targetId là document có _id; nếu không populate thì là ObjectId/string
+    const restaurantId = (
+      populatedTarget?._id?.toString?.() || populatedTarget?.toString?.() || String(populatedTarget)
+    ).toString();
+    const restaurantName = populatedTarget?.name || 'Nhà hàng';
+
+    // Token nhẹ chỉ dùng cho màn hình bếp: không cần tài khoản staff, hết hạn sau 8 giờ
+    const token = jwt.sign(
+      { _id: restaurantId, role: 'staff' },
+      process.env.JWT_ACCESS_SECRET || '',
+      { expiresIn: '8h' },
+    );
+
+    return {
+      code: 200,
+      message: 'Xác thực mã nhà bếp thành công',
+      data: { token, restaurantId, restaurantName },
+    };
+  }
+
+  /**
+   * Tạo mã nhà bếp mới (6 chữ số): tạo mã mới sẽ vô hiệu hóa mã cũ
+   */
+  async generateKitchenCodeService(
+    settingId: string,
+  ): Promise<ServiceResponse<{ kitchenCode: string }>> {
+    if (!settingId) {
+      return { code: 400, message: 'Thiếu thông tin ID cấu hình cài đặt' };
+    }
+
+    const existingSetting = await settingRepository.findSettingById(settingId);
+    if (!existingSetting) {
+      return { code: 404, message: 'Cấu hình cài đặt không tồn tại' };
+    }
+    if (existingSetting.scope !== 'restaurant') {
+      return { code: 400, message: 'Mã nhà bếp chỉ áp dụng cho cấu hình nhà hàng' };
+    }
+
+    const kitchenCode = String(Math.floor(100000 + Math.random() * 900000));
+    const updated = await settingRepository.updateKitchenCode(settingId, kitchenCode);
+
+    return {
+      code: 200,
+      message: 'Tạo mã nhà bếp thành công',
+      data: { kitchenCode: updated?.systemConfig?.kitchenCode || kitchenCode },
     };
   }
 }
