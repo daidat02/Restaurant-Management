@@ -56,6 +56,7 @@ export interface ISystemConfig {
   autoPushKDS: boolean;
   maintenanceMode: boolean;
   requireOtpForVoid: boolean;
+  kitchenCode?: string;
 }
 
 // INTERFACE CHÍNH CHO SETTING

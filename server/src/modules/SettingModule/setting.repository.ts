@@ -45,6 +45,29 @@ class SettingRepository {
     return await DB_Connection.Setting.findByIdAndDelete(id).exec();
   }
 
+  /**
+   * Tìm cấu hình nhà hàng theo mã nhà bếp (Dùng cho màn hình KDS không cần đăng nhập)
+   */
+  async findSettingByKitchenCode(code: string): Promise<ISettingDocument | null> {
+    return await DB_Connection.Setting.findOne({
+      scope: 'restaurant',
+      'systemConfig.kitchenCode': code,
+    })
+      .populate({ path: 'targetId' })
+      .exec();
+  }
+
+  /**
+   * Cập nhật mã nhà bếp của cấu hình nhà hàng
+   */
+  async updateKitchenCode(id: string, kitchenCode: string): Promise<ISetting | null> {
+    return await DB_Connection.Setting.findByIdAndUpdate(
+      id,
+      { 'systemConfig.kitchenCode': kitchenCode },
+      { new: true },
+    ).exec();
+  }
+
   // ==========================================
   // II. QUERIES ĐẶC THÙ (Business Logic)
   // ==========================================
@@ -103,7 +126,12 @@ class SettingRepository {
             showStaffName: true,
             showWifiInfo: false,
           },
-          systemConfig: { autoPushKDS: true, maintenanceMode: false, requireOtpForVoid: true },
+          systemConfig: {
+            autoPushKDS: true,
+            maintenanceMode: false,
+            requireOtpForVoid: true,
+            kitchenCode: '',
+          },
         },
       },
       {
