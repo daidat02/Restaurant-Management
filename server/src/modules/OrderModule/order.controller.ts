@@ -37,7 +37,8 @@ class OrderController {
         message: 'Đơn Hàng Có Sự Thay Đổi. Vui Lòng Kiểm Tra Chi Tiết',
         data: result.data,
       });
-      getIO().emit('new_Notification', notification);
+      const resRestaurantId = result.data?.restaurant?.toString?.() || '';
+      if (resRestaurantId) getIO().to(`restaurant_${resRestaurantId}`).emit('new_Notification', notification);
     } catch (error) {
       console.log(error);
       res.status(500).json({ message: 'Lỗi server...' });
@@ -119,7 +120,8 @@ class OrderController {
         message: 'Đơn Hàng Có Sự Thay Đổi. Vui Lòng Kiểm Tra Chi Tiết',
         data: result.data,
       });
-      getIO().emit('new_Notification', notification);
+      const resRestaurantId = result.data?.restaurant?.toString?.() || '';
+      if (resRestaurantId) getIO().to(`restaurant_${resRestaurantId}`).emit('new_Notification', notification);
     } catch (error) {
       console.log(error);
       res.status(500).json({ message: 'Lỗi server...' });
@@ -136,7 +138,8 @@ class OrderController {
         message: 'Trạng Thái Đơn Hàng Đã Thay Đổi. Vui Lòng Kiểm Tra Chi Tiết',
         data: result.data,
       });
-      getIO().emit('new_Notification', notification);
+      const resRestaurantId = result.data?.restaurant?.toString?.() || '';
+      if (resRestaurantId) getIO().to(`restaurant_${resRestaurantId}`).emit('new_Notification', notification);
       res.status(result.code).json(result);
     } catch (error) {
       res.status(500).json({ message: 'Lỗi server...' });

@@ -180,9 +180,10 @@ class SettingService {
     ).toString();
     const restaurantName = populatedTarget?.name || 'Nhà hàng';
 
-    // Token nhẹ chỉ dùng cho màn hình bếp: không cần tài khoản staff, hết hạn sau 8 giờ
+    // Token KDS (mã nhà bếp): scope='kds' + restaurantId đúng nghĩa, không còn giả làm user thật.
+    // Chỉ dùng để join đúng phòng nhà hàng của mã bếp, hết hạn sau 8 giờ
     const token = jwt.sign(
-      { _id: restaurantId, role: 'staff' },
+      { _id: restaurantId, restaurantId, role: 'kds', scope: 'kds' },
       process.env.JWT_ACCESS_SECRET || '',
       { expiresIn: '8h' },
     );

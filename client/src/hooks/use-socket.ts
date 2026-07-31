@@ -1,20 +1,27 @@
 import { useCallback, useEffect, useState } from "react";
+import { store } from "@/redux/store/store";
+import { connectSocketWithAuth } from "@/configs/socket.io";
 
 export const useSocket = (socket: any) => {
     const [listeningSocketRestaurant, setListeningSocketRestaurant] = useState<string | null>(null);
+    const accessToken = store.getState().auth.token;
 
     useEffect(() => {
         if (!socket) return;
 
-        if (!socket.connected) {
-            socket.connect();
+        if (!accessToken) {
+            // Khách chưa đăng nhập không có quyền realtime — đảm bảo không kết nối socket
+            socket.auth = {};
+            if (socket.connected) socket.disconnect();
+        } else {
+            connectSocketWithAuth(accessToken);
         }
 
         socket.on("connect", () => {
             console.log("[Socket] Kết nối thành công! ID:", socket.id);
             // Nếu đã có sẵn restaurantId trước khi connect thành công, vào phòng luôn
             if (listeningSocketRestaurant) {
-                socket.emit('join_restaurant', listeningSocketRestaurant);
+                socket.emit('init_room_restaurant', listeningSocketRestaurant);
             }
         });
 
@@ -23,7 +30,7 @@ export const useSocket = (socket: any) => {
             socket.off("connect"); // Hủy lắng nghe sự kiện để tránh rò rỉ bộ nhớ
             socket.disconnect();
         };
-    }, [socket]);
+    }, [socket, accessToken]);
 
     // 2. useEffect này Chuyên trách việc Vào/Rời phòng khi ID nhà hàng thay đổi
     useEffect(() => {

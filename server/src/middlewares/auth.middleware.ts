@@ -7,13 +7,13 @@ import dotenv from "dotenv";
 dotenv.config();
 
 export interface AuthRequest extends Request {
-  user?: JwtPayload & { userId: string; role: string; restaurantId?: string };
+  user?: JwtPayload & { userId: string; role: string; restaurantId?: string; scope?: string };
   /** Nhà hàng đang hoạt động (được xác thực từ token, hoặc do super-admin chỉ định). */
   tenantId?: string;
 }
 
 export interface SocketCustom extends Socket{
-  user?:JwtPayload & {userId:string,role:string, restaurantIds?:string[]}
+  user?:JwtPayload & {userId:string,role:string, restaurantId?:string, restaurantIds?:string[]}
 }
 
 export const verifyToken = async (
@@ -41,15 +41,22 @@ export const verifyToken = async (
         }
 
         // Kiểm tra _id trong decoded
-        const { _id, role, restaurantId } = decoded as JwtPayload & {
+        const { _id, role, restaurantId, scope } = decoded as JwtPayload & {
           _id: string;
           role: string;
           restaurantId?: string;
+          scope?: string;
         };
         if (!_id) {
           return res.status(403).json({ message: "Token không chứa _id hợp lệ!" });
         }
         
+        // Token KDS (mã nhà bếp): không phải user thật, chỉ xác định ngữ cảnh nhà hàng
+        if (scope === "kds") {
+          req.user = { userId: _id, role: "kds", restaurantId: _id };
+          return next();
+        }
+
         // Gán _id vào req.user.userId
         req.user = { userId: _id, role: role, ...(restaurantId ? { restaurantId } : {}) };
         next(); 
@@ -97,6 +104,15 @@ export const verifyTenant = async (req: AuthRequest, res: Response, next: NextFu
       return next();
     }
 
+    // Token KDS (mã nhà bếp): tin tưởng restaurantId trong token — không phải user thật
+    if (role === "kds") {
+      if (!tokenRestaurantId) {
+        return res.status(403).json({ message: "Thiếu ngữ cảnh nhà hàng trong token KDS!" });
+      }
+      req.tenantId = tokenRestaurantId;
+      return next();
+    }
+
     if (!tokenRestaurantId) {
       return res
         .status(403)
@@ -136,12 +152,32 @@ export const authenticateToken = async (socket: SocketCustom, next: any) => {
 
     const decoded: any = jwt.verify(token, process.env.JWT_ACCESS_SECRET!);
 
+    // Token KDS (mã nhà bếp): gán trực tiếp ngữ cảnh nhà hàng, không cần tra user
+    if (decoded.scope === "kds") {
+      const kdsRestaurantId = String(decoded.restaurantId || decoded._id || "");
+      if (!kdsRestaurantId) return next(new Error("KDS token thiếu restaurantId"));
+      socket.user = {
+        userId: kdsRestaurantId,
+        role: "kds",
+        restaurantId: kdsRestaurantId,
+        restaurantIds: [kdsRestaurantId],
+      };
+      socket.join(`restaurant_${kdsRestaurantId}`);
+      return next();
+    }
+
     // Tìm user trong DB
     const user = await DB_Connection.User.findById(decoded._id);
     if (!user) return next(new Error("User not found"));
 
     // Gắn user vào socket để các handler khác dùng
-    const restaurantIds = (user.restaurantIds ?? []).map((id: any) => id.toString());
+    // Fallback field `restaurant` legacy cho dữ liệu chưa backfill (dọn ở ticket 06)
+    const restaurantIds = Array.from(
+      new Set([
+        ...(user.restaurantIds ?? []).map((id: any) => id.toString()),
+        ...(user.restaurant ? [user.restaurant.toString()] : []),
+      ]),
+    );
     socket.user = { userId: user._id, role: user.role, restaurantIds };
 
     // Auto join phòng phù hợp
@@ -159,4 +195,22 @@ export const authenticateToken = async (socket: SocketCustom, next: any) => {
     console.error("Auth error:", err);
     return next(new Error("Invalid or expired token"));
   }
+};
+
+/**
+ * Kiểm tra user socket có được phép truy cập dữ liệu của nhà hàng (tenant) không.
+ * - super-admin: quyền nền tảng, truy cập mọi tenant.
+ * - KDS: chỉ đúng nhà hàng của mã bếp.
+ * - Admin/manager/staff/customer: phải thuộc danh sách restaurantIds.
+ */
+export const canAccessTenant = (
+  user: SocketCustom["user"] | undefined,
+  restaurantId: string,
+): boolean => {
+  if (!user || !restaurantId) return false;
+  if (user.role === "super-admin") return true;
+  if (user.role === "kds") {
+    return user.restaurantIds?.includes(String(restaurantId)) ?? false;
+  }
+  return (user.restaurantIds ?? []).some((id) => String(id) === String(restaurantId));
 };

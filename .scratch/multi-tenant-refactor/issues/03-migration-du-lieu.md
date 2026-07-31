@@ -7,6 +7,7 @@
 **Status:** done ✅
 
 > **Kết quả chạy trên DB thật (`dist/scripts/migrate-tenant.js`):**
+>
 > - Backup 4 collection → `_backup_20260731175106_{orderitems,payments,auditlogs,users}`.
 > - OrderItem backfill 819 dòng; **7 dòng orphan** (order cha đã bị xoá) → đã xoá (đã backup, user đồng ý).
 > - Payment backfill 392/392.
@@ -17,6 +18,7 @@
 > - Verify: admin login có `restaurantIds`, analytic/users/tables/settings đọc đúng tenant NhamNhi (200), super-admin login đúng role.
 
 Chi tiết kỹ thuật:
+
 - Viết script migration chạy **1 lần**, an toàn (chạy trên bản sao DB trước, sau đó DB thật; có log/track tiến độ).
 - Backfill: `OrderItem` + `Payment` (thiếu field `restaurant`) lấy từ `order.restaurant`, thêm field + index.
 - `AuditLog.restaurantId` → đổi tên `restaurant` cho đồng bộ với các model khác, kèm migration dữ liệu.
@@ -30,3 +32,9 @@ Chi tiết kỹ thuật:
 - [x] `admin@gmail.com` là admin thuộc NhamNhi; account `super-admin` đăng nhập được, role đúng.
 - [x] Không còn dữ liệu thiếu `restaurant` trong các collection có ref tenant.
 - [x] Chạy xong trên DB thật, mọi flow cũ (đơn, menu, bàn, reservation) hoạt động với tenant NhamNhi.
+
+Ticket 03 xong. Thông tin bàn giao:
+
+- Super-admin: super.admin@nhamnhi.vn / Super@NhamNhi2026 — nên đổi password ngay (đang hardcode trong script migration).
+- Backup dữ liệu: _backup_20260731175106_{orderitems,payments,auditlogs,users}.
+- admin@gmail.com giờ thuộc restaurantIds:[69fccba996a14809070b9ef2].

@@ -11,7 +11,7 @@ import {
   isKdsSessionValid,
   type KdsSession,
 } from '@/utils/kds-session';
-import { socket } from '@/configs/socket.io';
+import { socket, connectSocketWithAuth } from '@/configs/socket.io';
 import type { IOrder, IOrderItem } from '@/types/order.type';
 
 // Đơn thuộc các trạng thái này sẽ tự ẩn khỏi màn hình bếp
@@ -115,8 +115,7 @@ function KitchenDashboard({
               const newItems = o.items!.map((i) =>
                 i._id === itemData._id ? { ...i, status: itemData.status } : i,
               );
-              const allServed =
-                newItems.length > 0 && newItems.every((i) => i.status === 'served');
+              const allServed = newItems.length > 0 && newItems.every((i) => i.status === 'served');
               if (allServed) return acc; // Tất cả món đã xong -> tự ẩn card
               return [...acc, { ...o, items: newItems }];
             }, []);
@@ -131,21 +130,16 @@ function KitchenDashboard({
     [restaurantId],
   );
 
-  // Kết nối socket phòng nhà hàng của phiên bếp
+  // Kết nối socket phòng nhà hàng của phiên bếp (xác thực bằng token KDS)
   useEffect(() => {
     if (!restaurantId) return;
 
-    if (!socket.connected) {
-      socket.connect();
-    }
-
+    connectSocketWithAuth(session.token);
     socket.emit('init_room_restaurant', restaurantId);
-    socket.emit('join_restaurant', restaurantId);
 
     const handleConnect = () => {
       setIsSocketConnected(true);
       socket.emit('init_room_restaurant', restaurantId);
-      socket.emit('join_restaurant', restaurantId);
       fetchOrders();
     };
     const handleDisconnect = () => setIsSocketConnected(false);
@@ -160,7 +154,7 @@ function KitchenDashboard({
       socket.off('disconnect', handleDisconnect);
       socket.emit('leave_restaurant', restaurantId);
     };
-  }, [restaurantId, handleOrderEvent, fetchOrders]);
+  }, [restaurantId, session.token, handleOrderEvent, fetchOrders]);
 
   const handleItemTap = useCallback(
     async (itemId: string, nextStatus: 'preparing' | 'served') => {
