@@ -21,6 +21,9 @@ export interface IUser {
   phone?: string;
   role: 'customer' | 'staff' | 'manager' | 'admin';
   restaurant?: IRestaurant | string ;
+  avatar?: string;
+  address?: string;
+  notificationEnabled?: boolean;
   isActive: boolean; 
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;

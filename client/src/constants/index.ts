@@ -10,13 +10,14 @@ export const API_ENDPOINTS = {
     LOGOUT: `${API_BASE_URL}/auth/logout`,
     PROFILE_ME: `${API_BASE_URL}/auth/profile/me`,
     PROFILE_BY_ID: (id: string) => `${API_BASE_URL}/auth/profile/${id}`,
+    CHANGE_PASSWORD: `${API_BASE_URL}/auth/change-password`,
     ADMIN: {
       CUSTOMERS: `${API_BASE_URL}/auth/admin/customers`,
       STAFF: `${API_BASE_URL}/auth/`,
       DELETE: (id: string) => `${API_BASE_URL}/auth/admin/delete/${id}`,
       UPDATE: (id: string) => `${API_BASE_URL}/auth/admin/update/${id}`,
-      UPDATE_ME: `${API_BASE_URL}/auth/admin/update/me`,
     },
+    UPDATE_ME: `${API_BASE_URL}/auth/update/me`,
   },
 
   // --- PHÂN HỆ THỰC ĐƠN (MENU SYSTEM) ---

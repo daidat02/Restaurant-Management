@@ -7,12 +7,16 @@ import {
   deleteUser,
   updateUser,
   updateMe,
+  changePassword,
 } from '@/api/user.api';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
+import { useAppDispatch } from './redux-hook';
+import { updateUserInfo } from '@/redux/slices/authSlice';
 
 export const useUser = () => {
   // Sửa lỗi chính tả useUer -> useUser
+  const dispatch = useAppDispatch();
   const [customers, setCustomers] = useState<IUser[]>([]);
   const [staff, setStaff] = useState<IUser[]>([]);
   const [users, setUsers] = useState<IUser[]>([]);
@@ -128,11 +132,29 @@ export const useUser = () => {
     try {
       const updatedUser = await updateMe(dataUpdate);
       await fetchProfileMe();
+      // Đồng bộ user mới lên Redux để Header/Layout hiển thị thông tin mới nhất
+      dispatch(updateUserInfo(updatedUser));
       toast.success('Cập nhật thông tin thành công', { position: 'top-right' });
       return updatedUser;
     } catch (err: any) {
       setError(err.message || 'Đã xảy ra lỗi khi tải dữ liệu');
       toast.error(err.message || 'Đã xảy ra lỗi khi tải dữ liệu', { position: 'top-right' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleChangePassword = async (currentPassword: string, newPassword: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const result = await changePassword({ currentPassword, newPassword });
+      toast.success('Đổi mật khẩu thành công', { position: 'top-right' });
+      return result;
+    } catch (err: any) {
+      setError(err.message || 'Đã xảy ra lỗi khi đổi mật khẩu');
+      toast.error(err.message || 'Đã xảy ra lỗi khi đổi mật khẩu', { position: 'top-right' });
+      return null;
     } finally {
       setIsLoading(false);
     }
@@ -152,5 +174,6 @@ export const useUser = () => {
     removeUser: handelRemoveUser,
     editUser: handelEditUser,
     editProfile: handleEditProfile,
+    changePassword: handleChangePassword,
   };
 };

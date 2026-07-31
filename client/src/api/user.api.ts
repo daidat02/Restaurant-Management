@@ -47,6 +47,11 @@ export const updateUser = async (_id: string, updateData: Partial<IUser>) => {
 };
 
 export const updateMe = async (updateData: Partial<IUser>) => {
-  const res = await axiosClient.put<any, ApiResponse<IUser>>(AUTH.ADMIN.UPDATE_ME);
+  const res = await axiosClient.patch<any, ApiResponse<IUser>>(AUTH.UPDATE_ME, updateData);
+  return res.data;
+};
+
+export const changePassword = async (payload: { currentPassword: string; newPassword: string }) => {
+  const res = await axiosClient.post<any, ApiResponse<IUser>>(AUTH.CHANGE_PASSWORD, payload);
   return res.data;
 };

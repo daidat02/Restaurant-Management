@@ -7,6 +7,9 @@ export interface IUser extends Document {
   password: string; // hashed
   role: 'customer' | 'staff' | 'manager' | 'admin';
   restaurant?: Schema.Types.ObjectId;
+  avatar?: string;
+  address?: string;
+  notificationEnabled?: boolean;
   isActive: boolean; 
   resetPasswordToken?: string;
   resetPasswordExpires?: Date;
@@ -25,6 +28,9 @@ const UserSchema = new Schema<IUserDocument>({
   password: { type: String, required: true },
   role: { type: String, enum: ['customer', 'staff', 'manager', 'admin'], default: 'customer', required: true, index: true },
   restaurant: { type: Schema.Types.ObjectId, ref: 'Restaurant' },
+  avatar: { type: String },
+  address: { type: String },
+  notificationEnabled: { type: Boolean, default: true },
   isActive: { type: Boolean, default: true },
   resetPasswordToken: { type: String },
   resetPasswordExpires: { type: Date },

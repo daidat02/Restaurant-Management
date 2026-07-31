@@ -17,6 +17,10 @@ import { useSocket } from './hooks/use-socket';
 import { extractId } from './utils/helpers';
 import { LoadingProvider } from './components/LoadingOverlay';
 import ReservationCustomerPage from './pages/Customer/reservation';
+import AccountLayout from './pages/Customer/account/account-layout';
+import AccountProfile from './pages/Customer/account/profile';
+import AccountOrders from './pages/Customer/account/orders';
+import AccountSettings from './pages/Customer/account/settings';
 import AnalyticsPage from './pages/Admin/AnalyticsPage/analytics';
 import Product from './pages/Admin/ProductPage/product';
 import Order from './pages/Admin/OrderPage/order';
@@ -100,6 +104,18 @@ export default function App() {
           <Route path="payment" element={<Payment />} />
           <Route path="reservation" element={<ReservationCustomerPage />} />
           <Route path="/scan-to-order" element={<CartPage />} />
+
+          {/* KHU VỰC TÀI KHOẢN KHÁCH HÀNG */}
+          <Route path="account" element={<AccountLayout />}>
+            <Route index element={<Navigate to="profile" replace />} />
+            <Route path="profile" element={<AccountProfile />} />
+            <Route path="orders" element={<AccountOrders />} />
+            <Route path="settings" element={<AccountSettings />} />
+          </Route>
+          {/* Redirect các path cũ từ HeaderCustomer sang cấu trúc mới */}
+          <Route path="/profile" element={<Navigate to="/account/profile" replace />} />
+          <Route path="/orders-history" element={<Navigate to="/account/orders" replace />} />
+          <Route path="/settings" element={<Navigate to="/account/settings" replace />} />
         </Route>
       </Route>
 

@@ -87,6 +87,7 @@ export default function PaymentPage() {
         items: formattedItems,
         totalAmount: totalAmount,
         orderType: 'delivery',
+        customer: user?._id || '',
         paymentStatus: paymentMethod == 'BANK_TRANSFER' ? 'waiting_paid' : 'unpaid',
         deliveryInfo: {
           name: user?.name || deliveryInfo.name || 'Chưa có',

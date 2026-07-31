@@ -10,6 +10,7 @@ router.post('/login', authController.loginUser);
 router.post('/refresh', authController.refreshToken);
 router.patch('/update/me', verifyToken, authController.updateUser);
 router.post('/reset-password', verifyToken, authController.updatePassword);
+router.post('/change-password', verifyToken, authController.changePassword);
 
 // đăng ký các route cho admin
 router.get(

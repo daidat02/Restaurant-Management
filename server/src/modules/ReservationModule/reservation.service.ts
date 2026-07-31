@@ -319,10 +319,13 @@ class ReservationService {
   }
 
   async getReservationByUserService(id: string): Promise<ServiceResponse<IReservation[]>> {
+    if (!id || !/^[0-9a-fA-F]{24}$/.test(id)) {
+      return { code: 200, message: 'Chưa có thông tin khách hàng hợp lệ', data: [] };
+    }
     const reservations = await ReservationRepository.findReservations({ customer: id });
 
     if (!reservations || reservations.length === 0) {
-      return { code: 404, message: 'Không tìm thấy thông tin đơn đặt trước của khách hàng này' };
+      return { code: 200, message: 'Chưa có lịch đặt bàn nào của khách hàng này', data: [] };
     }
 
     return { code: 200, message: 'Lấy thông tin thành công', data: reservations };

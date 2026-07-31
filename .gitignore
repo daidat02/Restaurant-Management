@@ -11,3 +11,11 @@ server/build/
 *.log
 .DS_Store
 .vscode/
+
+# OpenCode
+opencode.json
+.opencode/
+
+# Planning
+ROADMAP.VI.md
+.zcode/
