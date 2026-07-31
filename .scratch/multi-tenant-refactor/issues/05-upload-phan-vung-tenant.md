@@ -4,16 +4,22 @@
 
 **Blocked by:** 02 — JWT thêm tenantId + middleware verifyTenant + switch-tenant.
 
-**Status:** ready-for-agent
+**Status:** done ✅
+
+> **Kết quả test thực tế (upload + delete, server localhost:8000):**
+> - Upload ảnh → folder đúng tenant: token X → `restaurants/69fcc.../...`, token Y → `restaurants/69fb58.../...`, khách (không tenant) → `restaurants/_public/`.
+> - Xoá ảnh X bằng token Y → `400 "Bạn không có quyền xóa ảnh của nhà hàng khác!"`.
+> - Xoá ảnh X bằng token X → 200; xoá ảnh `_public` bằng token khách → 200.
+> - Upload không token → 401 (route đã gắn `verifyToken`).
+> - Typecheck server pass.
 
 Chi tiết kỹ thuật:
-- Cloudinary folder hiện tại cố định (`restaurants-system`) → `restaurants/<restaurantId>/...` cho mọi đường upload (đơn lẻ + multiple).
-- Đường upload nhận `restaurantId` từ context hợp lệ: với admin/manager/staff dùng `req.tenantId`; với route công khai dùng param/body.
-- Xoá ảnh (`DELETE /upload`): kiểm tra ảnh thuộc tenant nào (public_id/folder) và chỉ cho phép nếu thuộc tenant của người gọi.
-- Xem xét gắn `verifyToken` cho route upload (hiện công khai); nếu giữ công khai thì ownership check vẫn bắt buộc khi xoá.
+- CloudinaryStorage trong `multer.middleware.ts` đổi folder tĩnh `restaurants-system` → động `restaurants/<restaurantId>` (lấy từ `req.user.restaurantId` claim hoặc query param); không có ngữ cảnh tenant → `restaurants/_public`.
+- Bỏ bug double-upload: trước đây `uploadRepository.uploadImage(file.path)` upload lại từ URL → tạo bản copy thứ 2 + orphan. Giờ dùng trực tiếp `file.path`/`file.filename` (secure_url/public_id) từ CloudinaryStorage.
+- Route upload/delete gắn `verifyToken`; `delete` nhận `requesterTenantId` từ claim và chặn nếu public_id nằm trong folder `restaurants/<tenantId>/` khác tenant người gọi.
 
-- [ ] Ảnh upload vào folder chứa `restaurantId` đúng tenant (verify public_id/folder trên Cloudinary).
-- [ ] User nhà hàng A không xoá được ảnh của nhà hàng B (test curl delete ảnh B bằng token A → bị chặn).
-- [ ] User đúng tenant xoá được ảnh của mình.
-- [ ] Ảnh món ăn hiển thị đúng trong từng nhà hàng.
-- [ ] Typecheck server pass.
+- [x] Ảnh upload vào folder chứa `restaurantId` đúng tenant (verify public_id/folder trên Cloudinary).
+- [x] User nhà hàng A không xoá được ảnh của nhà hàng B (test curl delete ảnh B bằng token A → bị chặn).
+- [x] User đúng tenant xoá được ảnh của mình.
+- [x] Ảnh món ăn hiển thị đúng trong từng nhà hàng.
+- [x] Typecheck server pass.

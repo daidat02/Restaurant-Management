@@ -1,8 +1,9 @@
 import type{ Request, Response } from 'express';
+import type { AuthRequest } from '../../middlewares/auth.middleware.js';
 import { uploadService } from './upload.service.js';
 
 class UploadController {
-  async upload(req: Request, res: Response) {
+  async upload(req: AuthRequest, res: Response) {
     try {
       const file = req.file;
       const result = await uploadService.upload(file!);
@@ -18,9 +19,9 @@ class UploadController {
     }
   }
 
-   async uploadMultiple(req: Request, res: Response) {
+   async uploadMultiple(req: AuthRequest, res: Response) {
     try {
-        const files = req.files as Express.Multer.File[];     
+        const files = req.files as Express.Multer.File[];
 
         const result = await uploadService.uploadMultiple(files);
         res.status(200).json({
@@ -35,10 +36,12 @@ class UploadController {
     }
   }
 
-  async delete(req: Request, res: Response) {
+  async delete(req: AuthRequest, res: Response) {
     try {
       const { id } = req.query;
-      const result = await uploadService.delete(id! as string);
+      // Người gọi thuộc tenant nào (từ token) — dùng để kiểm tra ownership ảnh
+      const requesterTenantId = req.user?.restaurantId;
+      const result = await uploadService.delete(id as string, requesterTenantId);
       res.status(200).json({
         status: 200,
         data: result,

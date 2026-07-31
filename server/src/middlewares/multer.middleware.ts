@@ -4,10 +4,18 @@ import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import cloudinary from '../configs/cloudinaryConfig.js';
 import type { CloudinaryParams } from '../shared/type.js';
 
+// Phân vùng folder ảnh theo tenant: restaurants/<restaurantId>/...
+// restaurantId lấy từ token (claim) hoặc query param (route công khai / super-admin).
+// Không có ngữ cảnh nhà hàng (vd avatar khách) -> cất vào _public (không trộn tenant).
+const resolveFolder = (req: any): string => {
+  const restaurantId = req.user?.restaurantId || req.query?.restaurantId || '';
+  return restaurantId ? `restaurants/${restaurantId}` : 'restaurants/_public';
+};
+
 const storage = new CloudinaryStorage({
   cloudinary,
-  params:  (_file) => ({
-    folder: 'restaurants-system',
+  params: (req, _file): CloudinaryParams => ({
+    folder: resolveFolder(req),
     allowed_formats: ['jpeg', 'png', 'jpg'],
   }),
 });

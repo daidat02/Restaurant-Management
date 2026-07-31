@@ -1,41 +1,48 @@
 import { uploadRepository } from './upload.repository.js';
 
+// Folder ảnh được phân vùng theo tenant: restaurants/<restaurantId>/...
+// (do CloudinaryStorage trong multer đặt sẵn). Khi xoá phải kiểm tra ownership.
+const TENANT_FOLDER_REGEX = /^restaurants\/([^/]+)\//;
+
 class UploadService {
   async upload(file: Express.Multer.File) {
     if (!file) {
       throw new Error('Không có file nào được upload');
     }
-    const result = await uploadRepository.uploadImage(file.path);
+    // Với CloudinaryStorage, file.path = URL, file.filename = public_id (đã upload 1 lần duy nhất)
     return {
-      url: result.secure_url,
-      publicId: result.public_id,
+      url: file.path,
+      publicId: file.filename,
     };
   }
-  
-  async uploadMultiple(files: Express.Multer.File[]){
+
+  async uploadMultiple(files: Express.Multer.File[]) {
     if (!files) {
       throw new Error('Không có file nào được upload');
     }
-
-    const uploadPromises = files.map(file=>{
-        return uploadRepository.uploadImage(file.path);
-    });
-
-
-    const result = (await Promise.all(uploadPromises));
-
-    return result.map(image=>{
-        return{
-            url:image.secure_url ,
-            publicId:image.public_id 
-        }
-    }); 
+    return files.map((file) => ({
+      url: file.path,
+      publicId: file.filename,
+    }));
   }
 
-  async delete(publicId: string) {
+  /**
+   * Xoá ảnh có kiểm tra ownership: ảnh nằm trong folder restaurants/<tenantId>/
+   * chỉ được xoá bởi người gọi thuộc đúng tenant đó.
+   */
+  async delete(publicId: string, requesterTenantId?: string) {
     if (!publicId) {
       throw new Error('Thiếu publicId để xóa ảnh');
     }
+
+    const match = publicId.match(TENANT_FOLDER_REGEX);
+    const ownerTenant = match?.[1];
+    if (ownerTenant && ownerTenant !== '_public') {
+      if (!requesterTenantId || requesterTenantId !== ownerTenant) {
+        throw new Error('Bạn không có quyền xóa ảnh của nhà hàng khác!');
+      }
+    }
+
     await uploadRepository.deleteImage(publicId);
     return { message: 'Đã xóa ảnh thành công' };
   }
