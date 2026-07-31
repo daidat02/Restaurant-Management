@@ -33,4 +33,11 @@ router.get(
   verifyRole(['admin']),
   analyticController.getBranchRevenueStats,
 );
+// Dashboard gộp toàn hệ thống — chỉ super-admin (quyền nền tảng)
+router.get(
+  '/system-overview',
+  verifyToken,
+  verifyRole(['super-admin']),
+  analyticController.getSystemOverview,
+);
 export default router;

@@ -4,7 +4,7 @@
 
 **Blocked by:** 02 — JWT thêm tenantId + middleware verifyTenant + switch-tenant; 03 — Migration dữ liệu hiện tại.
 
-**Status:** ready-for-agent
+**Status:** done — đã test thực tế (Playwright + curl)
 
 Chi tiết kỹ thuật:
 - API (dành riêng `super-admin`, bypass tenant check):
@@ -14,9 +14,13 @@ Chi tiết kỹ thuật:
 - UI: route `/super-admin/*`, sidebar riêng (không trộn menu admin thường), 3 trang: Dashboard tổng quan, Quản lý nhà hàng (list + khoá/mở), Tài khoản người thuê (xem theo nhà hàng).
 - Route `/super-admin/*` chỉ role `super-admin` truy cập (nếu người khác truy cập → chặn/redirect).
 
-- [ ] Super-admin login → vào được `/super-admin/*`.
-- [ ] Dashboard hiện đúng số nhà hàng, số user, doanh thu gộp toàn hệ thống.
-- [ ] Khoá 1 nhà hàng → nhà hàng đó hiển thị trạng thái khoá, admin/manager/staff của nó không thao tác được (chặn phía server); mở lại → hoạt động.
-- [ ] Xem danh sách tài khoản theo từng nhà hàng đúng dữ liệu.
-- [ ] Manager/staff/admin (không phải super-admin) truy cập `/super-admin` bị chặn.
-- [ ] Typecheck + eslint pass.
+- [x] Super-admin login → vào được `/super-admin/*`.
+- [x] Dashboard hiện đúng số nhà hàng, số user, doanh thu gộp toàn hệ thống.
+- [x] Khoá 1 nhà hàng → nhà hàng đó hiển thị trạng thái khoá, admin/manager/staff của nó không thao tác được (chặn phía server); mở lại → hoạt động.
+- [x] Xem danh sách tài khoản theo từng nhà hàng đúng dữ liệu.
+- [x] Manager/staff/admin (không phải super-admin) truy cập `/super-admin` bị chặn.
+- [x] Typecheck + eslint pass (typecheck zero errors; eslint có baseline errors trên toàn repo nhưng không thêm lỗi mới).
+
+## Tổng kết thay đổi
+- **Server**: `verifyTenant` thêm check inactive; `PATCH /restaurants/status/:id` (chỉ super-admin); `GET /analytics/system-overview` (chỉ super-admin) với dashboard gộp.
+- **Client**: `ProtectedRoute` redirect super-admin; route `/super-admin/*`; `SidebarSuperAdmin.tsx`; 3 trang SuperAdmin Dashboard/Restaurants/Tenants; getSystemOverview API; toggle status hook.

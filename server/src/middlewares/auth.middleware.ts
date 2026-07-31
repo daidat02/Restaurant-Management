@@ -80,6 +80,29 @@ export const verifyRole = (roles: string[]) => {
 
 
 /**
+ * Kiểm tra nhà hàng còn hoạt động hay không (dùng để chặn khi super-admin khoá nhà hàng).
+ * Không áp dụng cho super-admin (quyền nền tảng, vẫn phải quản lý được nhà hàng bị khoá).
+ */
+const assertRestaurantActive = async (
+  res: Response,
+  restaurantId: string | undefined,
+): Promise<boolean> => {
+  if (!restaurantId) return false;
+  const restaurant = await DB_Connection.Restaurant.findById(restaurantId)
+    .select('status')
+    .exec();
+  if (!restaurant) {
+    res.status(404).json({ message: 'Nhà hàng không tồn tại!' });
+    return false;
+  }
+  if (restaurant.status === 'inactive') {
+    res.status(403).json({ message: 'Nhà hàng đã bị khóa! Liên hệ quản trị viên.' });
+    return false;
+  }
+  return true;
+};
+
+/**
  * Xác minh ngữ cảnh nhà hàng (tenant) cho request.
  * - Admin/manager/staff: lấy restaurantId từ token (claim `restaurantId`), kiểm tra user thực sự thuộc nhà hàng đó,
  *   gán `req.tenantId`. Chặn mọi request dùng restaurantId của nhà hàng khác.
@@ -110,6 +133,8 @@ export const verifyTenant = async (req: AuthRequest, res: Response, next: NextFu
         return res.status(403).json({ message: "Thiếu ngữ cảnh nhà hàng trong token KDS!" });
       }
       req.tenantId = tokenRestaurantId;
+      // Nhà hàng bị khoá thì màn hình bếp cũng không hoạt động
+      if (!(await assertRestaurantActive(res, req.tenantId))) return;
       return next();
     }
 
@@ -137,6 +162,8 @@ export const verifyTenant = async (req: AuthRequest, res: Response, next: NextFu
     }
 
     req.tenantId = tokenRestaurantId;
+    // Nhà hàng bị khoá → chặn mọi thao tác của admin/manager/staff của nhà hàng đó
+    if (!(await assertRestaurantActive(res, req.tenantId))) return;
     return next();
   } catch (error) {
     console.error("verifyTenant error:", error);

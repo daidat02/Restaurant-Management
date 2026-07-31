@@ -5,6 +5,7 @@ import {
   getRestaurantById,
   getRestaurants,
   updateRestaurant,
+  updateRestaurantStatus,
 } from '@/api/restaurants.api';
 import type { IRestaurant } from '@/types/restaurant.type';
 import { toast } from 'sonner';
@@ -123,6 +124,25 @@ export const useRestaurant = () => {
     }
   };
 
+  // Khoá/Mở nhà hàng (super-admin): cập nhật field status
+  const handleUpdateRestaurantStatus = async (id: string, status: 'active' | 'inactive') => {
+    setError(null);
+    showLoading();
+    try {
+      await updateRestaurantStatus(id, status);
+      toast.success(status === 'inactive' ? 'Đã khóa nhà hàng' : 'Đã mở khóa nhà hàng', {
+        position: 'top-right',
+      });
+      return true;
+    } catch (err: any) {
+      setError(err.message || 'Đã xảy ra lỗi khi cập nhật trạng thái nhà hàng');
+      return false;
+    } finally {
+      hideLoading();
+      await fetchRestaurants();
+    }
+  };
+
   const handleSelectRestaurantRedux = (restaurantId: string) => {
     dispath(selectRestaurant(restaurantId));
   };
@@ -141,6 +161,7 @@ export const useRestaurant = () => {
     fetchRestaurantsHaveTableEmpty,
     createRestaurant: handleCreateRestaurant,
     updateRestaurant: handleUpdateRestaurant,
+    updateRestaurantStatus: handleUpdateRestaurantStatus,
     deleteRestaurant: handleDeleteRestaurant,
     selectRestaurant: handleSelectRestaurant,
   };

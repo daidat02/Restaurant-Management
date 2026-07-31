@@ -13,6 +13,12 @@ router.put(
   verifyRole(['admin']),
   restaurantController.updateRestaurant,
 );
+router.patch(
+  '/status/:id',
+  verifyToken,
+  verifyRole(['super-admin']),
+  restaurantController.updateRestaurantStatus,
+);
 router.delete('/:id', verifyToken, verifyRole(['admin']), restaurantController.deleteRestaurant);
 
 export default router;

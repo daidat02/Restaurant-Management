@@ -163,6 +163,55 @@ class AnalyticsService {
 
     return rawStats;
   }
+
+  /**
+   * Dashboard gộp toàn hệ thống (chỉ super-admin): không lọc theo nhà hàng.
+   */
+  async getSystemOverviewService() {
+    const [
+      totalRestaurants,
+      activeRestaurants,
+      inactiveRestaurants,
+      totalTenantUsers,
+      totalCustomers,
+      revenueStats,
+      orderStats,
+      reservationStats,
+    ] = await Promise.all([
+      DB_Connection.Restaurant.countDocuments(),
+      DB_Connection.Restaurant.countDocuments({ status: 'active' }),
+      DB_Connection.Restaurant.countDocuments({ status: 'inactive' }),
+      DB_Connection.User.countDocuments({ role: { $in: ['admin', 'manager', 'staff', 'super-admin'] } }),
+      DB_Connection.User.countDocuments({ role: 'customer' }),
+      DB_Connection.Order.aggregate([
+        { $match: { status: 'paid' } },
+        { $group: { _id: null, totalRevenue: { $sum: '$totalAmount' } } },
+      ]),
+      DB_Connection.Order.aggregate([
+        { $group: { _id: null, totalOrders: { $sum: 1 }, cancelledOrders: { $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, 1, 0] } } } },
+      ]),
+      DB_Connection.Reservation.countDocuments({ status: { $ne: 'cancelled' } }),
+    ]);
+
+    const revenue = revenueStats[0]?.totalRevenue || 0;
+    const orders = orderStats[0]?.totalOrders || 0;
+    const cancelledOrders = orderStats[0]?.cancelledOrders || 0;
+
+    return {
+      totalRestaurants,
+      activeRestaurants,
+      inactiveRestaurants,
+      totalTenantUsers,
+      totalCustomers,
+      totalRevenue: revenue,
+      totalOrders: orders,
+      cancelledOrders,
+      cancellationRate:
+        orders > 0 ? Number(((cancelledOrders / orders) * 100).toFixed(1)) : 0,
+      averagePerOrder: orders > 0 ? Math.round(revenue / orders) : 0,
+      totalReservations: reservationStats,
+    };
+  }
 }
 
 export default new AnalyticsService();

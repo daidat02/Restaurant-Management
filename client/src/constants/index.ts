@@ -103,6 +103,7 @@ export const API_ENDPOINTS = {
     BASE: `${API_BASE_URL}/restaurants`,
     GET_BY_ID: (id: string) => `${API_BASE_URL}/restaurants/${id}`,
     UPDATE: (id: string) => `${API_BASE_URL}/restaurants/update/${id}`,
+    STATUS: (id: string) => `${API_BASE_URL}/restaurants/status/${id}`,
   },
 
   // --- PHÂN HỆ QUẢN LÝ BÀN (TABLES) ---
@@ -125,6 +126,7 @@ export const API_ENDPOINTS = {
     REVENUE_HOURLY: '/analytics/revenue-hourly',
     ORDER_CHANNELS: '/analytics/order-channels',
     REVENUE_CHANNELS: '/analytics/revenue-channels',
+    SYSTEM_OVERVIEW: '/analytics/system-overview',
   },
   SETTING: {
     CREATE: '/settings/create',

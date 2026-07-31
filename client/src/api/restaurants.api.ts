@@ -42,3 +42,14 @@ export const deleteRestaurant = async (id: string) => {
   const res = await axiosClient.delete<any, ApiResponse<null>>(RESTAURANTS.GET_BY_ID(id));
   return res.data;
 };
+
+export const updateRestaurantStatus = async (
+  id: string,
+  status: 'active' | 'inactive',
+) => {
+  const res = await axiosClient.patch<any, ApiResponse<IRestaurant>>(
+    RESTAURANTS.STATUS(id),
+    { status },
+  );
+  return res.data;
+};

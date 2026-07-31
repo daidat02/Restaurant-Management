@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import LayoutAdmin from './layouts/LayoutAdmin';
+import LayoutSuperAdmin from './layouts/LayoutSuperAdmin';
 import LayoutCustomer from './layouts/LayoutCustomer';
 import Payment from './pages/Customer/payment';
 import Auth from './pages/Auth/Auth';
@@ -33,6 +34,9 @@ import RestaurantsPage from './pages/Admin/RestaurantPage/restaurants';
 import Table from './pages/Admin/TablePage/table';
 import Users from './pages/Admin/UserPage/users';
 import FormMenuItem from './pages/Admin/ProductPage/components/FormCreateItem';
+import SuperAdminDashboard from './pages/SuperAdmin/Dashboard';
+import SuperAdminRestaurants from './pages/SuperAdmin/Restaurants';
+import SuperAdminTenants from './pages/SuperAdmin/Tenants';
 import { Toaster } from '@/components/ui/sonner';
 import { useDispatch } from 'react-redux';
 import { login, logout } from './redux/slices/authSlice';
@@ -57,6 +61,7 @@ const ProtectedRoute = ({
     if (userRole === 'admin') return <Navigate to="/admin" replace />;
     if (userRole === 'manager') return <Navigate to="/manager" replace />;
     if (userRole === 'staff') return <Navigate to="/staff" replace />;
+    if (userRole === 'super-admin') return <Navigate to="/super-admin" replace />;
     return <Navigate to="/" replace />;
   }
 
@@ -153,6 +158,25 @@ export default function App() {
         }
       >
         <Route path="/select-restaurant" element={<RestaurantSwitcher />} />
+      </Route>
+
+      {/* ---------------- PROTECTED ROUTES: SUPER-ADMIN (Nền tảng) ---------------- */}
+      <Route
+        element={
+          <ProtectedRoute
+            isAuthenticated={isAuthenticated}
+            userRole={userRole}
+            allowedRoles={['super-admin']}
+            requiresTenant={false}
+            isTenantSelected={true}
+          />
+        }
+      >
+        <Route path="/super-admin" element={<LayoutSuperAdmin />}>
+          <Route index element={<SuperAdminDashboard />} />
+          <Route path="restaurants" element={<SuperAdminRestaurants />} />
+          <Route path="tenants" element={<SuperAdminTenants />} />
+        </Route>
       </Route>
 
       {/* ---------------- PROTECTED ROUTES: ADMIN ---------------- */}

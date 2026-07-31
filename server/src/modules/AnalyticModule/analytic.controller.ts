@@ -170,6 +170,23 @@ class AnalyticController {
       });
     }
   }
+
+  /**
+   * API Endpoint: GET /api/v1/analytics/system-overview
+   * Dashboard gộp toàn hệ thống (chỉ super-admin).
+   */
+  async getSystemOverview(req: Request, res: Response): Promise<Response> {
+    try {
+      const data = await analyticService.getSystemOverviewService();
+      return res.status(200).json({ success: true, data });
+    } catch (error: any) {
+      console.error('Error in AnalyticController.getSystemOverview:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Đã xảy ra lỗi hệ thống khi tính toán thống kê toàn hệ thống.',
+      });
+    }
+  }
 }
 
 export default new AnalyticController();
