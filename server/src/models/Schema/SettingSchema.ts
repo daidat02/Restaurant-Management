@@ -51,6 +51,7 @@ export interface ISystemConfig {
   autoPushKDS: boolean;
   maintenanceMode: boolean;
   requireOtpForVoid: boolean;
+  kitchenCode: string;
 }
 
 // INTERFACE CHÍNH CHO SETTING
@@ -160,6 +161,8 @@ const SettingSchema = new Schema<ISetting>(
       autoPushKDS: { type: Boolean, default: true },
       maintenanceMode: { type: Boolean, default: false },
       requireOtpForVoid: { type: Boolean, default: true },
+      // Mã bảo vệ màn hình bếp (KDS): tạo mới mã sẽ vô hiệu hóa mã cũ
+      kitchenCode: { type: String, trim: true, default: '' },
     },
   },
   {

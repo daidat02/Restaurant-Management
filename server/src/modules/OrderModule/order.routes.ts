@@ -20,7 +20,7 @@ router.put(
   '/:id/status',
   verifyToken,
   verifyRole(['staff', 'manager']),
-  orderController.updateOrder,
+  orderController.updateStatusOrder,
 );
 
 export default router;

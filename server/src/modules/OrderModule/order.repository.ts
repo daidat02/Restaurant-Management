@@ -22,6 +22,13 @@ class OrderRepository {
     return await DB_Connection.OrderItem.findByIdAndUpdate(id, itemData, { new: true }).exec();
   }
 
+  /**
+   * Đếm số lượng món ăn trong một đơn hàng theo bộ lọc (Dùng để kiểm tra đơn đã phục vụ toàn bộ hay chưa)
+   */
+  async countOrderItems(filter: FilterQuery<IOrderItemDocument>): Promise<number> {
+    return await DB_Connection.OrderItem.countDocuments(filter).exec();
+  }
+
   // ==========================================
   // II. CORE CRUD (Cơ bản cho Order)
   // ==========================================

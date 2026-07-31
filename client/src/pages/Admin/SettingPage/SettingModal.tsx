@@ -48,7 +48,7 @@ const SettingModal = ({ isOpen, onChangeOpenModal }: SettingModalProps) => {
   const { selectedRestaurant, selectRestaurant } = useRestaurant();
   const { tables, fetchTablesByRestaurant, addTable, editTable } = useTable();
   const { categories, fetchCategories } = useMenu();
-  const { currentSetting, fetchSettingById, editSetting, changePaymentMethodType } = useSetting();
+  const { currentSetting, fetchSettingById, editSetting, changePaymentMethodType, generateKitchenCode } = useSetting();
 
   const [activeTab, setActiveTab] = useState<SettingTab>('profile');
   const [openModalTable, setOpenModalTable] = useState(false);
@@ -305,7 +305,14 @@ const SettingModal = ({ isOpen, onChangeOpenModal }: SettingModalProps) => {
       case 'security':
         return <TabSecurity />;
       case 'system':
-        return <TabSystem data={systemConfig} onChange={setSystemConfig} />;
+        return (
+          <TabSystem
+            data={systemConfig}
+            onChange={setSystemConfig}
+            settingId={currentSetting?._id}
+            onGenerateKitchenCode={generateKitchenCode}
+          />
+        );
       default:
         return null;
     }

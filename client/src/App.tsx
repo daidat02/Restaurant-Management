@@ -32,6 +32,7 @@ import RestaurantsPage from './pages/Admin/RestaurantPage/restaurants';
 import Table from './pages/Admin/TablePage/table';
 import Users from './pages/Admin/UserPage/users';
 import FormMenuItem from './pages/Admin/ProductPage/components/FormCreateItem';
+import { Toaster } from '@/components/ui/sonner';
 import { useDispatch } from 'react-redux';
 import { login, logout } from './redux/slices/authSlice';
 const ProtectedRoute = ({
@@ -191,33 +192,25 @@ export default function App() {
           <Route path="tables" element={<Table />} />
           <Route path="orders" element={<Order />} />
           <Route path="orders/pos" element={<POS />} />
-          <Route path="kds" element={<KitchenOrder />} />
           <Route path="orders/management" element={<OrderManagerment />} />
           <Route path="orders/edit/:id" element={<OrderDetail />} />
           <Route path="reservations" element={<ReservationPage />} />
         </Route>
       </Route>
 
+      {/* ---------------- KDS (MÀN HÌNH BẾP): STANDALONE, VÀO BẰNG MÃ NHÀ BẾP ---------------- */}
+      {/* Không bọc ProtectedRoute vì không cần đăng nhập staff - bảo mật bằng mã nhà bếp */}
       <Route
+        path="/kds"
         element={
-          <ProtectedRoute
-            isAuthenticated={isAuthenticated}
-            userRole={userRole}
-            allowedRoles={['staff', 'manager', 'admin']}
-          />
-        }
-      >
-        {/* Đường dẫn sẽ là phẳng hoàn toàn: http://localhost:3000/kds */}
-        {/* Do KHÔNG CÓ thuộc tính element="Layout..." bọc ngoài, trang này sẽ trắng tinh khôi */}
-        <Route
-          path="/kds"
-          element={
-            <LoadingProvider>
+          <LoadingProvider>
+            <>
               <KitchenOrder />
-            </LoadingProvider>
-          }
-        />
-      </Route>
+              <Toaster />
+            </>
+          </LoadingProvider>
+        }
+      />
     </Routes>
   );
 }

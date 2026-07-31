@@ -131,5 +131,7 @@ export const API_ENDPOINTS = {
       `/settings/get-or-create/${scope}/${targetId}`,
     BASE: (id: string) => `/settings/${id}`,
     UPDATE_PAYMENT: (id: string) => `/settings/${id}/payment-method`,
+    KDS_VERIFY: '/settings/kds/verify',
+    KDS_CODE: (id: string) => `/settings/${id}/kds-code`,
   },
 };

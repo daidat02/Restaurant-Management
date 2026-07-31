@@ -1,102 +1,319 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ChefHat, RefreshCw, WifiOff, LogOut, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { CustomTabs } from '@/components/tabsCustom';
 import { KitchenOrderCard } from './components/KitchenOrderCard';
-import { MOCK_KITCHEN_ORDERS, type MockKitchenOrder } from './components/KitchenOrderCard';
-import { ChefHat, RefreshCw } from 'lucide-react';
+import { KdsGate } from './components/KdsGate';
+import { getKdsActiveOrders, updateKdsItemStatus } from '@/api/kds.api';
+import {
+  clearKdsSession,
+  getKdsSession,
+  isKdsSessionValid,
+  type KdsSession,
+} from '@/utils/kds-session';
+import { socket } from '@/configs/socket.io';
+import type { IOrder, IOrderItem } from '@/types/order.type';
+
+// Đơn thuộc các trạng thái này sẽ tự ẩn khỏi màn hình bếp
+const HIDDEN_STATUSES = ['served', 'paid', 'cancelled', 'delivered'];
+
+type TabId = 'all' | 'dine-in' | 'delivery' | 'to-go';
 
 export default function KitchenOrder() {
-  const [orders, setOrders] = useState<MockKitchenOrder[]>(MOCK_KITCHEN_ORDERS);
-  const [activeTab, setActiveTab] = useState('all');
-
-  const filteredOrders = orders.filter((order) => {
-    if (activeTab === 'all') return true;
-    return order.orderType === activeTab;
+  const [session, setSession] = useState<KdsSession | null>(() => {
+    const s = getKdsSession();
+    return isKdsSessionValid(s) ? s : null;
   });
 
-  const handleCompleteOrder = (orderId: string) => {
-    setOrders((prevOrders) => prevOrders.filter((order) => order._id !== orderId));
+  if (!session) {
+    return <KdsGate onSuccess={setSession} />;
+  }
+
+  return <KitchenDashboard session={session} onSessionExpired={() => setSession(null)} />;
+}
+
+// ==========================================
+// DASHBOARD NHÀ BẾP (Chỉ hiển thị khi đã có phiên hợp lệ)
+// ==========================================
+function KitchenDashboard({
+  session,
+  onSessionExpired,
+}: {
+  session: KdsSession;
+  onSessionExpired: () => void;
+}) {
+  const restaurantId = session.restaurantId;
+  const [orders, setOrders] = useState<IOrder[]>([]);
+  const [activeTab, setActiveTab] = useState<TabId>('all');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isSocketConnected, setIsSocketConnected] = useState(socket.connected);
+
+  const handleSessionExpired = useCallback(() => {
+    clearKdsSession();
+    onSessionExpired();
+    toast.error('Phiên nhà bếp đã hết hạn. Vui lòng nhập mã mới.', { position: 'top-right' });
+  }, [onSessionExpired]);
+
+  const fetchOrders = useCallback(async () => {
+    if (!restaurantId) return;
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const result = await getKdsActiveOrders(restaurantId);
+      setOrders((result || []).filter((o) => !HIDDEN_STATUSES.includes(o.status || '')));
+    } catch (error) {
+      const err = error as { message?: string; status?: number };
+      if (err?.status === 401) {
+        handleSessionExpired();
+        return;
+      }
+      const errMsg = err?.message || 'Không tải được danh sách đơn hàng';
+      setLoadError(errMsg);
+      toast.error(errMsg, { position: 'top-right' });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [restaurantId, handleSessionExpired]);
+
+  // Tải danh sách đơn khi vào phiên
+  useEffect(() => {
+    const load = async () => {
+      await fetchOrders();
+    };
+    void load();
+  }, [fetchOrders]);
+
+  // Xử lý sự kiện realtime từ socket
+  const handleOrderEvent = useCallback(
+    (res: { action: string; orderData?: Partial<IOrder>; itemData?: Partial<IOrderItem> }) => {
+      const { action, orderData, itemData } = res;
+
+      setOrders((prevOrders) => {
+        switch (action) {
+          case 'CREATE': {
+            if (!orderData) return prevOrders;
+            if (String(orderData.restaurant) !== String(restaurantId)) return prevOrders;
+            if (HIDDEN_STATUSES.includes(orderData.status || '')) return prevOrders;
+            if (prevOrders.some((o) => o._id === orderData._id)) return prevOrders;
+            return [orderData as IOrder, ...prevOrders];
+          }
+          case 'ADD_ITEMS':
+          case 'UPDATE_STATUS': {
+            if (!orderData) return prevOrders;
+            if (HIDDEN_STATUSES.includes(orderData.status || '')) {
+              return prevOrders.filter((o) => o._id !== orderData._id);
+            }
+            return prevOrders.map((o) => (o._id === orderData._id ? { ...o, ...orderData } : o));
+          }
+          case 'UPDATE_ITEM': {
+            if (!itemData) return prevOrders;
+            return prevOrders.reduce<IOrder[]>((acc, o) => {
+              const hasItem = o.items?.some((i) => i._id === itemData._id);
+              if (!hasItem) return [...acc, o];
+              const newItems = o.items!.map((i) =>
+                i._id === itemData._id ? { ...i, status: itemData.status } : i,
+              );
+              const allServed =
+                newItems.length > 0 && newItems.every((i) => i.status === 'served');
+              if (allServed) return acc; // Tất cả món đã xong -> tự ẩn card
+              return [...acc, { ...o, items: newItems }];
+            }, []);
+          }
+          case 'CANCEL':
+            return prevOrders.filter((o) => o._id !== orderData?._id);
+          default:
+            return prevOrders;
+        }
+      });
+    },
+    [restaurantId],
+  );
+
+  // Kết nối socket phòng nhà hàng của phiên bếp
+  useEffect(() => {
+    if (!restaurantId) return;
+
+    if (!socket.connected) {
+      socket.connect();
+    }
+
+    socket.emit('init_room_restaurant', restaurantId);
+    socket.emit('join_restaurant', restaurantId);
+
+    const handleConnect = () => {
+      setIsSocketConnected(true);
+      socket.emit('init_room_restaurant', restaurantId);
+      socket.emit('join_restaurant', restaurantId);
+      fetchOrders();
+    };
+    const handleDisconnect = () => setIsSocketConnected(false);
+
+    socket.on('order_event', handleOrderEvent);
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+
+    return () => {
+      socket.off('order_event', handleOrderEvent);
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+      socket.emit('leave_restaurant', restaurantId);
+    };
+  }, [restaurantId, handleOrderEvent, fetchOrders]);
+
+  const handleItemTap = useCallback(
+    async (itemId: string, nextStatus: 'preparing' | 'served') => {
+      try {
+        await updateKdsItemStatus(itemId, nextStatus);
+        // Cập nhật tối ưu local ngay (socket sẽ echo trạng thái mới)
+        setOrders((prevOrders) =>
+          prevOrders.reduce<IOrder[]>((acc, o) => {
+            if (!o.items?.some((i) => i._id === itemId)) return [...acc, o];
+            const newItems = o.items.map((i) =>
+              i._id === itemId ? { ...i, status: nextStatus } : i,
+            );
+            const allServed = newItems.length > 0 && newItems.every((i) => i.status === 'served');
+            if (allServed) return acc;
+            return [...acc, { ...o, items: newItems }];
+          }, []),
+        );
+      } catch (error) {
+        const err = error as { message?: string; status?: number };
+        if (err?.status === 401) {
+          handleSessionExpired();
+        } else {
+          toast.error(err?.message || 'Không cập nhật được trạng thái món', {
+            position: 'top-right',
+          });
+        }
+      }
+    },
+    [handleSessionExpired],
+  );
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchOrders();
+    setIsRefreshing(false);
   };
 
-  const handleResetMockData = () => {
-    setOrders(MOCK_KITCHEN_ORDERS);
+  const handleLogout = () => {
+    clearKdsSession();
+    onSessionExpired();
   };
 
-  const getTabCount = (type: 'all' | 'dine-in' | 'delivery' | 'to-go') => {
+  const filteredOrders = useMemo(() => {
+    if (activeTab === 'all') return orders;
+    return orders.filter((o) => o.orderType === activeTab);
+  }, [orders, activeTab]);
+
+  const getTabCount = (type: TabId) => {
     if (type === 'all') return orders.length;
     return orders.filter((o) => o.orderType === type).length;
   };
 
   return (
-    // THAY ĐỔI: Đổi nền tổng sang màu trắng xám nhẹ hửu ích [#f8fafc], màu chữ đen [text-gray-800]
-    <div className="flex flex-col flex-1 h-screen w-screen bg-[#f8fafc] text-gray-800 overflow-hidden select-none">
-      {/* TOP BAR (Chuyển sang nền trắng, viền xám nhạt nhẹ nhàng) */}
+    <div className="flex flex-col flex-1 h-screen w-screen bg-[#f8f9fc] text-gray-800 overflow-hidden select-none">
+      {/* TOP BAR */}
       <div className="bg-white border-b border-gray-200 px-6 py-3 flex flex-col lg:flex-row lg:items-center justify-between gap-3 shrink-0 shadow-sm z-10">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 bg-emerald-600 rounded-lg text-white">
+          <div className="p-1.5 bg-cerulean-blue-600 rounded-lg text-white">
             <ChefHat className="h-5 w-5" />
           </div>
           <div>
-            {/* THAY ĐỔI: Chữ tiêu đề thu nhỏ text-base thay vì text-lg */}
             <h1 className="text-base font-black tracking-wide text-gray-900 uppercase flex items-center gap-1">
               Màn Hình Nhà Bếp (KDS)
             </h1>
-            {/* THAY ĐỔI: Subtext siêu nhỏ text-[10px] */}
             <p className="text-[10px] text-gray-400 font-medium">
-              Nhà hàng: <span className="text-emerald-600 font-bold">Chef's Choice Central</span> |
+              Nhà hàng:{' '}
+              <span className="text-cerulean-blue-600 font-bold">{session.restaurantName}</span> |
               Chế độ Live-Monitor
             </p>
           </div>
         </div>
 
-        {/* Khu vực Action và Tabs */}
         <div className="flex items-center gap-3 self-end lg:self-auto">
           <button
-            onClick={handleResetMockData}
-            // THAY ĐỔI: Nút chuyển sang phong cách sáng viền mỏng, chữ nhỏ gọn text-[11px]
+            onClick={handleLogout}
             className="px-2.5 py-1.5 bg-white hover:bg-gray-50 border border-gray-200 text-gray-600 rounded-lg transition text-[11px] flex items-center gap-1 font-semibold shadow-sm"
-            title="Khôi phục lại dữ liệu mẫu"
+            title="Thoát phiên nhà bếp"
           >
-            <RefreshCw className="h-3 w-3" />
-            Nạp dữ liệu Test
+            <LogOut className="h-3 w-3" />
+            Thoát phiên
           </button>
 
-          {/* THAY ĐỔI: Hộp bọc tab đổi sang nền xám nhạt tinh tế */}
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="px-2.5 py-1.5 bg-white hover:bg-gray-50 border border-gray-200 text-gray-600 rounded-lg transition text-[11px] flex items-center gap-1 font-semibold shadow-sm disabled:opacity-50"
+            title="Làm mới dữ liệu"
+          >
+            <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+            Làm mới
+          </button>
+
           <div className="bg-gray-50 p-0.5 rounded-lg border border-gray-200">
             <CustomTabs
               tabs={[
-                { id: 'all', label: `Tất cả (${getTabCount('all')})` },
-                { id: 'dine-in', label: `Tại quán (${getTabCount('dine-in')})` },
-                { id: 'delivery', label: `Giao hàng (${getTabCount('delivery')})` },
-                { id: 'to-go', label: `Mang về (${getTabCount('to-go')})` },
+                { id: 'all', label: 'Tất cả', count: getTabCount('all') },
+                { id: 'dine-in', label: 'Tại quán', count: getTabCount('dine-in') },
+                { id: 'delivery', label: 'Giao hàng', count: getTabCount('delivery') },
+                { id: 'to-go', label: 'Mang về', count: getTabCount('to-go') },
               ]}
               activeTab={activeTab}
-              onTabChange={(id) => setActiveTab(id)}
+              onTabChange={(id) => setActiveTab(id as TabId)}
             />
           </div>
         </div>
       </div>
 
-      {/* MAIN PANEL (Nền sáng đồng bộ) */}
-      <div className="flex-1 p-4 overflow-y-auto w-full bg-[#f8fafc]">
-        {/* Giữ nguyên Grid phân chia thông minh lên đến 5 cột trên màn hình siêu lớn */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 items-start">
-          {filteredOrders.map((order) => (
-            <KitchenOrderCard key={order._id} order={order} onCompleteOrder={handleCompleteOrder} />
-          ))}
-
-          {/* TRẠNG THÁI TRỐNG (Đổi phong cách sáng sạch sẽ) */}
-          {filteredOrders.length === 0 && (
-            <div className="col-span-full py-24 flex flex-col items-center justify-center text-gray-400 bg-white rounded-xl border border-dashed border-gray-200 max-w-xl mx-auto w-full px-6 text-center shadow-sm">
-              <div className="h-12 w-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-xl font-bold mb-3 border border-emerald-100">
-                ✓
-              </div>
-              <h3 className="text-sm font-bold text-gray-800 mb-0.5">Bếp Đang Trống Đơn</h3>
-              <p className="text-[11px] text-gray-400 leading-relaxed">
-                Hiện tại không có món ăn nào đang xếp hàng chờ chế biến trong mục này.
-              </p>
-            </div>
-          )}
+      {/* BANNER MẤT KẾT NỐI SOCKET */}
+      {!isSocketConnected && (
+        <div className="bg-rose-50 border-b border-rose-200 px-6 py-2 flex items-center justify-center gap-2 shrink-0">
+          <WifiOff className="h-3.5 w-3.5 text-rose-600" />
+          <span className="text-[11px] font-semibold text-rose-700">
+            Mất kết nối realtime — đang tự động kết nối lại...
+          </span>
         </div>
+      )}
+
+      {/* MAIN PANEL */}
+      <div className="flex-1 p-4 overflow-y-auto w-full bg-[#f8f9fc]">
+        {isLoading && orders.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center gap-3 text-gray-400">
+            <Loader2 className="h-8 w-8 animate-spin text-cerulean-blue-600" />
+            <p className="text-xs font-medium">Đang tải đơn hàng từ bếp...</p>
+          </div>
+        ) : loadError && orders.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-2 h-full text-gray-400">
+            <p className="text-xs font-medium text-rose-600">{loadError}</p>
+            <button
+              onClick={handleRefresh}
+              className="px-3 py-1.5 text-[11px] font-semibold text-white bg-cerulean-blue-600 hover:bg-cerulean-blue-700 rounded-lg transition-colors"
+            >
+              Thử lại
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 items-start">
+            {filteredOrders.map((order) => (
+              <KitchenOrderCard key={order._id} order={order} onItemTap={handleItemTap} />
+            ))}
+
+            {filteredOrders.length === 0 && (
+              <div className="col-span-full py-24 flex flex-col items-center justify-center text-gray-400 bg-white rounded-xl border border-dashed border-gray-200 max-w-xl mx-auto w-full px-6 text-center shadow-sm">
+                <div className="h-12 w-12 bg-cerulean-blue-50 text-cerulean-blue-600 rounded-full flex items-center justify-center text-xl font-bold mb-3 border border-cerulean-blue-100">
+                  ✓
+                </div>
+                <h3 className="text-sm font-bold text-gray-800 mb-0.5">Bếp Đang Trống Đơn</h3>
+                <p className="text-[11px] text-gray-400 leading-relaxed">
+                  Hiện tại không có món ăn nào đang xếp hàng chờ chế biến trong mục này.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

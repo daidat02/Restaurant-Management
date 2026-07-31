@@ -76,3 +76,26 @@ export const deleteSetting = async (id: string) => {
   const res = await axiosClient.delete<any, ApiResponse<any>>(SETTING.BASE(id));
   return res.data;
 };
+
+/**
+ * 7. Xác thực mã nhà bếp để vào màn hình KDS (Public, không cần đăng nhập)
+ */
+export const verifyKitchenCode = async (
+  code: string,
+): Promise<{ token: string; restaurantId: string; restaurantName: string }> => {
+  const res = await axiosClient.post<any, ApiResponse<{ token: string; restaurantId: string; restaurantName: string }>>(
+    SETTING.KDS_VERIFY,
+    { code },
+  );
+  return res.data;
+};
+
+/**
+ * 8. Tạo mã nhà bếp mới (Mã hiển thị đúng 1 lần, tạo mã mới sẽ vô hiệu mã cũ)
+ */
+export const generateKitchenCode = async (id: string): Promise<{ kitchenCode: string }> => {
+  const res = await axiosClient.post<any, ApiResponse<{ kitchenCode: string }>>(
+    SETTING.KDS_CODE(id),
+  );
+  return res.data;
+};

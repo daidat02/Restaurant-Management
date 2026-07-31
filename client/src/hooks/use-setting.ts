@@ -9,6 +9,7 @@ import {
   updateSetting,
   updatePaymentMethodType,
   deleteSetting,
+  generateKitchenCode as generateKitchenCodeApi,
 } from '@/api/setting.api';
 
 import { useGlobalLoading } from '@/components/LoadingOverlay';
@@ -199,6 +200,30 @@ export const useSetting = () => {
     [showLoading, hideLoading, currentSetting],
   );
 
+  /**
+   * Tạo mã nhà bếp mới (Mã hiển thị đúng 1 lần, tạo mã mới sẽ vô hiệu mã cũ)
+   */
+  const generateKitchenCode = useCallback(async (settingId: string) => {
+    if (!settingId) {
+      toast.error('Không tìm thấy cấu hình nhà hàng', { position: 'top-right' });
+      return undefined;
+    }
+    setError(null);
+    try {
+      const result = await generateKitchenCodeApi(settingId);
+      if (result) {
+        toast.success('Tạo mã nhà bếp thành công', { position: 'top-right' });
+        return result;
+      }
+      return undefined;
+    } catch (err: any) {
+      const errMsg = err.message || 'Không thể tạo mã nhà bếp';
+      setError(errMsg);
+      toast.error(errMsg, { position: 'top-right' });
+      return undefined;
+    }
+  }, []);
+
   return {
     // States cung cấp ra màn hình
     settings,
@@ -213,5 +238,6 @@ export const useSetting = () => {
     editSetting,
     changePaymentMethodType,
     removeSetting,
+    generateKitchenCode,
   };
 };

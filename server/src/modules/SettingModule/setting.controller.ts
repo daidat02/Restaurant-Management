@@ -96,6 +96,34 @@ class SettingController {
       res.status(500).json({ message: 'Lỗi server khi cập nhật phương thức thanh toán' });
     }
   }
+
+  /**
+   * Xác thực mã nhà bếp (Cổng vào màn hình KDS, không cần đăng nhập)
+   */
+  async verifyKitchenCode(req: Request, res: Response) {
+    const { code } = req.body;
+    try {
+      const result = await settingService.verifyKitchenCodeService(code);
+      res.status(result.code).json(result);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Lỗi server khi xác thực mã nhà bếp' });
+    }
+  }
+
+  /**
+   * Tạo mã nhà bếp mới (Mã hiển thị đúng 1 lần, tạo mã mới sẽ vô hiệu hóa mã cũ)
+   */
+  async generateKitchenCode(req: Request, res: Response) {
+    const { id } = req.params;
+    try {
+      const result = await settingService.generateKitchenCodeService(id || '');
+      res.status(result.code).json(result);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Lỗi server khi tạo mã nhà bếp' });
+    }
+  }
 }
 
 export default new SettingController();

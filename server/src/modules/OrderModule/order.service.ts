@@ -163,16 +163,45 @@ class OrderService {
       if (!updateItem) return { code: 404, message: 'Không tìm thấy chi tiết món ăn' };
 
       const existingOrder = await orderRepository.findOrderById(updateItem.order.toString());
-      if (existingOrder && existingOrder.status !== 'served') {
-        await orderRepository.updateOrder(existingOrder._id.toString(), { status: 'served' });
-      }
+      const orderRoom = `order_${updateItem.order.toString()}`;
 
       this.emitOrderUpdate({
-        targetRoom: `order_${updateItem.order.toString()}`,
+        targetRoom: orderRoom,
         action: 'UPDATE_ITEM',
         itemData: updateItem,
         message: `Trạng thái món ăn đã được cập nhật thành ${status}`,
       });
+
+      // Đồng bộ trạng thái món ăn tới màn hình bếp (KDS) và màn hình quản lý của nhà hàng
+      if (existingOrder) {
+        const restaurantRoom = `restaurant_${existingOrder.restaurant.toString()}`;
+        this.emitOrderUpdate({
+          targetRoom: restaurantRoom,
+          action: 'UPDATE_ITEM',
+          itemData: updateItem,
+          message: `Trạng thái món ăn đã được cập nhật thành ${status}`,
+        });
+
+        const orderId = existingOrder._id.toString();
+        const totalItems = await orderRepository.countOrderItems({ order: existingOrder._id });
+        const servedItems = await orderRepository.countOrderItems({
+          order: existingOrder._id,
+          status: 'served',
+        });
+
+        // Chỉ tự động hoàn thành đơn khi toàn bộ món ăn đã được phục vụ (served)
+        if (totalItems > 0 && servedItems === totalItems && existingOrder.status !== 'served') {
+          const updatedOrder = await orderRepository.updateOrder(orderId, { status: 'served' });
+          if (updatedOrder) {
+            this.emitOrderUpdate({
+              targetRoom: restaurantRoom,
+              action: 'UPDATE_STATUS',
+              orderData: updatedOrder,
+              message: 'Đơn hàng đã hoàn thành toàn bộ món ăn',
+            });
+          }
+        }
+      }
 
       return { code: 200, message: 'Cập nhật trạng thái món ăn thành công', data: updateItem };
     } catch (error) {
@@ -312,8 +341,29 @@ class OrderService {
     id: string,
     status: string,
   ): Promise<ServiceResponse<IOrderDocument | null>> {
+    const validStatuses: IOrder['status'][] = [
+      'pending',
+      'confirmed',
+      'preparing',
+      'served',
+      'delivered',
+      'paid',
+      'cancelled',
+    ];
+    if (!validStatuses.includes(status as IOrder['status'])) {
+      return { code: 400, message: 'Trạng thái đơn hàng không hợp lệ' };
+    }
+
     const order = await orderRepository.updateOrder(id, { status: status as IOrder['status'] });
     if (!order) return { code: 404, message: 'Không tìm thấy thông tin đơn hàng' };
+
+    // Đồng bộ trạng thái đơn hàng tới màn hình bếp (KDS) và màn hình quản lý của nhà hàng
+    this.emitOrderUpdate({
+      targetRoom: `restaurant_${order.restaurant.toString()}`,
+      action: 'UPDATE_STATUS',
+      orderData: order,
+      message: 'Trạng thái đơn hàng đã được cập nhật',
+    });
 
     return { code: 200, message: 'Cập nhật trạng thái đơn hàng thành công', data: order };
   }
