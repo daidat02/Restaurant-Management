@@ -115,13 +115,13 @@ class ReservationControler {
     }
   }
 
-  async getReservationByRestaurant(req: Request, res: Response) {
-    const { id } = req.params;
+  async getReservationByRestaurant(req: AuthRequest, res: Response) {
+    const restaurantId = req.tenantId;
     const { date, status } = req.query;
     console.log(status);
     try {
       const result = await reservationService.getReservationByRestaurantService(
-        id || '',
+        restaurantId || '',
         date as string,
         status as string,
       );

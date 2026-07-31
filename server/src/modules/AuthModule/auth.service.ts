@@ -5,10 +5,14 @@ import authRepository from './auth.repository.js'; // Nhận instance Singleton 
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
-const generateAccessToken = (userId: string, role: string): string => {
-  return jwt.sign({ _id: userId, role: role }, process.env.JWT_ACCESS_SECRET || '', {
-    expiresIn: '30m',
-  });
+const generateAccessToken = (userId: string, role: string, restaurantId?: string): string => {
+  return jwt.sign(
+    { _id: userId, role: role, restaurantId },
+    process.env.JWT_ACCESS_SECRET || '',
+    {
+      expiresIn: '30m',
+    },
+  );
 };
 
 const generateRefreshToken = (userId: string, role: string): string => {
@@ -45,6 +49,16 @@ class AuthService {
       if (count > 0) return `Vai trò '${role}' không được gán nhà hàng.`;
     }
     return null;
+  }
+
+  /**
+   * Lấy nhà hàng đang hoạt động mặc định (phần tử đầu tiên của restaurantIds, fallback field legacy `restaurant`).
+   */
+  private getActiveRestaurantId(user: IUserDocument): string | undefined {
+    if (user.restaurantIds && user.restaurantIds.length > 0) {
+      return user.restaurantIds[0]!.toString();
+    }
+    return user.restaurant?.toString();
   }
 
   /**
@@ -100,7 +114,11 @@ class AuthService {
       return { message: 'Tài khoản đã bị khóa!', code: 400 };
     }
 
-    const accessToken = generateAccessToken(exitUser._id.toString(), exitUser.role);
+    const accessToken = generateAccessToken(
+      exitUser._id.toString(),
+      exitUser.role,
+      this.getActiveRestaurantId(exitUser),
+    );
     const refreshToken = generateRefreshToken(exitUser._id.toString(), exitUser.role);
 
     const userWithoutPassword = this.serializeUser(exitUser);
@@ -331,9 +349,14 @@ class AuthService {
   }
 
   /**
-   * Cấp lại cặp Token mới bằng Refresh Token
+   * Cấp lại cặp Token mới bằng Refresh Token.
+   * Refresh token không chứa `restaurantId` (không đổi cấu trúc) nên access token mới
+   * lấy restaurantId từ body (tenant đang chọn) hoặc nhà hàng mặc định của user.
    */
-  async refreshTokenService(refreshToken: string): Promise<ServiceResponse<any>> {
+  async refreshTokenService(
+    refreshToken: string,
+    restaurantId?: string,
+  ): Promise<ServiceResponse<any>> {
     if (!refreshToken) {
       return { message: 'Token không được cung cấp!', code: 400 };
     }
@@ -343,7 +366,25 @@ class AuthService {
       const userId = decoded._id;
       const role = decoded.role;
 
-      const newAccessToken = generateAccessToken(userId, role);
+      const user = await authRepository.findUserById(userId);
+      if (!user) {
+        return { message: 'Người dùng không tồn tại!', code: 400 };
+      }
+
+      let activeRestaurantId = restaurantId;
+      if (restaurantId) {
+        // Verify user thuộc nhà hàng được yêu cầu (tránh lạm dụng token refresh để đổi tenant)
+        const belongs =
+          (user.restaurantIds || []).some((id) => id.toString() === restaurantId) ||
+          user.restaurant?.toString() === restaurantId;
+        if (!belongs) {
+          return { message: 'Bạn không thuộc nhà hàng này!', code: 403 };
+        }
+      } else {
+        activeRestaurantId = this.getActiveRestaurantId(user);
+      }
+
+      const newAccessToken = generateAccessToken(userId, role, activeRestaurantId);
       const newRefreshToken = generateRefreshToken(userId, role);
 
       return {
@@ -358,6 +399,29 @@ class AuthService {
       console.error('Error refreshing token:', error);
       return { message: 'Làm mới token thất bại!', code: 401 };
     }
+  }
+
+  /**
+   * Chuyển nhà hàng đang hoạt động (switch tenant) — cấp access token mới mà không cần đăng nhập lại.
+   */
+  async switchTenantService(userId: string, restaurantId: string): Promise<ServiceResponse<any>> {
+    const user = await authRepository.findUserById(userId);
+    if (!user) {
+      return { message: 'Không tìm thấy người dùng!!!', code: 400 };
+    }
+    if (!restaurantId) {
+      return { message: 'Thiếu restaurantId!', code: 400 };
+    }
+
+    const belongs =
+      (user.restaurantIds || []).some((id) => id.toString() === restaurantId) ||
+      user.restaurant?.toString() === restaurantId;
+    if (!belongs) {
+      return { message: 'Bạn không thuộc nhà hàng này!', code: 403 };
+    }
+
+    const accessToken = generateAccessToken(user._id.toString(), user.role, restaurantId);
+    return { message: 'Chuyển nhà hàng thành công!', data: { accessToken }, code: 200 };
   }
 }
 

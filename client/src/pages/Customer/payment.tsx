@@ -82,8 +82,13 @@ export default function PaymentPage() {
     }));
 
     try {
+      // Nhà hàng lấy từ ngữ cảnh user hoặc URL (?restaurantId=...) — không hardcode
       const createPayload: IOrder = {
-        restaurant: '69fccba996a14809070b9ef2',
+        restaurant:
+          extractId(user?.restaurant) ||
+          extractId(user?.restaurantIds?.[0]) ||
+          new URLSearchParams(window.location.search).get('restaurantId') ||
+          '',
         items: formattedItems,
         totalAmount: totalAmount,
         orderType: 'delivery',

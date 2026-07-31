@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { verifyRole, verifyToken } from '../../middlewares/auth.middleware.js';
+import { verifyRole, verifyTenant, verifyToken } from '../../middlewares/auth.middleware.js';
 import orderController from './order.controller.js';
 
 const router = Router();
@@ -10,9 +10,19 @@ router.post('/item/:itemId/:status', verifyToken, orderController.updateOrederIt
 
 router.get('/my-orders', verifyToken, verifyRole(['customer']), orderController.getMyOrders);
 router.get('/:id', verifyToken, orderController.getDetailOrder);
-router.get('/restaurant/:id/:status', verifyToken, orderController.getAllOrderStatusByRestaurant);
-router.get('/restaurant/:id', verifyToken, orderController.getAllOrderByRestaurant);
-router.get('/active/:restaurantId', verifyToken, orderController.getActiveOrders);
+router.get(
+  '/restaurant/:id/:status',
+  verifyToken,
+  verifyTenant,
+  orderController.getAllOrderStatusByRestaurant,
+);
+router.get(
+  '/restaurant/:id',
+  verifyToken,
+  verifyTenant,
+  orderController.getAllOrderByRestaurant,
+);
+router.get('/active/:restaurantId', verifyToken, verifyTenant, orderController.getActiveOrders);
 router.get('/table/:tableId', orderController.getOrderByTableId);
 
 router.put('/:id', verifyToken, verifyRole(['staff', 'manager']), orderController.updateOrder);

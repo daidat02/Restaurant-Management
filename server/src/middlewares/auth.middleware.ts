@@ -7,7 +7,9 @@ import dotenv from "dotenv";
 dotenv.config();
 
 export interface AuthRequest extends Request {
-  user?: JwtPayload & { userId: string , role: string };
+  user?: JwtPayload & { userId: string; role: string; restaurantId?: string };
+  /** Nhà hàng đang hoạt động (được xác thực từ token, hoặc do super-admin chỉ định). */
+  tenantId?: string;
 }
 
 export interface SocketCustom extends Socket{
@@ -39,13 +41,17 @@ export const verifyToken = async (
         }
 
         // Kiểm tra _id trong decoded
-        const { _id, role } = decoded as JwtPayload & { _id: string, role: string };
+        const { _id, role, restaurantId } = decoded as JwtPayload & {
+          _id: string;
+          role: string;
+          restaurantId?: string;
+        };
         if (!_id) {
           return res.status(403).json({ message: "Token không chứa _id hợp lệ!" });
         }
         
         // Gán _id vào req.user.userId
-        req.user = { userId: _id , role: role };
+        req.user = { userId: _id, role: role, ...(restaurantId ? { restaurantId } : {}) };
         next(); 
       }
     );
@@ -57,11 +63,69 @@ export const verifyToken = async (
 
 export const verifyRole = (roles: string[]) => {
   return (req: any, res: Response, next: NextFunction) => {
-    if (req.user && roles.includes(req.user.role)) {
+    // super-admin luôn vượt qua kiểm tra vai trò (quản lý chéo mọi tenant)
+    if (req.user && (req.user.role === "super-admin" || roles.includes(req.user.role))) {
       return next();
     }
     return res.status(403).json({ message: "Bạn không có quyền truy cập!" });
   };
+};
+
+
+/**
+ * Xác minh ngữ cảnh nhà hàng (tenant) cho request.
+ * - Admin/manager/staff: lấy restaurantId từ token (claim `restaurantId`), kiểm tra user thực sự thuộc nhà hàng đó,
+ *   gán `req.tenantId`. Chặn mọi request dùng restaurantId của nhà hàng khác.
+ * - super-admin: bypass — `req.tenantId` lấy từ query/params/body (để quản lý chéo mọi tenant).
+ */
+export const verifyTenant = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const role = req.user?.role;
+    const tokenRestaurantId = req.user?.restaurantId;
+
+    // super-admin: tenant do chính request chỉ định
+    if (role === "super-admin") {
+      req.tenantId = String(
+        req.query.restaurantId ||
+          req.params.restaurantId ||
+          req.params.id ||
+          req.params.targetId ||
+          req.body?.restaurant ||
+          req.body?.restaurantId ||
+          "",
+      );
+      return next();
+    }
+
+    if (!tokenRestaurantId) {
+      return res
+        .status(403)
+        .json({ message: "Thiếu ngữ cảnh nhà hàng trong token. Hãy đăng nhập lại hoặc chuyển nhà hàng!" });
+    }
+
+    const user = await DB_Connection.User.findById(req.user?.userId).select("restaurantIds role restaurant").exec();
+    if (!user) {
+      return res.status(401).json({ message: "Người dùng không tồn tại!" });
+    }
+    if (user.role === "super-admin") {
+      req.tenantId = tokenRestaurantId;
+      return next();
+    }
+
+    // fallback `restaurant` legacy cho dữ liệu chưa backfill (sẽ dọn ở ticket 03)
+    const belongs =
+      (user.restaurantIds || []).some((id: any) => id.toString() === tokenRestaurantId) ||
+      user.restaurant?.toString() === tokenRestaurantId;
+    if (!belongs) {
+      return res.status(403).json({ message: "Bạn không thuộc nhà hàng này!" });
+    }
+
+    req.tenantId = tokenRestaurantId;
+    return next();
+  } catch (error) {
+    console.error("verifyTenant error:", error);
+    return res.status(500).json({ message: "Lỗi xác thực nhà hàng!" });
+  }
 };
 
 

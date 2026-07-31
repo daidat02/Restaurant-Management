@@ -1,12 +1,13 @@
 import notificationService from "./notification.service.js";
 import type { Request, Response } from "express";
+import type { AuthRequest } from "../../middlewares/auth.middleware.js";
 
 class NotificationController {
   // [GET] /api/notifications?page=1&limit=20
-  async getMyNotifications(req: Request, res: Response) {
+  async getMyNotifications(req: AuthRequest, res: Response) {
     try {
-      // Lấy restaurantId từ User đã đăng nhập (được gán từ middleware auth)
-      const {restaurantId} = req.params;
+      // Lấy restaurantId từ ngữ cảnh tenant đã xác thực (req.tenantId)
+      const restaurantId = req.tenantId;
       
       if (!restaurantId) {
         return res.status(400).json({ code: 400, message: "Tài khoản không thuộc nhà hàng nào" });
@@ -35,9 +36,9 @@ class NotificationController {
   }
 
   // [POST] /api/notifications/read-all
-  async markAllAllRead(req: Request, res: Response) {
+  async markAllAllRead(req: AuthRequest, res: Response) {
     try {
-      const {restaurantId} = req.params
+      const restaurantId = req.tenantId
 
       if (!restaurantId) {
         return res.status(400).json({ code: 400, message: "Không tìm thấy thông tin nhà hàng" });

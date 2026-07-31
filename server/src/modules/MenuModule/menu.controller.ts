@@ -1,9 +1,12 @@
 import type { Request, Response } from 'express';
+import type { AuthRequest } from '../../middlewares/auth.middleware.js';
 import menuService from './menu.service.js';
 
 class MenuController {
-  async createMenuCat(req: Request, res: Response) {
+  async createMenuCat(req: AuthRequest, res: Response) {
     const menuCatData = req.body;
+    // Nhà hàng lấy từ ngữ cảnh tenant đã xác thực (không tin body)
+    menuCatData.restaurant = req.tenantId;
     try {
       const result = await menuService.createMenuCat(menuCatData);
       res.status(result.code).json(result);
@@ -41,8 +44,10 @@ class MenuController {
   // MENU ITEM CONTROLLER
   // ==========================================
 
-  async createMenuItem(req: Request, res: Response) {
+  async createMenuItem(req: AuthRequest, res: Response) {
     const menuItemData = req.body;
+    // Nhà hàng lấy từ ngữ cảnh tenant đã xác thực (không tin body)
+    menuItemData.restaurant = req.tenantId;
     try {
       const result = await menuService.createMenuItem(menuItemData);
       res.status(result.code).json(result);

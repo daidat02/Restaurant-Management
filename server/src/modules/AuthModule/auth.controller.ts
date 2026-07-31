@@ -56,6 +56,7 @@ class AuthController {
   async refreshToken(req: Request, res: Response) {
     try {
       const refreshToken = req.cookies.refreshToken;
+      const { restaurantId } = req.body;
 
       if (!refreshToken) {
         return res
@@ -63,7 +64,7 @@ class AuthController {
           .json({ success: false, message: 'Không tìm thấy Refresh Token trong Cookie' });
       }
 
-      const result = await authService.refreshTokenService(refreshToken);
+      const result = await authService.refreshTokenService(refreshToken, restaurantId);
 
       if (result.code !== 200 || !result.data) {
         res.clearCookie('refreshToken');
@@ -214,7 +215,6 @@ class AuthController {
   async getUsersWithFilter(req: AuthRequest, res: Response) {
     try {
       const queryRoles = req.query.roles;
-      const { restaurantId } = req.query;
 
       // Chuyển đổi query thành mảng string kể cả khi FE chỉ truyền 1 role (ví dụ: ?roles=customer)
       const roles = Array.isArray(queryRoles)
@@ -223,11 +223,27 @@ class AuthController {
           ? [queryRoles as string]
           : [];
 
-      const result = await authService.getUsersByRolesService(roles, restaurantId as string);
+      // Nhà hàng lấy từ ngữ cảnh tenant đã xác thực (không tin query)
+      const result = await authService.getUsersByRolesService(roles, req.tenantId);
       return res.status(result.code).json(result);
     } catch (error) {
       console.error('Error fetching users:', error);
       return res.status(500).json({ message: 'Lỗi server khi lấy danh sách người dùng' });
+    }
+  }
+
+  /**
+   * Chuyển nhà hàng đang hoạt động (switch tenant) — trả access token mới
+   */
+  async switchTenant(req: AuthRequest, res: Response) {
+    const { restaurantId } = req.body;
+    try {
+      const userId = req.user?.userId;
+      const result = await authService.switchTenantService(userId || '', restaurantId);
+      return res.status(result.code).json(result);
+    } catch (error) {
+      console.error('Error switching tenant:', error);
+      return res.status(500).json({ message: 'Lỗi server khi chuyển nhà hàng' });
     }
   }
 }

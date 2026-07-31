@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import SettingController from './setting.controller.js';
-import { verifyRole, verifyToken } from '../../middlewares/auth.middleware.js';
+import { verifyRole, verifyTenant, verifyToken } from '../../middlewares/auth.middleware.js';
 
 const router = Router();
 
@@ -15,6 +15,7 @@ router.post(
   '/:id/kds-code',
   verifyToken,
   verifyRole(['admin', 'manager']),
+  verifyTenant,
   SettingController.generateKitchenCode,
 );
 
@@ -22,6 +23,7 @@ router.get(
   '/get-or-create/:scope/:model/:targetId',
   verifyToken,
   verifyRole(['admin']),
+  verifyTenant,
   SettingController.getOrCreateSetting,
 );
 
@@ -30,6 +32,7 @@ router.get(
   '/:id',
   verifyToken,
   verifyRole(['admin', 'manager', 'staff']),
+  verifyTenant,
   SettingController.getSettingById,
 );
 

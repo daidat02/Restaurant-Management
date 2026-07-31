@@ -1,14 +1,16 @@
 import analyticService from './analytic.service.js';
 import type { Request, Response } from 'express';
+import type { AuthRequest } from '../../middlewares/auth.middleware.js';
 
 class AnalyticController {
   /**
    * API Endpoint: GET /api/v1/analytics/overview
    * Lấy số liệu thống kê tổng quan kèm so sánh tăng trưởng với kỳ trước
    */
-  async getOverviewStats(req: Request, res: Response): Promise<Response> {
+  async getOverviewStats(req: AuthRequest, res: Response): Promise<Response> {
     try {
-      const { restaurantId, startDate, endDate } = req.query;
+      const { startDate, endDate } = req.query;
+      const restaurantId = req.tenantId;
       // 1. Kiểm tra các tham số bắt buộc phải có
       if (!startDate || !endDate) {
         return res.status(400).json({
@@ -56,9 +58,10 @@ class AnalyticController {
     }
   }
 
-  async getRevenueHourly(req: Request, res: Response): Promise<Response> {
+  async getRevenueHourly(req: AuthRequest, res: Response): Promise<Response> {
     try {
-      const { restaurantId, startDate, endDate } = req.query;
+      const { startDate, endDate } = req.query;
+      const restaurantId = req.tenantId;
 
       // 1. Kiểm tra tham số đầu vào bắt buộc
       if (!startDate || !endDate) {
@@ -100,9 +103,10 @@ class AnalyticController {
       });
     }
   }
-  async getOrderChannels(req: Request, res: Response): Promise<Response> {
+  async getOrderChannels(req: AuthRequest, res: Response): Promise<Response> {
     try {
-      const { restaurantId, startDate, endDate } = req.query;
+      const { startDate, endDate } = req.query;
+      const restaurantId = req.tenantId;
 
       if (!startDate || !endDate) {
         return res.status(400).json({

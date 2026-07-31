@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import reservationController from './reservation.controller.js';
-import { verifyRole, verifyToken } from '../../middlewares/auth.middleware.js';
+import { verifyRole, verifyTenant, verifyToken } from '../../middlewares/auth.middleware.js';
 
 const router = Router();
 
@@ -19,6 +19,7 @@ router.get(
   '/:id/restaurant',
   verifyToken,
   verifyRole(['staff', 'manager']),
+  verifyTenant,
   reservationController.getReservationByRestaurant,
 );
 router.get(

@@ -1,5 +1,6 @@
 import TableService from './table.service.js';
 import type { Request, Response } from 'express';
+import type { AuthRequest } from '../../middlewares/auth.middleware.js';
 
 const tableService = new TableService();
 
@@ -43,8 +44,8 @@ class TableController {
       res.status(500).json({ message: 'Lỗi server khi xóa bàn' });
     }
   }
-  async getTablesByRestaurant(req: Request, res: Response) {
-    const { restaurantId } = req.params;
+  async getTablesByRestaurant(req: AuthRequest, res: Response) {
+    const restaurantId = req.tenantId;
     try {
       const result = await tableService.findTablesByRestaurantService(restaurantId || '');
       res.status(result.code).json(result);

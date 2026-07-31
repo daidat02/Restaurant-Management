@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import TableController from './table.controller.js';
-import { verifyRole, verifyToken } from '../../middlewares/auth.middleware.js';
+import { verifyRole, verifyTenant, verifyToken } from '../../middlewares/auth.middleware.js';
 
 const router = Router();
 
@@ -12,6 +12,7 @@ router.get(
   '/restaurant/:restaurantId',
   verifyToken,
   verifyRole(['admin', 'staff', 'manager']),
+  verifyTenant,
   TableController.getTablesByRestaurant,
 );
 router.patch(

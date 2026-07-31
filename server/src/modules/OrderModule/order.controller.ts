@@ -3,7 +3,6 @@ import type { AuthRequest } from '../../middlewares/auth.middleware.js';
 import orderService from './order.service.js';
 import { getIO } from '../../configs/socketsConfig.js';
 import notificationRepository from '../Notification/notification.repository.js';
-import { Types } from 'mongoose';
 import { generateId } from '../../configs/constants.js';
 
 class OrderController {
@@ -55,17 +54,17 @@ class OrderController {
   }
 
   async getAllOrderByRestaurant(req: AuthRequest, res: Response) {
-    const { id } = req.params;
+    const restaurantId = req.tenantId;
     try {
-      const result = await orderService.getAllOrderByRestaurant(id || '');
+      const result = await orderService.getAllOrderByRestaurant(restaurantId || '');
       res.status(result.code).json(result);
     } catch (error) {
       res.status(500).json({ message: 'Lỗi server...' });
     }
   }
-  async getActiveOrders(req: Request, res: Response) {
+  async getActiveOrders(req: AuthRequest, res: Response) {
     try {
-      const { restaurantId } = req.params;
+      const restaurantId = req.tenantId;
 
       const orders = await orderService.getActiveOrdersService(restaurantId || '');
 
@@ -84,10 +83,14 @@ class OrderController {
   }
 
   async getAllOrderStatusByRestaurant(req: AuthRequest, res: Response) {
-    const { id, status } = req.params;
+    const { status } = req.params;
+    const restaurantId = req.tenantId;
     console.log('status:', status);
     try {
-      const result = await orderService.getAllOrderByStatusByRestaurant(id || '', status || '');
+      const result = await orderService.getAllOrderByStatusByRestaurant(
+        restaurantId || '',
+        status || '',
+      );
       res.status(result.code).json(result);
     } catch (error) {
       res.status(500).json({ message: 'Lỗi server...' });

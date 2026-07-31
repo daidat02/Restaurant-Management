@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import menuController from './menu.controller.js';
-import { verifyToken, verifyRole } from '../../middlewares/auth.middleware.js';
+import { verifyRole, verifyTenant, verifyToken } from '../../middlewares/auth.middleware.js';
 
 const router = Router();
 
@@ -9,6 +9,7 @@ router.post(
   '/category',
   verifyToken,
   verifyRole(['manager', 'admin']),
+  verifyTenant,
   menuController.createMenuCat,
 );
 router.put(
@@ -20,7 +21,13 @@ router.put(
 router.get('/category/:restaurantId', menuController.findAllMenuCat);
 
 // Menu Item
-router.post('/item', verifyToken, verifyRole(['manager']), menuController.createMenuItem);
+router.post(
+  '/item',
+  verifyToken,
+  verifyRole(['manager']),
+  verifyTenant,
+  menuController.createMenuItem,
+);
 router.put(
   '/item/:id',
   verifyToken,

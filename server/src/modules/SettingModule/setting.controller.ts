@@ -1,5 +1,6 @@
 import SettingService from './setting.service.js';
 import type { Request, Response } from 'express';
+import type { AuthRequest } from '../../middlewares/auth.middleware.js';
 
 const settingService = new SettingService();
 
@@ -18,10 +19,11 @@ class SettingController {
     }
   }
 
-  async getSettingById(req: Request, res: Response) {
-    const { id } = req.params;
+  async getSettingById(req: AuthRequest, res: Response) {
+    // Nhà hàng lấy từ ngữ cảnh tenant đã xác thực (không tin params.id)
+    const restaurantId = req.tenantId;
     try {
-      const result = await settingService.findSettingByRestaurantIdService(id || '');
+      const result = await settingService.findSettingByRestaurantIdService(restaurantId || '');
       res.status(result.code).json(result);
     } catch (error) {
       console.error(error);
@@ -63,13 +65,15 @@ class SettingController {
    * Lấy hoặc Khởi tạo nhanh cấu hình theo scope và targetId
    * API này cực kỳ phù hợp khi tab Cài đặt ở Front-end được click mở ra
    */
-  async getOrCreateSetting(req: Request, res: Response) {
+  async getOrCreateSetting(req: AuthRequest, res: Response) {
     const { scope, model, targetId } = req.params; // Hoặc lấy từ req.query tùy theo cách bạn thiết kế Route
     try {
+      // Với setting của nhà hàng, targetId lấy từ ngữ cảnh tenant đã xác thực
+      const effectiveTargetId = model === 'Restaurant' ? req.tenantId : targetId;
       const result = await settingService.getOrCreateSettingService(
         scope as 'admin' | 'restaurant',
         model as 'User' | 'Restaurant',
-        targetId || '',
+        effectiveTargetId || '',
       );
       res.status(result.code).json(result);
     } catch (error) {
@@ -114,10 +118,11 @@ class SettingController {
   /**
    * Tạo mã nhà bếp mới (Mã hiển thị đúng 1 lần, tạo mã mới sẽ vô hiệu hóa mã cũ)
    */
-  async generateKitchenCode(req: Request, res: Response) {
-    const { id } = req.params;
+  async generateKitchenCode(req: AuthRequest, res: Response) {
+    // Nhà hàng lấy từ ngữ cảnh tenant đã xác thực (không tin params.id)
+    const restaurantId = req.tenantId;
     try {
-      const result = await settingService.generateKitchenCodeService(id || '');
+      const result = await settingService.generateKitchenCodeService(restaurantId || '');
       res.status(result.code).json(result);
     } catch (error) {
       console.error(error);

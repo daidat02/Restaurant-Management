@@ -85,7 +85,10 @@ export default function App() {
   const userRole = user?.role || '';
   const { startListeningSocket } = useSocket(socket);
   useEffect(() => {
-    const resId = isAuthenticated ? extractId(user?.restaurant) : '69fccba996a14809070b9ef2';
+    // Khách chưa đăng nhập lấy nhà hàng từ URL (?restaurantId=...) — QR scan-to-order
+    const resId = isAuthenticated
+      ? extractId(user?.restaurant) || extractId(user?.restaurantIds?.[0])
+      : new URLSearchParams(window.location.search).get('restaurantId') || '';
 
     if (resId) {
       startListeningSocket(resId);
