@@ -11,6 +11,8 @@ import { Notification } from './Schema/NotificationSchema.js';
 import { Payment } from './Schema/PaymentSchema.js';
 import { MenuItem } from './Schema/MenuItemSchema.js';
 import { Setting } from './Schema/SettingSchema.js';
+import { Transaction } from './Schema/TransactionSchema.js';
+import { PricingConfig } from './Schema/PricingConfigSchema.js';
 
 interface IDBConnection {
   User: Model<any>;
@@ -25,6 +27,8 @@ interface IDBConnection {
   Payment: Model<any>;
   MenuItem: Model<any>;
   Setting: Model<any>;
+  Transaction: Model<any>;
+  PricingConfig: Model<any>;
 }
 
 const DB_Connection: IDBConnection = {
@@ -40,6 +44,8 @@ const DB_Connection: IDBConnection = {
   Payment: Payment,
   MenuItem: MenuItem,
   Setting: Setting,
+  Transaction: Transaction,
+  PricingConfig: PricingConfig,
 };
 
 export default DB_Connection;
