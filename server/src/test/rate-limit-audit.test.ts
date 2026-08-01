@@ -19,9 +19,9 @@ describe('T05 — Rate limit + Audit log', () => {
         password: 'Test@NhamNhi2026',
         role: 'customer',
       });
-      const log = await DB_Connection.AuditLog.findOne({ action: 'user.register' })
+      const log = (await DB_Connection.AuditLog.findOne({ action: 'user.register' })
         .sort({ createdAt: -1 })
-        .lean();
+        .lean()) as any;
       expect(log).toBeTruthy();
       expect(log?.targetType).toBe('user');
       expect(log?.summary).toContain('Đăng ký');
@@ -38,9 +38,9 @@ describe('T05 — Rate limit + Audit log', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .send({ restaurantId: Y });
 
-      const log = await DB_Connection.AuditLog.findOne({ action: 'user.switch-tenant' })
+      const log = (await DB_Connection.AuditLog.findOne({ action: 'user.switch-tenant' })
         .sort({ createdAt: -1 })
-        .lean();
+        .lean()) as any;
       expect(log).toBeTruthy();
       expect(idOf(log?.restaurant)).toBe(Y);
       expect(idOf(log?.actor)).toBe(idOf(SEED_IDS.adminX));
@@ -52,9 +52,9 @@ describe('T05 — Rate limit + Audit log', () => {
         .set('Authorization', `Bearer ${superAdmin()}`)
         .send({ status: 'inactive' });
 
-      const log = await DB_Connection.AuditLog.findOne({ action: 'restaurant.lock' })
+      const log = (await DB_Connection.AuditLog.findOne({ action: 'restaurant.lock' })
         .sort({ createdAt: -1 })
-        .lean();
+        .lean()) as any;
       expect(log).toBeTruthy();
       expect(idOf(log?.restaurant)).toBe(Y);
     });
@@ -64,11 +64,11 @@ describe('T05 — Rate limit + Audit log', () => {
         .post(`/api/settings/${idOf(SEED_IDS.settingX)}/kds-code`)
         .set('Authorization', `Bearer ${adminX()}`);
 
-      const log = await DB_Connection.AuditLog.findOne({
+      const log = (await DB_Connection.AuditLog.findOne({
         action: 'setting.kds-code.generate',
       })
         .sort({ createdAt: -1 })
-        .lean();
+        .lean()) as any;
       expect(log).toBeTruthy();
       expect(idOf(log?.restaurant)).toBe(X);
     });

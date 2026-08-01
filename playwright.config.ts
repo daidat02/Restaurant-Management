@@ -1,10 +1,11 @@
 import { defineConfig } from '@playwright/test';
 
-// CI chạy server test (Mongo Memory Server + seed) thay vì server dev (DB thật)
+// E2E luôn chạy server test (Mongo Memory Server + seed) trên port riêng 8100
+// để không đụng server dev (DB thật) đang chạy trên 8000.
 const serverCommand =
   process.env.E2E_SERVER === 'test'
-    ? 'npm --prefix server run start:test'
-    : 'npm --prefix server run dev';
+    ? 'PORT=8100 npm --prefix server run start:test'
+    : 'PORT=8100 npm --prefix server run dev';
 
 export default defineConfig({
   testDir: './e2e',
@@ -20,14 +21,14 @@ export default defineConfig({
   webServer: [
     {
       command: serverCommand,
-      url: 'http://localhost:8000/api/auth/profile/me',
-      reuseExistingServer: true,
+      url: 'http://localhost:8100/api/auth/profile/me',
+      reuseExistingServer: false,
       timeout: 90_000,
     },
     {
-      command: 'npm --prefix client run dev',
+      command: 'VITE_SERVER_BASE_URL=http://localhost:8100 npm --prefix client run dev',
       url: 'http://localhost:5173',
-      reuseExistingServer: true,
+      reuseExistingServer: false,
       timeout: 90_000,
     },
   ],

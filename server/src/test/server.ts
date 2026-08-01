@@ -1,4 +1,4 @@
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import http from 'http';
 import dotenv from 'dotenv';
@@ -12,12 +12,28 @@ dotenv.config();
 if (!process.env.JWT_ACCESS_SECRET) process.env.JWT_ACCESS_SECRET = 'e2e-access-secret';
 if (!process.env.JWT_REFRESH_SECRET) process.env.JWT_REFRESH_SECRET = 'e2e-refresh-secret';
 
+// E2E không nên bị rate limit chặn
+if (process.env.RATE_LIMIT_ENABLED === undefined) process.env.RATE_LIMIT_ENABLED = 'false';
+
 const port = Number(process.env.PORT || 8000);
 
-// E2E dùng Mongo Memory Server + seed dữ liệu chuẩn — KHÔNG đụng DB thật
-const mongod = await MongoMemoryServer.create();
+// E2E dùng Mongo Memory Server (replica set — OrderService dùng transaction) + seed dữ liệu chuẩn — KHÔNG đụng DB thật
+const mongod = await MongoMemoryReplSet.create({
+  replSet: { count: 1 },
+  instanceOpts: [
+    {
+      args: [
+        '--setParameter',
+        'maxTransactionLockRequestTimeoutMillis=5000',
+        '--setParameter',
+        'transactionLifetimeLimitSeconds=60',
+      ],
+    },
+  ],
+});
 await mongoose.connect(mongod.getUri());
 await seedDatabase();
+await mongoose.connection.syncIndexes();
 
 const app = createApp();
 const server = http.createServer(app);
