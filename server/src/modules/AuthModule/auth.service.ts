@@ -4,6 +4,7 @@ import type { ServiceResponse } from '../../shared/type.js';
 import authRepository from './auth.repository.js'; // Nhận instance Singleton trực tiếp, không cần 'new'
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import DB_Connection from '../../models/DB_Connection.js';
 
 const generateAccessToken = (userId: string, role: string, restaurantId?: string): string => {
   return jwt.sign(
@@ -277,7 +278,24 @@ class AuthService {
       return { message: error, code: 400 };
     }
 
-    // Loại bỏ field legacy `restaurant` khỏi body để DB mới chỉ lưu restaurantIds
+    // Kiểm tra hạn mức user theo gói cước của tenant
+    const tenantId = restaurantIds[0]?.toString();
+    if (tenantId) {
+      const { PLAN_LIMITS } = await import('../../configs/constants.js');
+      const restaurant = (await DB_Connection.Restaurant.findById(tenantId)
+        .select('plan')
+        .lean()) as { plan?: string } | null;
+      const plan = restaurant?.plan || 'free';
+      const maxUsers = PLAN_LIMITS[plan as keyof typeof PLAN_LIMITS]?.maxUsers ?? Infinity;
+      const currentCount = await authRepository.countStaffByTenant(tenantId);
+      if (currentCount >= maxUsers) {
+        return {
+          message: `Đã đạt giới hạn ${maxUsers} nhân sự của gói ${plan === 'free' ? 'Miễn phí' : 'Pro'}. Vui lòng nâng cấp.`,
+          code: 403,
+        };
+      }
+    }
+
     const { restaurant: _legacyRestaurant, ...rest } = userData;
     const createData: Partial<IUser> = {
       ...rest,

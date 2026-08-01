@@ -4,7 +4,18 @@
 
 **Blocked by:** 04 — Đóng lỗ hổng tenant; (07 — wizard onboarding nên xong trước để tạo tenant có plan).
 
-**Status:** ready-for-agent
+**Status:** done
+
+## Kết quả (đã implement)
+- **Quyết định khi làm** (hỏi user): **bỏ enforce hạn mức nhà hàng** (free=1 cơ sở) để không phá wizard E2E (admin seed sẵn 2 cơ sở); test hạn mức order dùng insertMany 500 đơn thẳng vào DB; đổi plan có audit log.
+- **Server**:
+  - `RestaurantSchema` thêm `plan: 'free'|'pro'` (default free); seed tenant X, Y = `pro`; client type `IRestaurant.plan` đồng bộ.
+  - `PLAN_LIMITS` trong `configs/constants.ts`: free = 5 user, 500 order/tháng; pro = ∞.
+  - `createStaffService` chặn 403 khi tenant free đã đủ 5 nhân sự (`authRepository.countStaffByTenant`).
+  - `createOrderService` + `checkOrderLimit` chặn 403 khi tenant free vượt 500 order/tháng (tính theo `createdAt >= đầu tháng`).
+  - API `PATCH /restaurants/plan/:id` (super-admin): validate gói, trả oldPlan, ghi audit log `restaurant.plan.change` (pattern ticket 05).
+- **Client**: SuperAdmin Restaurants thêm cột Plan (badge Free/Pro) + nút Crown đổi gói có dialog xác nhận; `updateRestaurantPlan` trong hook + API.
+- **Test**: `server/src/test/plans-limits.test.ts` 9 test (đổi gói + role guard + gói invalid + audit log + hạn mức user free 5 + nâng pro mở lại + hạn mức order 500 + nâng pro tạo được + tenant khác không bị ảnh hưởng). Full suite 148/148 + `tsc --noEmit` sạch 2 phía.
 
 Chi tiết kỹ thuật:
 
@@ -31,7 +42,7 @@ Chi tiết kỹ thuật:
 - Nâng lên pro → hết chặn.
 - Super-admin đổi plan được.
 
-- [ ] Field `plan` + hạn mức enforce đúng (user/order/nhà hàng).
-- [ ] Super-admin đổi plan → hạn mức cập nhật.
-- [ ] Tenant test không bị chặn ngầm (set plan phù hợp trong seed).
-- [ ] Không thu phí tự động (chỉ ghi nhận cho giai đoạn sau).
+- [x] Field `plan` + hạn mức enforce đúng (user/order; nhà hàng bỏ enforce theo quyết định — xem Kết quả).
+- [x] Super-admin đổi plan → hạn mức cập nhật (enforce đọc plan tại thời điểm tạo tài nguyên).
+- [x] Tenant test không bị chặn ngầm (seed X, Y = `pro`).
+- [x] Không thu phí tự động (chỉ ghi nhận cho giai đoạn sau).

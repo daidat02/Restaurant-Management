@@ -111,6 +111,32 @@ class RestaurantController {
       res.status(500).json({ message: 'Lỗi server khi cập nhật trạng thái nhà hàng' });
     }
   }
+  /**
+   * Đổi gói cước nhà hàng (chỉ super-admin): cập nhật field `plan` = 'free' | 'pro'.
+   */
+  async updateRestaurantPlan(req: AuthRequest, res: Response) {
+    const { id } = req.params;
+    const { plan } = req.body;
+    try {
+      const result = await restaurantService.updateRestaurantPlanService(id || '', plan);
+      if (result.code === 200) {
+        await writeAuditLog({
+          action: 'restaurant.plan.change',
+          restaurant: id || null,
+          actor: req.user?.userId || null,
+          actorInfo: { name: req.user?.name, role: req.user?.role },
+          targetType: 'restaurant',
+          targetId: id || null,
+          summary: `Đổi gói cước nhà hàng ${id} từ ${result.oldPlan || 'free'} sang ${plan}`,
+          meta: { oldPlan: result.oldPlan || 'free', newPlan: plan },
+        });
+      }
+      res.status(result.code).json(result);
+    } catch (error) {
+      console.error('Error updating restaurant plan:', error);
+      res.status(500).json({ message: 'Lỗi server khi đổi gói cước nhà hàng' });
+    }
+  }
 }
 
 export default new RestaurantController();

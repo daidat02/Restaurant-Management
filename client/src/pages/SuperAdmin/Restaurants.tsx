@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Search, Lock, Unlock } from 'lucide-react';
+import { Search, Lock, Unlock, Crown } from 'lucide-react';
 
 import { useRestaurant } from '@/hooks/use-restaurant';
 import type { IRestaurant } from '@/types/restaurant.type';
@@ -11,7 +11,8 @@ import { AlertDialogCustom } from '@/components/AlertDialog';
 import { FilterToolbar } from '../Admin/OrderPage/management-order';
 
 export default function SuperAdminRestaurants() {
-  const { fetchRestaurants, restaurants, isLoading, updateRestaurantStatus } = useRestaurant();
+  const { fetchRestaurants, restaurants, isLoading, updateRestaurantStatus, updateRestaurantPlan } =
+    useRestaurant();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -86,6 +87,24 @@ export default function SuperAdminRestaurants() {
       ),
     },
     {
+      header: 'Plan',
+      render: (item) => {
+        const isPro = item.plan === 'pro';
+        return (
+          <span
+            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
+              isPro
+                ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                : 'bg-slate-100 text-slate-600 border border-slate-200'
+            }`}
+          >
+            {isPro ? <Crown className="h-3.5 w-3.5" /> : null}
+            {isPro ? 'Pro' : 'Free'}
+          </span>
+        );
+      },
+    },
+    {
       header: 'Status',
       render: (item) => <StatusTag status={item.status || 'active'} />,
     },
@@ -94,8 +113,31 @@ export default function SuperAdminRestaurants() {
       className: 'text-right',
       render: (item) => {
         const isInactive = item.status === 'inactive';
+        const isPro = item.plan === 'pro';
         return (
           <div className="flex justify-end gap-1.5">
+            <AlertDialogCustom
+              title={isPro ? 'Xác nhận hạ gói xuống Free' : 'Xác nhận nâng cấp lên Pro'}
+              description={
+                isPro
+                  ? `Hạ gói "${item.name}" về Free — nhân sự giới hạn 5 và tối đa 500 đơn hàng/tháng.`
+                  : `Nâng cấp "${item.name}" lên Pro — bỏ giới hạn nhân sự và đơn hàng.`
+              }
+              actionText={isPro ? 'Hạ gói Free' : 'Nâng cấp Pro'}
+              onConfirm={() => {
+                updateRestaurantPlan(item._id, isPro ? 'free' : 'pro');
+              }}
+            >
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`h-8 w-8 rounded-lg hover:bg-slate-100 ${
+                  isPro ? 'text-slate-500' : 'text-amber-600'
+                }`}
+              >
+                <Crown className="h-4 w-4" />
+              </Button>
+            </AlertDialogCustom>
             <AlertDialogCustom
               title={isInactive ? 'Xác nhận mở khóa' : 'Xác nhận khóa nhà hàng'}
               description={

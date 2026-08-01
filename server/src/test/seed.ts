@@ -85,8 +85,8 @@ async function seedUsers(): Promise<void> {
 
 async function seedRestaurants(): Promise<void> {
   await DB_Connection.Restaurant.insertMany([
-    { _id: SEED_IDS.tenantX, name: 'NhamNhi Cơ Sở 1', email: 'cs1@nhamnhi.vn', status: 'active' },
-    { _id: SEED_IDS.tenantY, name: 'NhamNhi Cơ Sở 2', email: 'cs2@nhamnhi.vn', status: 'active' },
+    { _id: SEED_IDS.tenantX, name: 'NhamNhi Cơ Sở 1', email: 'cs1@nhamnhi.vn', status: 'active', plan: 'pro' },
+    { _id: SEED_IDS.tenantY, name: 'NhamNhi Cơ Sở 2', email: 'cs2@nhamnhi.vn', status: 'active', plan: 'pro' },
   ]);
 }
 

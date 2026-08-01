@@ -34,6 +34,32 @@ class RestaurantSerice {
     return { message: 'Cập nhật nhà hàng thành công!!!', data: restaurant, code: 200 };
   }
 
+  /**
+   * Đổi gói cước của nhà hàng (chỉ super-admin): free <-> pro.
+   * Hạn mức (user/order) được enforce theo field plan tại thời điểm tạo tài nguyên.
+   */
+  async updateRestaurantPlanService(id: string, plan: string): Promise<any> {
+    const exitRestaurant = await restaurantRepository.findRestaurantById(id);
+    if (!exitRestaurant) {
+      return { message: 'Nhà hàng không tồn tại!!!', code: 404 };
+    }
+    if (!['free', 'pro'].includes(plan)) {
+      return { message: 'Gói cước không hợp lệ! Chỉ hỗ trợ free hoặc pro.', code: 400 };
+    }
+    if (exitRestaurant.plan === plan) {
+      return { message: 'Nhà hàng đang ở gói này rồi!!!', data: exitRestaurant, code: 200 };
+    }
+    const restaurant = await restaurantRepository.updateRestaurant(id, {
+      plan: plan as 'free' | 'pro',
+    });
+    return {
+      message: 'Đổi gói cước thành công!!!',
+      data: restaurant,
+      oldPlan: exitRestaurant.plan || 'free',
+      code: 200,
+    };
+  }
+
   async deleteRestaurantService(id: string): Promise<any> {
     const exitRestaurant = await restaurantRepository.findRestaurantById(id);
     if (!exitRestaurant) {

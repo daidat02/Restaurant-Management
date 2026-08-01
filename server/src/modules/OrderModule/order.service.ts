@@ -10,6 +10,7 @@ import tableRepository from '../TableModule/table.repository.js';
 import { getIO } from '../../configs/socketsConfig.js';
 import notificationService from '../Notification/notification.service.js';
 import type { INotification } from '../../models/Schema/NotificationSchema.js';
+import { PLAN_LIMITS } from '../../configs/constants.js';
 
 const ObjectId = Types.ObjectId;
 
@@ -101,6 +102,12 @@ class OrderService {
       return { code: 400, message: 'Cần chọn món trước khi order' };
     }
 
+    // Kiểm tra hạn mức đơn hàng trong tháng theo gói cước của tenant (chỉ khi biết rõ nhà hàng)
+    if (orderData.restaurant) {
+      const limitError = await this.checkOrderLimit(orderData.restaurant.toString());
+      if (limitError) return limitError;
+    }
+
     const session = await DB_Connection.Order.startSession();
     session.startTransaction();
     let committed = false;
@@ -173,6 +180,31 @@ class OrderService {
     } finally {
       session.endSession();
     }
+  }
+
+  /**
+   * Kiểm tra hạn mức đơn hàng trong tháng của tenant theo gói cước (free: 500/tháng).
+   * Trả về lỗi chuẩn hoá nếu vượt hạn mức, ngược lại null.
+   */
+  private async checkOrderLimit(tenantId: string): Promise<ServiceResponse<IOrderDocument> | null> {
+    const restaurant = await restaurantRepository.findRestaurantById(tenantId);
+    if (!restaurant) return null;
+    const plan = (restaurant.plan as string) || 'free';
+    const maxOrders = PLAN_LIMITS[plan as keyof typeof PLAN_LIMITS]?.maxOrdersPerMonth ?? Infinity;
+    if (maxOrders === Infinity) return null;
+
+    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const count = await DB_Connection.Order.countDocuments({
+      restaurant: new ObjectId(tenantId),
+      createdAt: { $gte: startOfMonth },
+    });
+    if (count >= maxOrders) {
+      return {
+        code: 403,
+        message: `Đã đạt giới hạn ${maxOrders} đơn hàng/tháng của gói Miễn phí. Vui lòng nâng cấp lên Pro.`,
+      };
+    }
+    return null;
   }
 
   async updateStatusOrderItemService(

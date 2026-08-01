@@ -13,6 +13,7 @@ export interface IRestaurant extends Document {
   description?: string;
   managerId?: Types.ObjectId | string | IUser;
   status?: 'active' | 'inactive';
+  plan?: 'free' | 'pro';
   staffCount?: number;
   capacity?: number;
   operatingHours: string;
@@ -32,6 +33,7 @@ const RestaurantSchema = new Schema<IRestaurant>(
     description: { type: String, trim: true },
     managerId: { type: Schema.Types.ObjectId, ref: 'User' },
     status: { type: String, enum: ['active', 'inactive'], default: 'active' },
+    plan: { type: String, enum: ['free', 'pro'], default: 'free' },
     staffCount: { type: Number, default: 0 },
     logoUrl: { type: String, trim: true },
   },

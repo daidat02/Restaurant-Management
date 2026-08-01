@@ -54,3 +54,11 @@ export const updateRestaurantStatus = async (
   );
   return res.data;
 };
+
+export const updateRestaurantPlan = async (id: string, plan: 'free' | 'pro') => {
+  const res = await axiosClient.patch<any, ApiResponse<IRestaurant>>(
+    RESTAURANTS.PLAN(id),
+    { plan },
+  );
+  return res.data;
+};

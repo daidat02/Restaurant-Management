@@ -105,6 +105,7 @@ export const API_ENDPOINTS = {
     GET_BY_ID: (id: string) => `${API_BASE_URL}/restaurants/${id}`,
     UPDATE: (id: string) => `${API_BASE_URL}/restaurants/update/${id}`,
     STATUS: (id: string) => `${API_BASE_URL}/restaurants/status/${id}`,
+    PLAN: (id: string) => `${API_BASE_URL}/restaurants/plan/${id}`,
   },
 
   // --- PHÂN HỆ QUẢN LÝ BÀN (TABLES) ---
