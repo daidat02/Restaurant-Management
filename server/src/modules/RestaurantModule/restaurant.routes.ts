@@ -25,12 +25,6 @@ router.patch(
   verifyRole(['super-admin']),
   restaurantController.updateRestaurantStatus,
 );
-router.patch(
-  '/plan/:id',
-  verifyToken,
-  verifyRole(['super-admin']),
-  restaurantController.updateRestaurantPlan,
-);
 router.delete(
   '/:id',
   verifyToken,

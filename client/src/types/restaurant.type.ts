@@ -8,7 +8,6 @@ export interface IRestaurant {
   phone?: string;
   description?: string;
   managerId?: string | IUser;
-  plan?: 'free' | 'pro';
   status?: 'active' | 'inactive';
   staffCount?: number;
   capacity?: number;

@@ -72,9 +72,3 @@ export function decryptKey(text: string): string {
     return '';
   }
 }
-
-// ===================== HẠN MỨC GÓI CƯỚC =====================
-export const PLAN_LIMITS = {
-  free: { maxUsers: 5, maxOrdersPerMonth: 500, maxRestaurants: 1 },
-  pro: { maxUsers: Infinity, maxOrdersPerMonth: Infinity, maxRestaurants: Infinity },
-} as const;

@@ -6,7 +6,6 @@ import {
   getRestaurants,
   updateRestaurant,
   updateRestaurantStatus,
-  updateRestaurantPlan,
 } from '@/api/restaurants.api';
 import type { IRestaurant } from '@/types/restaurant.type';
 import { toast } from 'sonner';
@@ -148,25 +147,6 @@ export const useRestaurant = () => {
     dispath(selectRestaurant(restaurantId));
   };
 
-  // Đổi gói cước (super-admin): cập nhật field plan free <-> pro
-  const handleUpdateRestaurantPlan = async (id: string, plan: 'free' | 'pro') => {
-    setError(null);
-    showLoading();
-    try {
-      await updateRestaurantPlan(id, plan);
-      toast.success(plan === 'pro' ? 'Đã nâng cấp lên gói Pro' : 'Đã hạ xuống gói Free', {
-        position: 'top-right',
-      });
-      return true;
-    } catch (err: any) {
-      setError(err.message || 'Đã xảy ra lỗi khi đổi gói cước');
-      return false;
-    } finally {
-      hideLoading();
-      await fetchRestaurants();
-    }
-  };
-
   return {
     restaurants,
     resHaveTableEmpty,
@@ -182,7 +162,6 @@ export const useRestaurant = () => {
     createRestaurant: handleCreateRestaurant,
     updateRestaurant: handleUpdateRestaurant,
     updateRestaurantStatus: handleUpdateRestaurantStatus,
-    updateRestaurantPlan: handleUpdateRestaurantPlan,
     deleteRestaurant: handleDeleteRestaurant,
     selectRestaurant: handleSelectRestaurant,
   };

@@ -298,24 +298,6 @@ class AuthService {
       return { message: error, code: 400 };
     }
 
-    // Kiểm tra hạn mức user theo gói cước của tenant
-    const tenantId = restaurantIds[0]?.toString();
-    if (tenantId) {
-      const { PLAN_LIMITS } = await import('../../configs/constants.js');
-      const restaurant = (await DB_Connection.Restaurant.findById(tenantId)
-        .select('plan')
-        .lean()) as { plan?: string } | null;
-      const plan = restaurant?.plan || 'free';
-      const maxUsers = PLAN_LIMITS[plan as keyof typeof PLAN_LIMITS]?.maxUsers ?? Infinity;
-      const currentCount = await authRepository.countStaffByTenant(tenantId);
-      if (currentCount >= maxUsers) {
-        return {
-          message: `Đã đạt giới hạn ${maxUsers} nhân sự của gói ${plan === 'free' ? 'Miễn phí' : 'Pro'}. Vui lòng nâng cấp.`,
-          code: 403,
-        };
-      }
-    }
-
     const { restaurant: _legacyRestaurant, ...rest } = userData;
     const createData: Partial<IUser> = {
       ...rest,

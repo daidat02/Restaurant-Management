@@ -110,16 +110,6 @@ class AuthRepository {
       { new: true },
     ).exec();
   }
-
-  /**
-   * Đếm số user (staff/manager/admin) thuộc một tenant nhất định.
-   */
-  async countStaffByTenant(tenantId: string): Promise<number> {
-    return await DB_Connection.User.countDocuments({
-      restaurantIds: tenantId,
-      role: { $in: ['staff', 'manager', 'admin'] },
-    });
-  }
 }
 
 export default new AuthRepository();
