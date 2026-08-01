@@ -4,7 +4,16 @@
 
 **Blocked by:** (chạy song song được với 07/08; nên xong trước khi deploy thật).
 
-**Status:** ready-for-agent
+**Status:** done
+
+## Kết quả (đã implement)
+- **Quyết định khi làm** (hỏi user): Sentry chỉ ghi docs (chưa có DSN thật) — không cài dep; ping chỉ ghi docs (chưa có domain production) — không tạo workflow; CORS giữ local + thêm env prod.
+- **Đã làm**:
+  - `OPS.md` (root): tài liệu vận hành đầy đủ — env Render/Vercel, ping giữ tỉnh (UptimeRobot/cron-job.org/GitHub Action, mỗi 5 phút gọi `GET /api/restaurants`), hướng dẫn bật Sentry có điều kiện (không DSN → không init), backup (Atlas PITR khuyến nghị + script mongodump), deploy steps Render + Vercel, checklist khi deploy.
+  - `server/.env.example` + `client/.env.example`: thêm `ALLOWED_ORIGINS`, `SENTRY_DSN`, `VITE_SENTRY_DSN`; server đã sẵn logic đọc `ALLOWED_ORIGINS` split (app.ts) + giữ local hardcode cho dev.
+  - `server/scripts/backup.sh`: mongodump toàn DB ra `server/backups/<timestamp>/`, tự xoá bản cũ giữ `KEEP` (mặc định 7); syntax đã kiểm tra; lưu ý KHÔNG chạy trên Render (disk ephemeral).
+- **Test**: `server/src/test/ops.test.ts` 5 test CORS (allowlist local OK, `evil.com` bị chặn, preflight 204, endpoint public dùng cho ping). Full suite 153/153 + `tsc --noEmit` sạch.
+- **Chưa verify được (chờ domain/prod thật, đã ghi rõ trong OPS.md):** ping thật, CORS domain Vercel thật, Sentry DSN, backup Atlas chạy thật.
 
 Chi tiết kỹ thuật:
 
@@ -32,8 +41,8 @@ Chi tiết kỹ thuật:
 - Thêm `OPS.md` (hoặc mục README): env production Render/Vercel, ping schedule, backup, deploy steps, cold start lưu ý.
 - Cập nhật `.env.example` nếu có (thêm `ALLOWED_ORIGINS`, `SENTRY_DSN`).
 
-- [ ] Server được giữ tỉnh (ping hoạt động, không sleep trong 1 khoảng thời gian).
-- [ ] CORS cho domain Vercel thật hoạt động (browser không CORS error).
-- [ ] Sentry init khi có DSN, không crash khi thiếu.
-- [ ] Backup Atlas kích hoạt (hoặc script mongodump đã chạy thử).
-- [ ] Tài liệu vận hành đầy đủ.
+- [ ] Server được giữ tỉnh (ping hoạt động, không sleep trong 1 khoảng thời gian). *(đã ghi hướng dẫn OPS.md, chờ domain + deploy thật)*
+- [ ] CORS cho domain Vercel thật hoạt động (browser không CORS error). *(cơ chế allowlist + test xong; verify thật chờ deploy)*
+- [ ] Sentry init khi có DSN, không crash khi thiếu. *(chưa cài dep — quyết định chỉ ghi docs; hướng dẫn trong OPS.md)*
+- [ ] Backup Atlas kích hoạt (hoặc script mongodump đã chạy thử). *(script sẵn sàng + syntax OK; chạy thật cần mongodump + URI thật)*
+- [x] Tài liệu vận hành đầy đủ (`OPS.md` + `.env.example` cả 2 phía).
