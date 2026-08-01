@@ -4,7 +4,16 @@
 
 **Blocked by:** 04 — Đóng lỗ hổng tenant (restaurant create/update có ownership check ổn định).
 
-**Status:** ready-for-agent
+**Status:** done
+
+## Kết quả (đã implement)
+- **Quyết định:** client gọi tuần tự 4 API hiện có, wizard state ở client (`/admin/onboarding`, LayoutAdmin).
+- **Server**:
+  - `POST /restaurants` giờ tự gắn `restaurantId` mới vào `restaurantIds` của người tạo (`addRestaurantToUser`) → admin switch-tenant sang cơ sở mới được.
+  - Thêm route `POST /api/auth/admin/create` (admin/manager + `verifyTenant`) → tạo staff/manager thuộc tenant đang xác thực; controller ép `restaurantIds=[req.tenantId]` chặn gán tùy ý.
+  - Fix bug client: `getOrCreateSetting` gọi sai URL (5 segment) → URL đúng 3 segment; `createRestaurant` đọc nhầm response shape `{ result: ... }` → unwrap về object.
+- **Client**: wizard 4 bước `/admin/onboarding` — B1 tạo nhà hàng (+switch-tenant tự động), B2 `get-or-create` setting + sinh mã bếp 6 số, B3 tạo manager/staff, B4 tạo 1..n bàn + hiển thị QR scan-to-order; nút "Thêm nhà hàng" tại `/admin/restaurants` chuyển sang wizard.
+- **Test**: `server/src/test/wizard.test.ts` 5 test API pass (tạo tenant → gắn creator → switch → tạo user ép tenant → setting+kds-code → bàn); E2E `e2e/wizard.spec.ts` pass; full suite server 139/139, E2E 21/21.
 
 Chi tiết kỹ thuật:
 
@@ -27,6 +36,6 @@ Chi tiết kỹ thuật:
 - API: chuỗi tạo tenant → setting mặc định tồn tại → user tạo được thuộc tenant → bàn + QR đúng.
 - E2E: admin tạo nhà hàng qua wizard → tenant mới active → chuyển được sang tenant mới.
 
-- [ ] Wizard 4 bước hoàn tất tạo được tenant hoạt động (setting + user + bàn).
-- [ ] Admin tự gắn vào tenant mới, switch được.
-- [ ] Regression: tạo nhà hàng đơn (không wizard) vẫn hoạt động.
+- [x] Wizard 4 bước hoàn tất tạo được tenant hoạt động (setting + user + bàn).
+- [x] Admin tự gắn vào tenant mới, switch được.
+- [x] Regression: tạo nhà hàng đơn (không wizard) vẫn hoạt động (server suite 139/139, `FormCreateRestaurant` cũ giữ nguyên).

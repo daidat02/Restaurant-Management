@@ -208,7 +208,8 @@ class AuthController {
    * Tạo nhân viên mới (Staff / Manager)
    */
   async createStaff(req: AuthRequest, res: Response) {
-    const userData = req.body;
+    // Ép user được tạo thuộc đúng tenant đang xác thực (req.tenantId), chặn gán tùy ý restaurantIds
+    const userData = { ...req.body, restaurantIds: req.tenantId ? [req.tenantId] : undefined };
     try {
       const result = await authService.createStaffService(userData);
       return res.status(result.code).json(result);

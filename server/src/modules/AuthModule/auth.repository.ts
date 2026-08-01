@@ -99,6 +99,17 @@ class AuthRepository {
   async findOneUser(filter: FilterQuery<IUserDocument>): Promise<IUserDocument | null> {
     return await DB_Connection.User.findOne(filter).exec();
   }
+
+  /**
+   * Gắn thêm một nhà hàng vào danh sách restaurantIds của user (dùng khi tạo tenant mới qua wizard)
+   */
+  async addRestaurantToUser(id: string, restaurantId: string): Promise<IUserDocument | null> {
+    return await DB_Connection.User.findByIdAndUpdate(
+      id,
+      { $addToSet: { restaurantIds: restaurantId } },
+      { new: true },
+    ).exec();
+  }
 }
 
 export default new AuthRepository();

@@ -14,6 +14,7 @@ export const API_ENDPOINTS = {
     ADMIN: {
       CUSTOMERS: `${API_BASE_URL}/auth/admin/customers`,
       STAFF: `${API_BASE_URL}/auth/`,
+      CREATE: `${API_BASE_URL}/auth/admin/create`,
       DELETE: (id: string) => `${API_BASE_URL}/auth/admin/delete/${id}`,
       UPDATE: (id: string) => `${API_BASE_URL}/auth/admin/update/${id}`,
     },

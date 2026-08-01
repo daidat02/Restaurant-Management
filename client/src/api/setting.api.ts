@@ -1,6 +1,6 @@
 import { type ApiResponse } from './../types/api.type';
 import axiosClient from '@/utils/configClient';
-import { API_ENDPOINTS } from '@/constants/index';
+import { API_ENDPOINTS, API_BASE_URL } from '@/constants/index';
 import type { IBankAccountConfig, ISetting, IThirdPartyIntegration } from '@/types/setting.type';
 
 // Destruct nhánh API Quản lý Setting
@@ -27,9 +27,9 @@ export const getOrCreateSetting = async (
   model: 'User' | 'Restaurant',
   targetId: string,
 ) => {
+  // URL đúng 3 segment theo Router server: /settings/get-or-create/:scope/:model/:targetId
   const res = await axiosClient.get<any, ApiResponse<ISetting>>(
-    // Sử dụng template string động bọc đúng 3 tham số theo cấu trúc Router mới của bạn
-    `${SETTING.GET_OR_CREATE}/${scope}/${model}/${targetId}`,
+    `${API_BASE_URL}/settings/get-or-create/${scope}/${model}/${targetId}`,
   );
   return res.data;
 };

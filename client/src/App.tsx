@@ -31,6 +31,7 @@ import HomePage from './pages/Admin/AnalyticsPage/home';
 import ReservationPage from './pages/Admin/ReservationPage/reservation';
 import POS from './pages/Admin/PosPage/pos';
 import RestaurantsPage from './pages/Admin/RestaurantPage/restaurants';
+import OnboardingWizard from './pages/Admin/Onboarding/onboarding';
 import Table from './pages/Admin/TablePage/table';
 import Users from './pages/Admin/UserPage/users';
 import FormMenuItem from './pages/Admin/ProductPage/components/FormCreateItem';
@@ -194,6 +195,7 @@ export default function App() {
         <Route path="/admin" element={<LayoutAdmin />}>
           <Route index element={<HomePage />} />
           <Route path="restaurants" element={<RestaurantsPage />} />
+          <Route path="onboarding" element={<OnboardingWizard />} />
           <Route path="customers" element={<Users />} />
           <Route path="products" element={<Product />} />
           <Route path="orders" element={<Order />} />

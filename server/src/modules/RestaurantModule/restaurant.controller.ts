@@ -8,7 +8,10 @@ class RestaurantController {
   async createRestaurant(req: AuthRequest, res: Response) {
     const restaurantData = req.body;
     try {
-      const result = await restaurantService.createRestaurantService(restaurantData);
+      const result = await restaurantService.createRestaurantService(
+        restaurantData,
+        req.user?.userId || undefined,
+      );
       if (result.code === 201 || result.code === 200) {
         const newId = (result as any)?.result?._id || (result as any)?.data?._id || restaurantData?._id;
         await writeAuditLog({

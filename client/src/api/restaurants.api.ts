@@ -19,11 +19,12 @@ export const getRestaurantById = async (id: string) => {
 };
 
 export const createRestaurant = async (restaurantData: Partial<IRestaurant>) => {
-  const res = await axiosClient.post<any, ApiResponse<IRestaurant>>(
+  // POST /restaurants trả { result: { code, message, data } } → unwrap về object nhà hàng
+  const res = await axiosClient.post<any, { result: ApiResponse<IRestaurant> }>(
     RESTAURANTS.BASE,
     restaurantData,
   );
-  return res.data;
+  return res?.result?.data;
 };
 
 export const updateRestaurant = async (

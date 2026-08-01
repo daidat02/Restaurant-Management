@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, Download, Plus, Eye, Edit2, Trash2 } from 'lucide-react';
 
 import { useRestaurant } from '@/hooks/use-restaurant';
@@ -13,6 +14,7 @@ import { FilterToolbar } from '../OrderPage/management-order';
 import FormCreateRestaurant from './components/FormCreateRestaurant';
 
 export default function RestaurantsPage() {
+  const navigate = useNavigate();
   const { fetchRestaurants, restaurants, isLoading, deleteRestaurant } = useRestaurant();
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -170,10 +172,7 @@ export default function RestaurantsPage() {
               </Button>
               <Button
                 className="bg-cerulean-blue-600 hover:bg-cerulean-blue-700 text-white h-9 rounded-xl text-sm shadow-sm font-medium"
-                onClick={() => {
-                  setEditingRestaurant(null);
-                  setIsDrawerOpen(true);
-                }}
+                onClick={() => navigate('/admin/onboarding')}
               >
                 Thêm nhà hàng <Plus className="ml-2 h-4 w-4" />
               </Button>

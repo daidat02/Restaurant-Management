@@ -30,6 +30,18 @@ export const registerUser = async (credentials: RegisterCredentials) => {
   }
 };
 
+// Tạo user nội bộ (staff/manager) thuộc tenant đang xác thực — dùng trong wizard onboarding
+export const createStaffUser = async (userData: {
+  name: string;
+  email: string;
+  phone?: string;
+  password: string;
+  role: 'staff' | 'manager';
+}) => {
+  const res = await axiosClient.post<any, ApiResponse<any>>(AUTH.ADMIN.CREATE, userData);
+  return res.data;
+};
+
 // Đổi nhà hàng đang làm việc (tenant switcher): server cấp access token mới, cập nhật ngay vào Redux
 export const switchTenant = async (restaurantId: string, dispatch: any) => {
   try {

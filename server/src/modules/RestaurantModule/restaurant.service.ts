@@ -1,9 +1,14 @@
 import type { IRestaurant } from '../../models/Schema/RestaurantSchema.js';
 import restaurantRepository from './restaurant.repository.js';
+import authRepository from '../AuthModule/auth.repository.js';
 
 class RestaurantSerice {
-  async createRestaurantService(restaurantData: any): Promise<any> {
+  async createRestaurantService(restaurantData: any, userId?: string): Promise<any> {
     const restaurant = await restaurantRepository.createRestaurant(restaurantData);
+    // Người tạo (admin) trở thành admin của cơ sở mới — cần thiết để switch-tenant sang cơ sở này
+    if (userId && restaurant?._id) {
+      await authRepository.addRestaurantToUser(userId, String(restaurant._id));
+    }
     return { message: 'Tạo nhà hàng thành công!!!', data: restaurant, code: 201 };
   }
 

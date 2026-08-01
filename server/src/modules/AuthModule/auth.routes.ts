@@ -49,5 +49,13 @@ router.put(
   requireResourceTenant(userTenantResolver),
   authController.updateUser,
 );
+// Tạo user nội bộ (staff/manager) thuộc tenant đang xác thực — dùng cho wizard onboarding
+router.post(
+  '/admin/create',
+  verifyToken,
+  verifyRole(['admin', 'manager']),
+  verifyTenant,
+  authController.createStaff,
+);
 
 export default router;
