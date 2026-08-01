@@ -5,12 +5,14 @@
 🔗 **Live Demo:** [nhamnhitidi.vercel.app](https://nhamnhitidi.vercel.app/)
 📁 **Repository:** [github.com/daidat02/Restaurant-Management](https://github.com/daidat02/Restaurant-Management)
 
-👥 **Tài khoản dùng thử (Test Accounts):**
+👥 **Tài khoản dùng thử (Test Accounts) — môi trường dev (multi-tenant):**
 
-- **Quản trị viên(Admin):** `admin@gmail.com` / Mật khẩu: `123456`
-- **Quản lý (Manager):** `manager@gmail.com` / Mật khẩu: `123456`
-- **Nhân viên (Staff):** `staff@gmail.com` / Mật khẩu: `123456`
-- **Khách hàng (Customer):** `customer@gmail.com` / Mật khẩu: `123456`
+- **Super Admin:** `super.admin@nhamnhi.vn` / `Super@NhamNhi2026` (quyền nền tảng, khoá/mở nhà hàng)
+- **Admin** (thuộc Cơ Sở 1 `X` và Cơ Sở 2 `Y`): `admin.test@nhamnhi.vn` / `Test@NhamNhi2026`
+- **Manager** (chỉ thuộc Cơ Sở 1 `X`): `manager.test@nhamnhi.vn` / `Test@NhamNhi2026`
+- Mọi user `admin`/`manager`/`staff` được tạo qua UI dùng chung mật khẩu mặc định `Test@NhamNhi2026`.
+
+> ⚠️ Tài khoản super-admin hiện được seed cứng trong `server/src/modules/AuthModule/.../migrate-tenant.ts` — nên đổi mật khẩu khi triển khai thực tế.
 
 ---
 
@@ -37,10 +39,36 @@
 
 Restaurant Management System là ứng dụng web full-stack phục vụ quản lý toàn diện hoạt động nhà hàng. Hệ thống bao gồm:
 
-- **Khách hàng (Customer):** Xem menu, đặt bàn trực tuyến, theo dõi đơn hàng, thanh toán online.
+- **Khách hàng (Customer):** Xem menu, đặt bàn trực tuyến, quét QR bàn → đặt món → thanh toán online.
 - **Nhân viên (Staff):** Tiếp nhận đặt chỗ, quản lý order tại bàn, cập nhật trạng thái món ăn.
 - **Quản lý (Manager):** Xem báo cáo doanh thu, quản lý menu, bàn, nhân viên và cài đặt nhà hàng.
 - **Admin:** Toàn quyền quản trị hệ thống, thêm/xóa nhà hàng, phân quyền người dùng.
+- **Super Admin:** Quyền nền tảng (xuyên mọi nhà hàng): khoá/mở nhà hàng, xem user, dashboard gộp.
+- **KDS (Kitchen Display System):** Màn hình bếp xác thực bằng mã nhà bếp (kitchen code), chỉ nhận event của đúng nhà hàng.
+
+### 🏢 Mô hình Multi-Tenant
+
+Hệ thống hỗ trợ **nhiều nhà hàng (tenant)** trên cùng một codebase & database:
+
+- Mỗi user có mảng `restaurantIds` — **admin/manager/staff có thể thuộc nhiều nhà hàng** và chuyển đổi (tenant switcher). Khách hàng gắn với nhà hàng qua QR bàn / địa chỉ.
+- **`verifyTenant`** middleware: `req.tenantId` luôn lấy từ **claim trong JWT** (`req.user.restaurantId`), KHÔNG tin param/query/body từ client → mọi query đều được lọc theo tenant, ngăn truy cập chéo. Super-admin bypass qua query/param/body.
+- **Tenant switcher**: `POST /api/auth/switch-tenant` đổi ngữ cảnh của token, kiểm tra membership (`restaurantIds`) → 403 nếu không thuộc.
+- **Socket.IO** phòng theo tenant: `restaurant_<id>` — client chỉ auto-join phòng của tenant mình; server emit `io.to(room)` (không bao giờ global `emit`).
+- **Upload** phân vùng folder Cloudinary theo tenant: `restaurants/<restaurantId>/...`; khi xoá kiểm tra ownership tenant.
+- **QR bàn** encode `?restaurantId=<id>&tableId=<id>`; server xác minh bàn thuộc đúng nhà hàng khi tạo order (dine-in).
+- **PayOS** key được lấy theo tenant từ cấu hình cài đặt của nhà hàng (không dùng key toàn cục).
+- **KDS** token mang đúng `restaurantId`, chỉ nhận event / truy cập dữ liệu của đúng tenant.
+
+#### Tạo nhà hàng (tenant) mới
+
+1. Admin đăng nhập → `POST /api/restaurants` (tạo nhà hàng).
+2. Tạo cấu hình cài đặt cho tenant: `GET /api/settings/get-or-create/restaurant/<model>/<targetId>` (tự tạo nếu chưa có) — lưu giờ mở cửa, PayOS keys, in ấn...
+3. Tạo user cho tenant với `restaurantIds = [<id>]` (admin/manager/staff).
+4. Tạo bàn cho nhà hàng → UI `/manager/tables` tự render QR mang `restaurantId`.
+5. Cấu hình PayOS: `PUT /api/settings/:id` (API key/checksum) hoặc qua UI Settings → thanh toán. Nếu chưa cấu hình PayOS, thanh toán chỉ hỗ trợ tiền mặt.
+6. KDS: admin/manager vào Settings → "Tạo mã nhà bếp" → hiển thị mã 6 chữ số; màn hình KDS nhập mã tại `/kds` (không cần đăng nhập).
+
+> Lưu ý: để mỗi tenant dùng PayOS riêng, cần `setting.integrations.payOS.*` được cấu hình (mã hoá `apiKey`/`checksumKey`).
 
 ---
 
@@ -193,8 +221,9 @@ Restaurant-Management/
 ### 👤 Xác thực & Phân quyền
 
 - Đăng ký / Đăng nhập với JWT (access token + refresh token)
-- Phân quyền theo role: `customer`, `staff`, `manager`, `admin`
-- Middleware `verifyRole` bảo vệ các route nhạy cảm
+- Phân quyền theo role: `customer`, `staff`, `manager`, `admin`, `super-admin`, `kds` (màn hình bếp)
+- Middleware `verifyRole` bảo vệ các route nhạy cảm; `verifyTenant` đảm bảo cô lập dữ liệu theo tenant (token claim)
+- Tenant switcher `POST /api/auth/switch-tenant` cho user thuộc nhiều nhà hàng
 - Tự động refresh token khi hết hạn
 
 ### 🏪 Quản lý nhà hàng
@@ -242,7 +271,8 @@ Restaurant-Management/
 ### 🖼️ Upload ảnh
 
 - Upload ảnh đơn và nhiều ảnh lên Cloudinary
-- Xóa ảnh theo URL
+- Folder phân vùng theo tenant: `restaurants/<restaurantId>/...` (avatar khách → `_public`)
+- Xóa ảnh có kiểm tra ownership tenant (chặn xoá ảnh của nhà hàng khác)
 - Dùng cho ảnh món ăn, avatar, ảnh nhà hàng
 
 ### 🔔 Thông báo
@@ -589,34 +619,34 @@ const server = http.createServer(app);
 initSocket(server);
 ```
 
+**Cô lập theo tenant:** mỗi client non-customer tự động join phòng `restaurant_<id>` của các nhà hàng mà user thuộc `restaurantIds` (KDS token chỉ join đúng 1 tenant của mã bếp). Mọi emit đều thông qua `io.to('restaurant_<id>')` — không bao giờ dùng global `emit()`. Client cố `init_orders` với nhà hàng không thuộc quyền bị từ chối (`room_error`).
+
 ### Events chính
 
 | Event              | Hướng           | Mô tả                     |
 | ------------------ | --------------- | ------------------------- |
-| `connection`       | Client → Server | Khách kết nối             |
-| `join:restaurant`  | Client → Server | Tham gia room nhà hàng    |
-| `order:update`     | Server → Client | Cập nhật trạng thái order |
-| `notification:new` | Server → Client | Thông báo mới             |
-| `reservation:new`  | Server → Client | Có đặt chỗ mới            |
-| `table:status`     | Server → Client | Trạng thái bàn thay đổi   |
+| `connection`       | Client → Server | Khách kết nối (JWT qua `auth.token`) |
+| `init_orders`      | Client → Server | Tham gia room `restaurant_<id>` (kiểm tra membership) |
+| `order_event`      | Server → Client | Cập nhật order theo tenant |
+| `new_Notification` | Server → Client | Thông báo mới theo tenant |
+| `reservation_event`| Server → Client | Có đặt chỗ mới            |
+| `room_error`       | Server → Client | Bị từ chối vào room tenant khác |
 
 ### Client kết nối
 
 ```typescript
 import { io } from 'socket.io-client';
 
-const socket = io('http://localhost:8000');
+// Token = accessToken (user hoặc KDS) — server auto-join phòng tenant phù hợp
+const socket = io('http://localhost:8000', { auth: { token } });
 
 socket.on('connect', () => {
-  socket.emit('join:restaurant', restaurantId);
+  // User thuộc nhiều nhà hàng: join phòng đang chọn
+  socket.emit('init_orders', restaurantId);
 });
 
-socket.on('order:update', (data) => {
-  // Xử lý cập nhật đơn hàng
-});
-
-socket.on('notification:new', (notification) => {
-  // Hiển thị thông báo
+socket.on('order_event', (data) => {
+  // Xử lý cập nhật đơn hàng của tenant hiện tại
 });
 ```
 
@@ -668,8 +698,10 @@ POST /api/payments/return/vnpay
 ### Authorization
 
 - Middleware `verifyRole(...roles)` kiểm tra quyền truy cập
-- Các route admin/manager được bảo vệ nghiêm ngặt
-- Người dùng chỉ truy cập được data của chính họ
+- Middleware `verifyTenant` / `assertRestaurantActive` đảm bảo cô lập dữ liệu theo tenant (token claim)
+- Người dùng chỉ truy cập được data của nhà hàng họ thuộc (`restaurantIds`)
+- Nhà hàng bị super-admin khoá (`status: inactive`) → mọi request của tenant đó bị chặn 403
+- Upload xoá chéo tenant bị chặn theo folder ownership
 
 ### Bảo vệ thông tin nhạy cảm
 

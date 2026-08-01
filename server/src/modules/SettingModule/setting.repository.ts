@@ -58,6 +58,18 @@ class SettingRepository {
   }
 
   /**
+   * Tìm cấu hình theo restaurantId (scope='restaurant' + targetId) — dùng cho các thao tác gắn tenant
+   */
+  async findSettingByRestaurant(restaurantId: string): Promise<ISettingDocument | null> {
+    return await DB_Connection.Setting.findOne({
+      scope: 'restaurant',
+      targetId: restaurantId,
+    })
+      .select('+integrations.payOS.apiKey +integrations.payOS.checksumKey')
+      .exec();
+  }
+
+  /**
    * Cập nhật mã nhà bếp của cấu hình nhà hàng
    */
   async updateKitchenCode(id: string, kitchenCode: string): Promise<ISetting | null> {

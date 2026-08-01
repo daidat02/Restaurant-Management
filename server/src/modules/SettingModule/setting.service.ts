@@ -199,13 +199,15 @@ class SettingService {
    * Tạo mã nhà bếp mới (6 chữ số): tạo mã mới sẽ vô hiệu hóa mã cũ
    */
   async generateKitchenCodeService(
-    settingId: string,
+    restaurantId: string,
   ): Promise<ServiceResponse<{ kitchenCode: string }>> {
-    if (!settingId) {
-      return { code: 400, message: 'Thiếu thông tin ID cấu hình cài đặt' };
+    if (!restaurantId) {
+      return { code: 400, message: 'Thiếu thông tin ID nhà hàng' };
     }
 
-    const existingSetting = await settingRepository.findSettingById(settingId);
+    // Tìm setting theo tenant (scope=restaurant + targetId=restaurantId) thay vì _id
+    // vì controller chỉ truyền req.tenantId (không tin params.id từ client)
+    const existingSetting = await settingRepository.findSettingByRestaurant(restaurantId);
     if (!existingSetting) {
       return { code: 404, message: 'Cấu hình cài đặt không tồn tại' };
     }
@@ -214,7 +216,10 @@ class SettingService {
     }
 
     const kitchenCode = String(Math.floor(100000 + Math.random() * 900000));
-    const updated = await settingRepository.updateKitchenCode(settingId, kitchenCode);
+    const updated = await settingRepository.updateKitchenCode(
+      existingSetting._id.toString(),
+      kitchenCode,
+    );
 
     return {
       code: 200,
