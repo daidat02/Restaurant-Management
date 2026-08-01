@@ -1,5 +1,11 @@
 import { defineConfig } from '@playwright/test';
 
+// CI chạy server test (Mongo Memory Server + seed) thay vì server dev (DB thật)
+const serverCommand =
+  process.env.E2E_SERVER === 'test'
+    ? 'npm --prefix server run start:test'
+    : 'npm --prefix server run dev';
+
 export default defineConfig({
   testDir: './e2e',
   timeout: 60_000,
@@ -13,7 +19,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'npm --prefix server run dev',
+      command: serverCommand,
       url: 'http://localhost:8000/api/auth/profile/me',
       reuseExistingServer: true,
       timeout: 90_000,
