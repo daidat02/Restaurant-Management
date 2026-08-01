@@ -110,6 +110,7 @@ export default function Table() {
                 navigate(`/${currentRole}/orders/pos?tableId=${tableId}`);
               }}
               restaurantName="Nham Nhi"
+              restaurantId={activeRestaurantId}
               wifiName="Nham Nhi Quan"
               wifiPassword="xincamon"
             />

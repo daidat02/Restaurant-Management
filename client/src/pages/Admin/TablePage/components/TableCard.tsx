@@ -24,6 +24,7 @@ interface TableCardProps {
   wifiName?: string;
   wifiPassword?: string;
   restaurantName?: string;
+  restaurantId?: string;
 }
 
 export const TableCard = ({
@@ -38,6 +39,7 @@ export const TableCard = ({
   wifiName,
   wifiPassword,
   restaurantName,
+  restaurantId,
 }: TableCardProps) => {
   const styleConfig = {
     available: {
@@ -114,7 +116,7 @@ export const TableCard = ({
             {/* Khung chứa QR có viền nét đứt tạo hiệu ứng trực quan */}
             <div className="p-3 rounded-xl my-3 bg-white flex flex-col items-center justify-center">
               <QRCodeSVG
-                value={`${BASE_URL}/scan-to-order?tableId=${table._id}`}
+                value={`${BASE_URL}/scan-to-order?${restaurantId ? `restaurantId=${restaurantId}&` : ''}tableId=${table._id}`}
                 size={130} // Tăng kích thước lên một chút cho dễ quét bằng camera điện thoại
                 includeMargin={false}
                 level="H" // Tăng mức độ sửa lỗi (Error Correction Level) giúp mã QR dễ quét hơn ngay cả khi mờ

@@ -16,6 +16,7 @@ import {
 import { useMenu } from '@/hooks/use-menu';
 import { extractId } from '@/utils/helpers';
 import { addToCart, updateQuantity, clearCart } from '@/redux/slices/cartSlice';
+import { selectRestaurant } from '@/redux/slices/restaurantSlice';
 import type { IMenuItem } from '@/types/category.type';
 import { useAppSelector } from '@/hooks/redux-hook';
 import { useTable } from '@/hooks/use-table';
@@ -49,6 +50,7 @@ export default function CartPage() {
 
   const [searchParams] = useSearchParams();
   const tableId = searchParams.get('tableId');
+  const restaurantId = searchParams.get('restaurantId');
 
   const { isAuthenticated, user } = useAuth();
 
@@ -115,7 +117,7 @@ export default function CartPage() {
       } else {
         const createPayload: IOrder = {
           table: tableId as any,
-          restaurant: extractId(currentTable?.restaurant) as any,
+          restaurant: (restaurantId || extractId(currentTable?.restaurant)) as any,
           items: formattedItems,
           totalAmount: subtotal,
           orderType: 'dine-in',
@@ -154,13 +156,15 @@ export default function CartPage() {
     if (tableId) {
       const fetchDataToScanQR = async () => {
         const table = await fetchTableById(tableId);
+        // Set đúng nhà hàng vào phiên khách (QR mang restaurantId); fallback theo bàn cho QR cũ chỉ có tableId
+        dispatch(selectRestaurant(restaurantId || extractId(table?.restaurant)));
         await fetchActiveOrder(tableId);
-        await fetchCategories(extractId(table?.restaurant));
-        fetchTopBestSellers(extractId(table?.restaurant));
+        await fetchCategories(restaurantId || extractId(table?.restaurant));
+        fetchTopBestSellers(restaurantId || extractId(table?.restaurant));
       };
       fetchDataToScanQR();
     }
-  }, [fetchCategories, fetchTableById, tableId]);
+  }, [fetchCategories, fetchTableById, tableId, restaurantId]);
 
   useEffect(() => {
     if (activeTab && activeTab === 'all' && !tableId) {

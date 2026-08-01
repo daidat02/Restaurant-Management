@@ -73,6 +73,20 @@ class OrderService {
       return { code: 400, message: 'Dine-in order cần có thông tin bàn (table)' };
     }
 
+    // Bảo mật đa tenant: verify bàn thuộc đúng nhà hàng trước khi tạo đơn tại bàn (chống giả mạo URL/QR)
+    if (orderData.orderType === 'dine-in' && orderData.table) {
+      const table = await tableRepository.findTableById(orderData.table.toString());
+      if (!table) return { code: 404, message: 'Không tìm thấy thông tin bàn' };
+
+      const tableRestaurantId = table.restaurant.toString();
+      const orderRestaurantId = orderData.restaurant?.toString?.() || '';
+      if (orderRestaurantId && tableRestaurantId !== orderRestaurantId) {
+        return { code: 400, message: 'Bàn không thuộc nhà hàng này, không thể tạo đơn' };
+      }
+      // Thiếu restaurantId (QR cũ): ép dùng đúng nhà hàng của bàn
+      orderData.restaurant = tableRestaurantId as any;
+    }
+
     if (orderData.orderType === 'delivery') {
       if (
         !orderData.deliveryInfo?.name ||
