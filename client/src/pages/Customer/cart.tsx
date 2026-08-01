@@ -35,7 +35,14 @@ export default function CartPage() {
     context.openLoginModal || (() => console.log('Không tìm thấy Login Modal'));
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { categories, items, fetchCategories, fetchTopBestSellers, fetchItemsByCat } = useMenu();
+  const {
+    categories,
+    items,
+    fetchCategories,
+    fetchTopBestSellers,
+    fetchItemsByCat,
+    fetchAllItems,
+  } = useMenu();
   const { currentOrder, addOrder, addItemToOrder, fetchOrderByTableId, startListeningOrderSocket } =
     useOrder();
   const { currentTable, fetchTableById } = useTable();
@@ -171,10 +178,14 @@ export default function CartPage() {
       if (restaurantSelected) {
         fetchTopBestSellers(restaurantSelected || '');
       }
+    } else if (activeTab === 'all' && tableId) {
+      // Tab "Tất cả" khi có bàn → lấy toàn bộ item của cơ sở (không gọi getItemsByCategory('all'))
+      const rid = restaurantId || restaurantSelected || '';
+      if (rid) fetchAllItems(rid);
     } else {
       fetchItemsByCat(activeTab);
     }
-  }, [activeTab, fetchItemsByCat, fetchTopBestSellers]);
+  }, [activeTab, fetchItemsByCat, fetchTopBestSellers, fetchAllItems, restaurantId, tableId]);
 
   return (
     <div className="w-full min-h-screen bg-white pb-24 pt-4 text-gray-800 antialiased font-sans relative">

@@ -6,7 +6,7 @@
 
 **Blocked by:** (none)
 
-**Status:** ready-for-agent
+**Status:** done
 
 ### Nguồn lỗi (đã xác định)
 - `client/src/hooks/use-menu.ts:106` — `fetchItemsByCat(catId)` gọi thẳng `getItemsByCategory(catId)`.
@@ -26,6 +26,13 @@
 - E2E: sau khi sửa, chạy `npx playwright test e2e/customer.spec.ts` + `e2e/admin-flows.spec.ts` — log WebServer không còn `CastError` `"all"`.
 - API: `GET /menu/item/category/all` (nếu defensive server) trả danh sách rỗng/400 rõ ràng thay vì 500.
 
-- [ ] `cart.tsx` + `menu.tsx` không gọi `getItemsByCategory('all')`.
-- [ ] Không còn `CastError` cho `"all"` trong log WebServer khi chạy E2E.
-- [ ] Tab "Tất cả" vẫn hiển thị đủ món (POS + scan-to-order + delivery).
+- [x] `cart.tsx` + `menu.tsx` không gọi `getItemsByCategory('all')`.
+- [x] Không còn `CastError` cho `"all"` trong log WebServer khi chạy E2E (xác nhận 2 lần chạy full suite 20/20, log sạch).
+- [x] Tab "Tất cả" vẫn hiển thị đủ món (POS + scan-to-order + delivery).
+
+### Kết quả
+- `cart.tsx`: nhánh `activeTab==='all' && tableId` → `fetchAllItems(rid)` thay vì `fetchItemsByCat('all')`.
+- `menu.tsx`: Effect đọc `catId` từ URL chỉ gọi `fetchItemsByCat` khi `cat !== 'all'`.
+- `use-menu.ts` `fetchItemsByCat`: guard `!catId || catId==='all'` → return (chặn mọi call site tương lai).
+- `menu.service.ts` `getItemByMenucatService`: trả 400 `Danh mục không hợp lệ` nếu `catId` không phải ObjectId hợp lệ (thay vì CastError → 500).
+- Build server + client pass; E2E 20/20 pass 2 lần, không còn CastError trong log.

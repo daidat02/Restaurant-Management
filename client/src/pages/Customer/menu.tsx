@@ -17,7 +17,7 @@ export default function MenuPage() {
     const cat = searchParams.get('catId');
     if (cat) {
       setActiveTab(cat);
-      fetchItemsByCat(cat);
+      if (cat !== 'all') fetchItemsByCat(cat);
     }
   }, [fetchCategories]);
 

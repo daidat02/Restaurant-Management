@@ -100,6 +100,7 @@ export const useMenu = () => {
   }, []);
 
   const fetchItemsByCat = useCallback(async (catId: string) => {
+    if (!catId || catId === 'all') return;
     setIsLoading(true);
     setError(null);
     try {

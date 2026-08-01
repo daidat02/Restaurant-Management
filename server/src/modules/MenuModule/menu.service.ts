@@ -1,6 +1,7 @@
 import type { IMenuCategoryDocument } from '../../models/Schema/MenuCategorySchema.js';
 import type { IMenuItemDocument } from '../../models/Schema/MenuItemSchema.js';
 import type { ServiceResponse } from '../../shared/type.js';
+import mongoose from 'mongoose';
 import menuRepository from './menu.repository.js';
 
 class MenuService {
@@ -69,6 +70,9 @@ class MenuService {
   }
 
   async getItemByMenucatService(catId: string): Promise<ServiceResponse<IMenuItemDocument[]>> {
+    if (!catId || !mongoose.isValidObjectId(catId)) {
+      return { code: 400, message: 'Danh mục không hợp lệ', data: [] };
+    }
     const filter = { category: catId };
     const items = await menuRepository.findItems(filter);
 
