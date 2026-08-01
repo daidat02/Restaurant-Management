@@ -102,6 +102,24 @@ class OrderService {
       return { code: 400, message: 'Cần chọn món trước khi order' };
     }
 
+    // Chặn khi nhà hàng bị khoá do hết hạn thanh toán
+    if (orderData.restaurant) {
+      const { assertRestaurantUsable } = await import('../../services/subscription.service.js');
+      try {
+        await assertRestaurantUsable(orderData.restaurant.toString());
+      } catch (error: any) {
+        if (error?.code === 'RESTAURANT_LOCKED') {
+          return {
+            code: 403,
+            errorCode: 'RESTAURANT_LOCKED',
+            message: 'Nhà hàng bị khoá do hết hạn thanh toán',
+          };
+        }
+        if (error?.statusCode === 404) return { code: 404, message: error.message };
+        throw error;
+      }
+    }
+
     // Kiểm tra hạn mức đơn hàng trong tháng theo gói cước của tenant (chỉ khi biết rõ nhà hàng)
     if (orderData.restaurant) {
       const limitError = await this.checkOrderLimit(orderData.restaurant.toString());

@@ -9,6 +9,10 @@ export interface ServiceResponse<T>{
     accessToken?: string;
     refreshToken?: string;
     code: number;
+    /** Mã lỗi nghiệp vụ (vd 'RESTAURANT_LOCKED') — không phải HTTP status. */
+    errorCode?: string;
+    /** HTTP status ưu tiên khi khác `code`. */
+    statusCode?: number;
 }
 
 // types/cloudinary.ts

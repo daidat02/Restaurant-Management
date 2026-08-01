@@ -45,6 +45,25 @@ class MenuService {
       return { code: 404, message: 'Không tìm thấy danh mục món ăn tương ứng' };
     }
 
+    // Chặn khi nhà hàng bị khoá do hết hạn thanh toán
+    const restaurantId = menuItemData?.restaurant || menuCat?.restaurant;
+    if (restaurantId) {
+      const { assertRestaurantUsable } = await import('../../services/subscription.service.js');
+      try {
+        await assertRestaurantUsable(restaurantId.toString());
+      } catch (error: any) {
+        if (error?.code === 'RESTAURANT_LOCKED') {
+          return {
+            code: 403,
+            errorCode: 'RESTAURANT_LOCKED',
+            message: 'Nhà hàng bị khoá do hết hạn thanh toán',
+          };
+        }
+        if (error?.statusCode === 404) return { code: 404, message: error.message };
+        throw error;
+      }
+    }
+
     const newMenuItem = await menuRepository.createMenuItem(menuItemData);
     return { code: 201, message: 'Tạo món ăn thành công', data: newMenuItem };
   }
