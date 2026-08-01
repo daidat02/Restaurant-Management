@@ -88,15 +88,21 @@ const assertRestaurantActive = async (
   restaurantId: string | undefined,
 ): Promise<boolean> => {
   if (!restaurantId) return false;
+  const { applySubscriptionState } = await import('../services/subscription.service.js');
   const restaurant = await DB_Connection.Restaurant.findById(restaurantId)
-    .select('status')
+    .select('status subscription trialEndsAt paidUntil')
     .exec();
   if (!restaurant) {
     res.status(404).json({ message: 'Nhà hàng không tồn tại!' });
     return false;
   }
-  if (restaurant.status === 'inactive') {
-    res.status(403).json({ message: 'Nhà hàng đã bị khóa! Liên hệ quản trị viên.' });
+  // Cập nhật trạng thái subscription theo ngày (trial/active hết hạn → locked)
+  const state = await applySubscriptionState(restaurantId);
+  if (restaurant.status === 'inactive' || state?.subscription === 'locked') {
+    res.status(403).json({
+      message: 'Nhà hàng bị khoá do hết hạn thanh toán. Vui lòng thanh toán để mở lại.',
+      code: 'RESTAURANT_LOCKED',
+    });
     return false;
   }
   return true;
