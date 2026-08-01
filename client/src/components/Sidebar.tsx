@@ -38,6 +38,7 @@ import {
   ReceiptText,
   CalendarDays,
   MessageCircle,
+  CreditCard,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
@@ -81,6 +82,7 @@ export default function SidebarApp({ onOpenSetting, onOpenMessage }: SideBarProp
         { title: 'Quản Lý Nhà Hàng', icon: Store, path: '/admin/restaurants' },
         { title: 'Báo Cáo Kinh Doanh', icon: ChartLine, path: '/admin/reports' },
         { title: 'Người Dùng Hệ Thống', icon: Users, path: '/admin/customers' },
+        { title: 'Thanh Toán & Gói', icon: CreditCard, path: '/admin/billing' },
       ],
       tools: [
         { title: 'Audit Logs', icon: History, path: '/admin/logs' },

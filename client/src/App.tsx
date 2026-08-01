@@ -43,6 +43,8 @@ import SuperAdminAudit from './pages/SuperAdmin/Audit';
 import { Toaster } from '@/components/ui/sonner';
 import { useDispatch } from 'react-redux';
 import { login, logout } from './redux/slices/authSlice';
+import { useAppSelector } from './hooks/redux-hook';
+import BillingPage from './pages/Admin/BillingPage/billing';
 const ProtectedRoute = ({
   isAuthenticated,
   userRole,
@@ -56,6 +58,8 @@ const ProtectedRoute = ({
   requiresTenant: boolean;
   isTenantSelected: boolean;
 }) => {
+  const auth = useAppSelector((s) => s.auth);
+
   if (!isAuthenticated) {
     return <Navigate to="/auth" replace />;
   }
@@ -68,8 +72,14 @@ const ProtectedRoute = ({
     return <Navigate to="/" replace />;
   }
 
+  // Owner/admin chưa có nhà hàng nào thì KHÔNG ép chọn tenant — vào thẳng /admin để dùng wizard tạo cơ sở đầu tiên
+  const hasAnyRestaurant =
+    Array.isArray(auth.user?.restaurantIds) && auth.user!.restaurantIds.length > 0
+      ? true
+      : !!auth.user?.restaurant;
+
   // Admin/manager/staff có nhiều nhà hàng nhưng chưa chọn -> bắt chọn trước khi vào admin
-  if (requiresTenant && !isTenantSelected) {
+  if (requiresTenant && !isTenantSelected && hasAnyRestaurant) {
     return <Navigate to="/select-restaurant" replace />;
   }
 
@@ -200,6 +210,7 @@ export default function App() {
           <Route index element={<HomePage />} />
           <Route path="restaurants" element={<RestaurantsPage />} />
           <Route path="onboarding" element={<OnboardingWizard />} />
+          <Route path="billing" element={<BillingPage />} />
           <Route path="customers" element={<Users />} />
           <Route path="products" element={<Product />} />
           <Route path="orders" element={<Order />} />

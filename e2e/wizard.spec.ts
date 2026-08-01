@@ -1,13 +1,23 @@
 import { test, expect } from '@playwright/test';
-import { loginAdminAndSelect, USERS, API_BASE } from './helpers';
+import { login, API_BASE, PASSWORD } from './helpers';
 
 test.describe('T07 — Wizard onboarding 4 bước', () => {
-  test('admin tạo cơ sở mới qua wizard → tenant active + switch được', async ({ page, request }) => {
+  test('owner mới (chưa có nhà hàng) tạo cơ sở đầu tiên qua wizard → trial 30 ngày', async ({ page, request }) => {
     const unique = Date.now().toString().slice(-6);
+    const ownerEmail = `wiz.owner.${unique}@nhamnhi.vn`;
     const tenantName = `NhamNhi Wizard ${unique}`;
 
-    // Login admin → chọn cơ sở 1 → trang nhà hàng → mở wizard
-    await loginAdminAndSelect(page, 'NhamNhi Cơ Sở 1');
+    // Đăng ký chủ mới qua API → chưa sở hữu nhà hàng nào
+    const reg = await request.post(`${API_BASE}/auth/register-owner`, {
+      data: { name: 'Wizard Owner', email: ownerEmail, password: PASSWORD },
+    });
+    expect(reg.status()).toBe(201);
+
+    // Login UI → vào thẳng /admin (owner 0 nhà hàng không bị ép chọn tenant)
+    await login(page, ownerEmail);
+    await expect(page).toHaveURL(/\/admin/, { timeout: 15_000 });
+
+    // Trang nhà hàng trống → nút "Thêm nhà hàng" đưa vào wizard
     await page.goto('/admin/restaurants');
     await page.getByRole('button', { name: /Thêm nhà hàng/ }).click();
     await page.waitForURL(/\/admin\/onboarding/);
@@ -43,12 +53,15 @@ test.describe('T07 — Wizard onboarding 4 bước', () => {
     await page.getByRole('button', { name: /Hoàn tất & vào quản trị/ }).click();
     await page.waitForURL(/\/admin$/);
 
-    // Xác minh tenant mới tồn tại trong hệ thống (GET /restaurants public)
+    // Xác minh tenant mới tồn tại + thuộc owner vừa đăng ký với trạng thái trial
     const restaurants = await request.get(`${API_BASE}/restaurants`);
     expect(restaurants.status()).toBe(200);
     const all = (await restaurants.json()).data || [];
     const created = all.find((r: any) => r.name === tenantName);
     expect(created).toBeTruthy();
     expect(created.status).toBe('active');
+    expect(created.subscription).toBe('trial');
+    expect(created.trialEndsAt).toBeTruthy();
+    expect(created.ownerId).toBeTruthy();
   });
 });

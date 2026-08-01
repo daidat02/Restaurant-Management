@@ -5,6 +5,7 @@ import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import Header from '@/components/Header';
 import { LoadingProvider } from '@/components/LoadingOverlay';
 import SidebarApp from '@/components/Sidebar';
+import UpsellSubscriptionModal from '@/components/UpsellSubscriptionModal';
 import SettingModal from '@/pages/Admin/SettingPage/SettingModal';
 import MessageModal from '@/pages/Admin/MessageModal/MessageModal';
 
@@ -17,6 +18,7 @@ export default function LayoutAdmin() {
         <Toaster />
         <SettingModal isOpen={isOpenSetting} onChangeOpenModal={() => setIsOpenSetting(false)} />
         <MessageModal isOpen={isOpenMessage} onChangeOpenModal={() => setIsOpenMessage(false)} />
+        <UpsellSubscriptionModal />
         {/* CONTAINER LAYOUT GỐC */}
         <div className="flex h-screen w-full overflow-hidden bg-neutral-50 relative">
           <SidebarApp

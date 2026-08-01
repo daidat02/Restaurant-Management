@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
 import { OverviewCards, TopDishesTable } from './components/OverView';
 import { ChartsSection } from './components/ChartsSection';
+import { SubscriptionBanner } from '../components/SubscriptionBanner';
 
 interface IHeaderProps {
   value: { from: string; to: string };
@@ -80,6 +81,9 @@ export default function Home() {
     <div className="h-full overflow-y-auto">
       <div className="min-h-screen bg-slate-50 text-slate-800 p-4 md:p-8">
         <GlobalHeader value={date} onSelectDate={handleSelectDate} />
+
+        {/* Banner trạng thái thuê bao — chỉ hiển thị với chủ nhà hàng (admin) */}
+        {user?.role === 'admin' && <SubscriptionBanner />}
 
         <div className="space-y-8 animate-fade-in">
           {/* Cụm 1: Thẻ thông số tổng quan */}

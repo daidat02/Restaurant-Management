@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   Check,
   CalendarDays,
+  CreditCard,
 } from 'lucide-react';
 import { getTimeAgo } from '@/utils/helpers';
 import type { INotification } from '@/types/noti.type';
@@ -58,6 +59,11 @@ const notificationConfigs: Record<
     icon: <CalendarDays className="h-4 w-4" />,
     bgColor: 'bg-emerald-50', // Đổi sang tone xanh lá dịu mắt đại diện cho cái mới
     iconColor: 'text-emerald-600',
+  },
+  subscription: {
+    icon: <CreditCard className="h-4 w-4" />,
+    bgColor: 'bg-cerulean-blue-50',
+    iconColor: 'text-cerulean-blue-600',
   },
   default: {
     icon: <Info className="h-4 w-4" />,

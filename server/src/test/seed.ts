@@ -55,6 +55,12 @@ export const SEED_IDS = {
 
   auditLogX: oid('69fccba996a14809070b9eff'),
   auditLogY: oid('69fb58d6ca9d7bade016e91f'),
+
+  // --- Subscription owner test (T7 frontend chủ) ---
+  ownerSub: oid('69fccba996a14809070b9e00'),
+  tenantSubTrial: oid('69fccba996a14809070b9e01'),
+  tenantSubExpiring: oid('69fccba996a14809070b9e02'),
+  tenantSubLocked: oid('69fccba996a14809070b9e03'),
 } as const;
 
 const TENANT_X_USERS = [
@@ -70,6 +76,17 @@ const TENANT_Y_USERS = [
 const PLATFORM_USERS = [
   { _id: SEED_IDS.customer, name: 'Customer Test', email: 'customer.test@nhamnhi.vn', role: 'customer', restaurantIds: [] as Types.ObjectId[] },
   { _id: SEED_IDS.superAdmin, name: 'Super Admin', email: 'super.admin@nhamnhi.vn', role: 'super-admin', restaurantIds: [] as Types.ObjectId[] },
+  {
+    _id: SEED_IDS.ownerSub,
+    name: 'Owner Sub Test',
+    email: 'owner.sub@nhamnhi.vn',
+    role: 'admin',
+    restaurantIds: [
+      SEED_IDS.tenantSubTrial,
+      SEED_IDS.tenantSubExpiring,
+      SEED_IDS.tenantSubLocked,
+    ] as Types.ObjectId[],
+  },
 ] as const;
 
 async function seedUsers(): Promise<void> {
@@ -103,6 +120,34 @@ async function seedRestaurants(): Promise<void> {
       ownerId: SEED_IDS.adminX,
       subscription: 'active',
       paidUntil: new Date(now.getTime() + 30 * 24 * 3600 * 1000),
+    },
+    // Chủ test subscription (T7): 3 nhà hàng ở 3 trạng thái
+    {
+      _id: SEED_IDS.tenantSubTrial,
+      name: 'NhamNhi Sub Trial',
+      email: 'sub.trial@nhamnhi.vn',
+      status: 'active',
+      ownerId: SEED_IDS.ownerSub,
+      subscription: 'trial',
+      trialEndsAt: new Date(now.getTime() + 10 * 24 * 3600 * 1000),
+    },
+    {
+      _id: SEED_IDS.tenantSubExpiring,
+      name: 'NhamNhi Sub Sắp Hết Hạn',
+      email: 'sub.expiring@nhamnhi.vn',
+      status: 'active',
+      ownerId: SEED_IDS.ownerSub,
+      subscription: 'trial',
+      trialEndsAt: new Date(now.getTime() + 3 * 24 * 3600 * 1000),
+    },
+    {
+      _id: SEED_IDS.tenantSubLocked,
+      name: 'NhamNhi Sub Bị Khoá',
+      email: 'sub.locked@nhamnhi.vn',
+      status: 'active',
+      ownerId: SEED_IDS.ownerSub,
+      subscription: 'locked',
+      paidUntil: new Date(now.getTime() - 5 * 24 * 3600 * 1000),
     },
   ]);
 }

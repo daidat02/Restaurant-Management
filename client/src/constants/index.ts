@@ -140,6 +140,9 @@ export const API_ENDPOINTS = {
   SUBSCRIPTION: {
     PRICING: `${API_BASE_URL}/pricing`,
     PRICING_ADMIN: `${API_BASE_URL}/admin/pricing`,
+    ME: `${API_BASE_URL}/subscriptions/me`,
+    PAY: `${API_BASE_URL}/subscriptions/pay`,
+    TRANSACTIONS: `${API_BASE_URL}/subscriptions/transactions`,
   },
 
   // --- AUDIT LOG (chỉ super-admin) ---

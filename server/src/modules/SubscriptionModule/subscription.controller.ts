@@ -29,6 +29,17 @@ class SubscriptionController {
       return res.status(500).json({ message: 'Lỗi server khi lấy trạng thái thuê bao' });
     }
   }
+
+  /** GET /api/subscriptions/transactions — lịch sử giao dịch của chủ. */
+  async transactions(req: AuthRequest, res: Response) {
+    try {
+      const result = await subscriptionService.transactionsService(req.user?.userId);
+      return res.status(result.code).json(result);
+    } catch (error) {
+      console.error('Error getting my transactions:', error);
+      return res.status(500).json({ message: 'Lỗi server khi lấy lịch sử giao dịch' });
+    }
+  }
 }
 
 export default new SubscriptionController();

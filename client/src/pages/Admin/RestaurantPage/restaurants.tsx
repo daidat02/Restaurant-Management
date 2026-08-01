@@ -1,23 +1,29 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Download, Plus, Eye, Edit2, Trash2 } from 'lucide-react';
+import { Search, Download, Plus, Eye, Edit2, Trash2, CreditCard } from 'lucide-react';
 
 import { useRestaurant } from '@/hooks/use-restaurant';
+import { useSubscription } from '@/hooks/use-subscription';
 import type { IRestaurant } from '@/types/restaurant.type';
 
 import { Button } from '@/components/ui/button';
 import { DataTable, type ColumnDef } from '@/components/TableData';
 import { StatusTag } from '@/components/StatusTag';
+import { SubscriptionBadge } from '@/components/SubscriptionBadge';
 import SideDrawer from '@/components/SideDrawer';
 import { AlertDialogCustom } from '@/components/AlertDialog';
 import { FilterToolbar } from '../OrderPage/management-order';
 import FormCreateRestaurant from './components/FormCreateRestaurant';
+import { PayForNewRestaurantModal } from './components/PayForNewRestaurantModal';
+import { format } from 'date-fns';
 
 export default function RestaurantsPage() {
   const navigate = useNavigate();
   const { fetchRestaurants, restaurants, isLoading, deleteRestaurant } = useRestaurant();
+  const { subscriptions, isLoading: subscriptionsLoading } = useSubscription();
 
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [editingRestaurant, setEditingRestaurant] = useState<IRestaurant | null>(null);
 
   // Các State quản lý bộ lọc & tìm kiếm
@@ -33,14 +39,31 @@ export default function RestaurantsPage() {
     fetchRestaurants();
   }, [fetchRestaurants]);
 
+  // Chỉ hiển thị "nhà hàng của tôi" (chủ sở hữu) + gộp trạng thái thuê bao
+  const ownerRestaurants = useMemo(() => {
+    const subMap = new Map(subscriptions.map((s) => [String(s._id), s]));
+    return (restaurants || [])
+      .filter((r) => subMap.has(String(r._id)))
+      .map((r) => {
+        const sub = subMap.get(String(r._id));
+        return {
+          ...r,
+          subscription: sub?.subscription || r.subscription,
+          trialEndsAt: sub?.trialEndsAt || r.trialEndsAt,
+          paidUntil: sub?.paidUntil || r.paidUntil,
+          _daysLeft: sub?.daysLeft,
+        } as IRestaurant & { _daysLeft?: number };
+      });
+  }, [restaurants, subscriptions]);
+
   // 2. Xử lý Tìm kiếm cục bộ (Client-side Search) liên kết mượt mà với phân trang
   useEffect(() => {
-    if (!restaurants) {
+    if (!ownerRestaurants) {
       setFilteredRestaurants([]);
       return;
     }
 
-    let result = [...restaurants];
+    let result = [...ownerRestaurants];
 
     // Tiến hành lọc theo tên nhà hàng hoặc địa chỉ, số điện thoại
     if (searchTerm.trim() !== '') {
@@ -55,7 +78,7 @@ export default function RestaurantsPage() {
 
     setFilteredRestaurants(result);
     setCurrentPage(1); // Quay về trang 1 khi gõ từ khóa mới
-  }, [restaurants, searchTerm]);
+  }, [ownerRestaurants, searchTerm]);
 
   // 3. Tính toán dữ liệu phân trang chuẩn xác từ mảng đã qua bộ lọc "filteredRestaurants"
   const paginatedData = useMemo(() => {
@@ -77,6 +100,19 @@ export default function RestaurantsPage() {
           </span>
         </div>
       ),
+    },
+    {
+      header: 'Subscription',
+      render: (item) => {
+        const sub = item as IRestaurant & { _daysLeft?: number };
+        let hint: string | undefined;
+        if (sub.subscription === 'trial' && typeof sub._daysLeft === 'number') {
+          hint = `còn ${sub._daysLeft} ngày`;
+        } else if (sub.subscription === 'active' && sub.paidUntil) {
+          hint = `tới ${format(new Date(sub.paidUntil), 'dd/MM/yyyy')}`;
+        }
+        return <SubscriptionBadge subscription={sub.subscription} hint={hint} />;
+      },
     },
     {
       header: 'Manager',
@@ -113,6 +149,17 @@ export default function RestaurantsPage() {
       className: 'text-right',
       render: (item) => (
         <div className="flex justify-end gap-1.5">
+          {item.subscription === 'locked' && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-rose-600 hover:bg-rose-50 rounded-lg"
+              title="Thanh toán mở lại"
+              onClick={() => navigate('/admin/billing')}
+            >
+              <CreditCard className="h-4 w-4" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -172,7 +219,17 @@ export default function RestaurantsPage() {
               </Button>
               <Button
                 className="bg-cerulean-blue-600 hover:bg-cerulean-blue-700 text-white h-9 rounded-xl text-sm shadow-sm font-medium"
-                onClick={() => navigate('/admin/onboarding')}
+                onClick={() => {
+                  // Chờ danh sách thuê bao tải xong để quyết định đúng nhánh (wizard / modal trả phí)
+                  if (subscriptionsLoading) return;
+                  // Chưa có nhà hàng nào → wizard tạo cơ sở đầu tiên (miễn phí trial 30 ngày)
+                  if (subscriptions.length === 0) {
+                    navigate('/admin/onboarding');
+                  } else {
+                    // Đã có nhà hàng → modal trả phí mở cơ sở mới
+                    setIsPayModalOpen(true);
+                  }
+                }}
               >
                 Thêm nhà hàng <Plus className="ml-2 h-4 w-4" />
               </Button>
@@ -225,6 +282,13 @@ export default function RestaurantsPage() {
             }}
           />
         </SideDrawer>
+
+        {/* MODAL TRẢ PHÍ MỞ NHÀ HÀNG 2+ */}
+        <PayForNewRestaurantModal
+          open={isPayModalOpen}
+          onOpenChange={setIsPayModalOpen}
+          onSuccess={() => fetchRestaurants()}
+        />
       </div>
     </div>
   );

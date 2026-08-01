@@ -53,6 +53,17 @@ describe('T5 — Thanh toán mock + khoá đơn/món khi locked', () => {
     expect(res.body.data.length).toBeGreaterThanOrEqual(2);
   });
 
+  it('GET /api/subscriptions/transactions — chủ xem đúng lịch sử giao dịch của mình', async () => {
+    const res = await request
+      .get('/api/subscriptions/transactions')
+      .set('Authorization', `Bearer ${adminXToken}`);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.data.length).toBeGreaterThanOrEqual(1);
+    // Mọi giao dịch đều thuộc chủ (adminX)
+    expect(res.body.data.every((t: any) => t.ownerId === SEED_IDS.adminX.toString())).toBe(true);
+  });
+
   it('Tạo đơn khi nhà hàng locked → 403 RESTAURANT_LOCKED', async () => {
     await DB_Connection.Restaurant.findByIdAndUpdate(SEED_IDS.tenantY, {
       subscription: 'locked',

@@ -3,6 +3,7 @@ import { API_BASE_URL } from '@/constants';
 // Import store và action từ Redux để lấy và cập nhật token
 import { store } from '@/redux/store/store';
 import { logout, refreshToken } from '@/redux/slices/authSlice';
+import { openUpsell } from '@/redux/slices/upsellSlice';
 
 const axiosClient = axios.create({
   baseURL: API_BASE_URL || 'http://localhost:8000',
@@ -119,6 +120,14 @@ axiosClient.interceptors.response.use(
     if (axios.isAxiosError(error)) {
       const data = error.response?.data;
       errorMessage = data?.message || error.message;
+
+      // Nhà hàng bị khoá do hết hạn thanh toán → mở modal upsell (chỉ chủ admin) để trả phí mở lại
+      if (
+        (data?.errorCode === 'RESTAURANT_LOCKED' || data?.code === 'RESTAURANT_LOCKED') &&
+        store.getState().auth.user?.role === 'admin'
+      ) {
+        store.dispatch(openUpsell({ restaurantId: data?.restaurantId || null, message: errorMessage }));
+      }
 
       return Promise.reject({
         success: false,

@@ -18,5 +18,12 @@ router.get(
   verifyRole(['admin']),
   subscriptionController.me,
 );
+// Lịch sử giao dịch của chủ
+router.get(
+  '/subscriptions/transactions',
+  verifyToken,
+  verifyRole(['admin']),
+  subscriptionController.transactions,
+);
 
 export default router;

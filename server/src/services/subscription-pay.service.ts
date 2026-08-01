@@ -108,6 +108,20 @@ class SubscriptionService {
     }));
     return { message: 'Lấy trạng thái thuê bao thành công', data: items, code: 200 };
   }
+
+  /** Lịch sử giao dịch của chủ sở hữu (chỉ giao dịch thuộc các nhà hàng của họ). */
+  async transactionsService(ownerId: string | undefined): Promise<ServiceResponse<any>> {
+    if (!ownerId) return { message: 'Thiếu chủ sở hữu!', code: 403 };
+    const transactions = await DB_Connection.Transaction.find({ ownerId })
+      .sort({ createdAt: -1 })
+      .populate('restaurant', 'name')
+      .lean();
+    return {
+      message: 'Lấy lịch sử giao dịch thành công',
+      data: transactions,
+      code: 200,
+    };
+  }
 }
 
 export default new SubscriptionService();
