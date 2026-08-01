@@ -4,77 +4,50 @@
 
 **Blocked by:** 01 — Hạ tầng test.
 
-**Status:** ready-for-agent
+**Status:** done
 
-Chi tiết kỹ thuật — viết theo từng file `*.test.ts` trong `server/src/**/__tests__/` hoặc `server/tests/`:
+**Kết quả:** `npm test` = **26 failed (đỏ, đúng lỗ hổng dự kiến) | 99 passed (125 total, 13 files)**. Chạy lặp 4× ổn định.
 
-### T1 — Auth & token (~12 case)
-- login/register success + wrong password 401.
-- refresh trả token mới (giữ `restaurantId`).
-- token hết hạn → 401.
-- `switch-tenant` hợp lệ (user [X,Y] switch Y) → 200 + token mới; không thuộc → 403 "Bạn không thuộc nhà hàng này!".
-- super-admin switch → 200.
-- change/reset password.
+## Cấu trúc test (server/src/test/)
 
-### T2 — Tenant isolation trên verifyRole-only routes (~26 case) ⚠️ **ĐỎ hiện tại**
-- Token staff/admin X gọi `PUT/DELETE /tables/:id` (id bàn của Y) → hiện 200 → **kỳ vọng 403**.
-- Tương tự: `/menu/category/:id`, `/menu/item/:id`, `/menu/item/:id/availability`, `/orders/:id`, `/orders/:id/status`, `/settings/:id`, `/settings/:id/payment-method`, `/reservations/:id`, `/reservations/update/:id`, `/reservations/update-status/:id`, `/reservations/cancel/:id`, `/auth/profile/:id`, `/auth/admin/update/:id`, `/auth/admin/delete/:id`, `/restaurants/update/:id`, `/restaurants/:id` (delete).
-- Yêu cầu: dùng id thật của tenant Y (seed), token của X.
+| File | Nhóm | Pass | Đỏ (lỗ hổng cần ticket 04) |
+|---|---|---|---|
+| `auth.test.ts` | T1 — Auth & token | 13 | — |
+| `tenant-isolation.test.ts` | T2 — verifyRole-only routes | — | **22** (tables, menu, orders, settings, reservations, auth admin, restaurants × PUT/DELETE/status đều trả 200 thay vì 403) |
+| `tenant-scoping.test.ts` | T3 — verifyTenant cô lập | 11 | — |
+| `super-admin.test.ts` | T4 — quyền nền tảng | 4 | **1** (`GET /orders/:id` admin X đọc đơn Y) |
+| `kds.test.ts` | T5 — KDS | 6 | **1** (`POST /settings/:id/kds-code` không chặn id Y) |
+| `socket.test.ts` | T6 — Socket isolation | 8 | — |
+| `upload.test.ts` | T7 — Upload | 7 | — (1 case ghi nhận 500: multer sai định dạng chưa bắt) |
+| `qr-table.test.ts` | T8 — QR bàn / tạo đơn public | 8 | — |
+| `payment.test.ts` | T9 — Payment | 10 | **1** (`GET /payments/:paymentId` staff X đọc payment Y) |
+| `analytics.test.ts` | T10 — Analytics | 7 | **1** (`revenue-channels` admin X thấy gộp toàn hệ thống) |
+| `settings.test.ts` | T11 — Settings | 8 | — |
+| `regression.test.ts` | T13 — Regression nghiệp vụ | 13 | — |
+| `smoke.test.ts` | (có sẵn) | 4 | — |
 
-### T3 — verifyTenant routes (~17 case)
-- Đúng tenant → 200.
-- Giả mạo param (token X, gọi `/:restaurantId` của Y) → trả dữ liệu của X (không leak Y).
-- super-admin bypass đúng (gọi chéo OK).
+## Thay đổi hạ tầng trong ticket này
 
-### T4 — Super-admin lock/unlock (~6 case)
-- `PATCH /restaurants/status/:id` active→inactive; token Y sau đó mọi API → 403 "Nhà hàng đã bị khóa!".
-- Mở lại → OK.
-- Admin X không bị ảnh hưởng khi Y khoá.
-- `GET /analytics/revenue-channels` **chưa scoped tenant** → ⚠️ đỏ: admin X thấy gộp cả Y (kỳ vọng chỉ X).
+- `globalSetup.ts`: đổi sang **`MongoMemoryReplSet`** (`replSet: { count: 1 }`) vì `OrderService`/`PaymentService` dùng MongoDB transaction (`startTransaction`) — standalone trả `Transaction numbers are only allowed on a replica set`. Thêm `--setParameter maxTransactionLockRequestTimeoutMillis=5000` để khử lock flaky.
+- `utils.ts`: thêm `initSocket(createServer(app))` để `getIO()` không throw khi controller emit qua socket trong test.
 
-### T5 — KDS (~8 case)
-- `POST /settings/kds/verify` mã X → token gắn X; mã Y → gắn Y; mã sai → 401.
-- KDS token X gọi `/orders/active/:Y` (giả mạo) → vẫn trả X.
-- KDS bị khoá tenant → 403.
-- Generate kitchen code: admin X `POST /settings/:id/kds-code` → 200 (đã fix ticket 09, giữ regress).
+## Checklist
 
-### T6 — Socket isolation (~8 case)
-- Dùng `socket.io-client` kết nối với token KDS X + KDS Y: X nhận `order_event`/`new_Notification` khi add món vào order X; Y **không** nhận.
-- `init_orders`/`init_room_restaurant` sai tenant → `room_error`.
-- admin.test [X,Y] nhận cả 2 phòng (đúng quyền).
+- [x] T1, T3, T4 (trừ revenue-channels), T5–T8, T10, T11, T13 **pass** (99 passed).
+- [x] T2 (22) + T4-revenue-channels + T9-payment + T5-kds-code + T4-orders/:id = **26 đỏ** — danh sách fail đúng lỗ hổng đã biết (mọi lỗi đều là `expected 403 to be 200`).
+- [x] Không test nào đụng DB thật (mongodb-memory-server).
 
-### T7 — Upload (~6 case)
-- Upload (mô phỏng multer file) → publicId `restaurants/<tenant>/...`.
-- Xoá ảnh của X bằng token Y → 400 "Bạn không có quyền xóa ảnh của nhà hàng khác!".
-- Xoá bằng X → 200. (Có thể mock Cloudinary để không gọi API thật — dùng `cloudinary` mock.)
+## Ghi chú lỗ hổng cụ thể cho ticket 04
 
-### T8 — QR bàn (~8 case)
-- `createOrder` dine-in đúng (table X + restaurant X) → 201, order.restaurant = X.
-- Forged (table X + restaurant Y) → 400 "Bàn không thuộc nhà hàng này".
-- QR cũ (thiếu restaurantId) → 201 auto gán tenant bàn.
-- `GET /orders/table/:tableId` hoạt động (public).
+Danh sách 26 route hiện **thiếu verifyTenant / tenant check** (token X truy cập resource Y trả 200):
+- `PUT/DELETE /tables/:id`, `PATCH /tables/:id/status`
+- `PUT /menu/category/:id`, `PUT /menu/item/:id`, `PUT /menu/item/:id/availability`
+- `PUT /orders/:id`, `PUT /orders/:id/status`, `GET /orders/:id`
+- `PUT /settings/:id`, `PATCH /settings/:id/payment-method`, `DELETE /settings/:id`, `POST /settings/:id/kds-code`
+- `GET /reservations/:id`, `PUT /reservations/update/:id`, `PUT /reservations/update-status/:id`, `PUT /reservations/cancel/:id`
+- `GET /auth/profile/:id`, `PUT /auth/admin/update/:id`, `DELETE /auth/admin/delete/:id`
+- `PUT /restaurants/update/:id`, `DELETE /restaurants/:id`
+- `GET /payments/:paymentId` (thiếu tenant check)
+- `GET /analytics/revenue-channels` (thiếu verifyTenant, admin X thấy gộp Y)
 
-### T9 — Payment public (~10 case) ⚠️ **ĐỎ hiện tại**
-- `/payments/webhook` không có signature hợp lệ → bị từ chối (kỳ vọng 4xx) — hiện có thể chấp nhận.
-- `/payments/banking/:orderId`, `/:orderId/cancel`, `/check-connect` public — xác định kỳ vọng bảo mật (rate limit sẽ phủ — test phần signature/logic tại đây).
-- PayOS theo tenant: order X dùng key X.
-
-### T10 — Analytics (~5 case)
-- overview/hourly/order-channels scoped tenant (admin X chỉ thấy X).
-- `revenue-channels` ⚠️ đỏ (xem T4).
-- Thiếu `startDate/endDate` → 400.
-
-### T11 — Settings (~8 case)
-- `get-or-create` trả setting đúng tenant.
-- `GET /settings/:id` (bỏ qua param, dùng req.tenantId).
-- update PayOS key; payment-method; generate kitchen code (regress).
-
-### T12 — Client E2E (~20 case) — **Playwright, viết ở ticket 06**
-- (File này chỉ khai báo scope; thực thi ở ticket 06 sau khi fix lỗ hổng.)
-
-### T13 — Regression nghiệp vụ (~15 case)
-- Reservation slots; menu CRUD; order add-item; item status pending→preparing→served; notification read; customer đặt bàn.
-
-- [ ] T1, T3, T4 (trừ revenue-channels), T5–T8, T10, T11, T13 **pass**.
-- [ ] T2 (~26) + T4-revenue-channels + T9 **đỏ** — ghi lại danh sách fail đúng lỗ hổng đã biết.
-- [ ] Không test nào đụng DB thật.
+Bug ghi nhận ngoài phạm vi tenant (để ticket khác): multer sai định dạng → 500 (chưa bắt); `PaymentRepository.updatePayment` gọi `.save()` khi `findByIdAndUpdate` trả null → 500 thay vì 404; `POST /payments/check-connect` destructure payload undefined → 500 thay vì 400.

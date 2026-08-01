@@ -1,10 +1,17 @@
 import supertest from 'supertest';
 import jwt from 'jsonwebtoken';
+import { createServer } from 'http';
 import createApp from '../app.js';
+import { initSocket } from '../configs/socketsConfig.js';
 import { SEED_IDS } from './seed.js';
 
 /** Express app (không listen) cho supertest. */
 export const app = createApp();
+
+// Init socket giả để getIO() không throw khi controller/service emit trong test.
+// Server không cần listen — chỉ cần instance io tồn tại để emit không lỗi.
+initSocket(createServer(app));
+
 export const request = supertest(app);
 
 const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'test-access-secret';
