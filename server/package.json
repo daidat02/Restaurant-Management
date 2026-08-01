@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "concurrently \"tsc --watch\" \"nodemon dist/index.js\"",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "test": "vitest run"
   },
   "keywords": [],
   "author": "datnd.02",
@@ -21,10 +22,14 @@
     "@types/mongoose": "^5.11.97",
     "@types/multer": "^2.0.0",
     "@types/node": "^24.3.0",
+    "@types/supertest": "^7.2.1",
     "concurrently": "^9.2.0",
+    "mongodb-memory-server": "^11.2.0",
     "nodemon": "^3.1.10",
+    "supertest": "^7.2.2",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vitest": "^4.1.10"
   },
   "dependencies": {
     "@payos/node": "^2.0.5",

@@ -4,7 +4,7 @@
 
 **Blocked by:** (không — khởi điểm)
 
-**Status:** ready-for-agent
+**Status:** done (ticket 01 — commit `TBD`)
 
 Chi tiết kỹ thuật:
 - **Server**:
@@ -27,7 +27,7 @@ Chi tiết kỹ thuật:
 - Mỗi tenant: ít nhất 1 setting (scope restaurant, targetId), 2 bàn, 2 menu item, 1 order active + 1 order paid, 1 reservation, 1 notification, 1 payment.
 - Dùng ObjectId cố định cho seed (như multi-tenant spec) để test ổn định.
 
-- [ ] `npm test` (server) chạy được, ít nhất 1 test smoke pass.
-- [ ] supertest gọi được `createApp()` với Memory Server, không đụng DB thật.
-- [ ] Playwright smoke test pass.
-- [ ] Typecheck server + client không lỗi.
+- [x] `npm test` (server) chạy được, ít nhất 1 test smoke pass.
+- [x] supertest gọi được `createApp()` với Memory Server, không đụng DB thật.
+- [x] Playwright smoke test pass.
+- [x] Typecheck server + client không lỗi.

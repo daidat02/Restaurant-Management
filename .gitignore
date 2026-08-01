@@ -12,6 +12,16 @@ server/build/
 .DS_Store
 .vscode/
 
+# Playwright
+test-results/
+playwright-report/
+
+# Build tsc sinh ra từ vitest.config.ts (rootDir khác)
+server/vitest.config.js
+server/vitest.config.js.map
+server/vitest.config.d.ts
+server/vitest.config.d.ts.map
+
 # OpenCode
 opencode.json
 .opencode/
