@@ -13,11 +13,13 @@ import settingsRoute from '../modules/SettingModule/setting.routes.js';
 import auditLogRoute from '../modules/AuditLogModule/auditLog.routes.js';
 import pricingRoutes from '../modules/SubscriptionModule/pricing.routes.js';
 import subscriptionRoutes from '../modules/SubscriptionModule/subscription.routes.js';
+import superAdminRoutes from '../modules/SuperAdminModule/superAdmin.routes.js';
 const router = Router();
 
 router.use('/auth', authRoutes);
 router.use('/', pricingRoutes);
 router.use('/', subscriptionRoutes);
+router.use('/', superAdminRoutes);
 router.use('/restaurants', restaurantRoutes);
 router.use('/tables', tableRoutes);
 router.use('/reservations', reservationRoutes);
