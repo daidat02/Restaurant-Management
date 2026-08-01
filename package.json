@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "test:e2e": "playwright test"
+    "test:e2e": "E2E_SERVER=test playwright test"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0"
