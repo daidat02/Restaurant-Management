@@ -16,8 +16,10 @@ import {
 import Logo from '@/assets/logo_app.svg';
 import {
   LayoutDashboard,
-  Store,
   Users,
+  CreditCard,
+  Receipt,
+  ScrollText,
   Moon,
   ShieldCheck,
   type LucideIcon,
@@ -31,8 +33,10 @@ type MenuItem = {
 
 const GENERAL_MENU: MenuItem[] = [
   { title: 'Tổng Quan Hệ Thống', icon: LayoutDashboard, path: '/super-admin' },
-  { title: 'Quản Lý Nhà Hàng', icon: Store, path: '/super-admin/restaurants' },
   { title: 'Tài Khoản Người Thuê', icon: Users, path: '/super-admin/tenants' },
+  { title: 'Gói Cước & Giá', icon: CreditCard, path: '/super-admin/pricing' },
+  { title: 'Lịch Sử Giao Dịch', icon: Receipt, path: '/super-admin/transactions' },
+  { title: 'Nhật Ký Hệ Thống', icon: ScrollText, path: '/super-admin/audit' },
 ];
 
 export default function SidebarSuperAdmin() {

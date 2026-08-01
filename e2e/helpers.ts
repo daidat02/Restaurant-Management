@@ -38,6 +38,7 @@ export async function waitAuthPersisted(page: Page, restaurantId?: string) {
 
 /** Seed IDs (khớp `server/src/test/seed.ts`). */
 export const SEED_IDS = {
+  adminX: '69fccba996a14809070b9ee1',
   tenantX: '69fccba996a14809070b9ef2',
   tenantY: '69fb58d6ca9d7bade016e912',
   tableX1: '69fccba996a14809070b9ef3',

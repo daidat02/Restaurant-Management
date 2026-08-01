@@ -1,75 +1,94 @@
 import { test, expect } from '@playwright/test';
 import {
   login,
-  waitAuthPersisted,
   apiLogin,
   USERS,
   SEED_IDS,
   API_BASE,
+  PASSWORD,
 } from './helpers';
 
 test.describe('T12 — Super-admin', () => {
-  test('login SA → dashboard tổng quan + danh sách nhà hàng', async ({ page }) => {
+  test('login SA → dashboard KPI + tenants + pricing + transactions + audit', async ({ page }) => {
     await login(page, USERS.superAdmin.email);
     await expect(page).toHaveURL(/\/super-admin/, { timeout: 15_000 });
 
-    // Dashboard
+    // Dashboard: heading + KPI theo mô hình subscription
     await expect(page.getByRole('heading', { name: 'Tổng Quan Hệ Thống' })).toBeVisible({
       timeout: 20_000,
     });
-    await expect(page.getByText('Tổng nhà hàng')).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText('Nhà hàng hoạt động')).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText('Chủ đã thanh toán')).toBeVisible();
 
-    // Danh sách nhà hàng
-    await page.goto('/super-admin/restaurants');
-    await expect(page.getByRole('heading', { name: 'Quản Lý Nhà Hàng' })).toBeVisible({
+    // Người thuê (chủ nhà hàng)
+    await page.goto('/super-admin/tenants');
+    await expect(page.getByRole('heading', { name: 'Tài Khoản Người Thuê' })).toBeVisible({
       timeout: 20_000,
     });
-    await expect(page.getByText('NhamNhi Cơ Sở 1')).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText('NhamNhi Cơ Sở 2')).toBeVisible();
+    await expect(page.getByText('Admin Test')).toBeVisible({ timeout: 15_000 });
+
+    // Gói cước & giá
+    await page.goto('/super-admin/pricing');
+    await expect(page.getByRole('heading', { name: 'Gói Cước & Giá' })).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(page.getByText('1 tháng')).toBeVisible();
+
+    // Lịch sử giao dịch
+    await page.goto('/super-admin/transactions');
+    await expect(page.getByRole('heading', { name: 'Lịch Sử Giao Dịch' })).toBeVisible({
+      timeout: 20_000,
+    });
+
+    // Nhật ký hệ thống (audit log — không còn trang vận hành nhà hàng)
+    await page.goto('/super-admin/audit');
+    await expect(page.getByRole('heading', { name: 'Nhật Ký Hệ Thống' })).toBeVisible({
+      timeout: 20_000,
+    });
+
+    // Không còn trang quản lý vận hành nhà hàng
+    await page.goto('/super-admin/restaurants');
+    await expect(page.getByRole('heading', { name: 'Quản Lý Nhà Hàng' })).not.toBeVisible({
+      timeout: 5_000,
+    });
+    // Sidebar không còn mục quản lý vận hành
+    await expect(page.getByRole('button', { name: 'Quản Lý Nhà Hàng' })).toHaveCount(0);
   });
 
-  test('khóa nhà hàng Y → admin Y bị chặn khi gọi API', async ({ page, request }) => {
-    // Super-admin khóa Y qua API (tránh phụ thuộc selector icon lock)
+  test('khoá chủ (owner block) → mọi user của chủ không đăng nhập được', async ({
+    page,
+    request,
+  }) => {
+    // Super-admin khoá chủ X (adminX) qua API endpoint mới
     const saToken = await apiLogin(request, USERS.superAdmin.email);
-    const lockRes = await request.patch(`${API_BASE}/restaurants/status/${SEED_IDS.tenantY}`, {
+    const blockRes = await request.patch(`${API_BASE}/admin/users/${SEED_IDS.adminX}/block`, {
       headers: { Authorization: `Bearer ${saToken}` },
-      data: { status: 'inactive' },
+      data: { blocked: true },
     });
-    expect(lockRes.status()).toBe(200);
+    expect(blockRes.status()).toBe(200);
 
-    // Admin Y (đã chọn Y) gọi API data Y → bị chặn
-    const adminYToken = await apiLogin(request, USERS.admin.email);
-    const switchRes = await request.post(`${API_BASE}/auth/switch-tenant`, {
-      headers: { Authorization: `Bearer ${adminYToken}` },
-      data: { restaurantId: SEED_IDS.tenantY },
+    // Admin X không thể đăng nhập (tài khoản bị khoá) — kiểm tra cả API và UI
+    const loginRes = await request.post(`${API_BASE}/auth/login`, {
+      data: { email: USERS.admin.email, password: PASSWORD },
     });
-    expect(switchRes.status()).toBe(200);
-    const switched = (await switchRes.json()) as { data?: { accessToken?: string } };
-    const yToken = switched?.data?.accessToken as string;
+    expect(loginRes.status()).toBe(400);
 
-    const blockedRes = await request.get(`${API_BASE}/orders/restaurant/${SEED_IDS.tenantY}`, {
-      headers: { Authorization: `Bearer ${yToken}` },
-    });
-    // Nhà hàng bị khóa → admin Y không lấy được data (401/403/404)
-    expect([401, 403, 404]).toContain(blockedRes.status());
-
-    // UI: admin Y login → chọn Y → thấy lỗi (không vào được dashboard bình thường)
     await login(page, USERS.admin.email);
-    await expect(page).toHaveURL(/select-restaurant/, { timeout: 15_000 });
-    await page.getByRole('button', { name: /NhamNhi Cơ Sở 2/ }).click();
-    // Bị chặn: không đến /admin (redirect về login hoặc select-restaurant)
     await expect
       .poll(async () => page.url())
       .not.toMatch(/\/admin/, { timeout: 10_000 });
 
-    // Mở khóa lại để không ảnh hưởng các test khác
-    const unlockRes = await request.patch(
-      `${API_BASE}/restaurants/status/${SEED_IDS.tenantY}`,
-      {
-        headers: { Authorization: `Bearer ${saToken}` },
-        data: { status: 'active' },
-      },
-    );
+    // Mở khoá lại để không ảnh hưởng các test khác
+    const unlockRes = await request.patch(`${API_BASE}/admin/users/${SEED_IDS.adminX}/block`, {
+      headers: { Authorization: `Bearer ${saToken}` },
+      data: { blocked: false },
+    });
     expect(unlockRes.status()).toBe(200);
+
+    // Sau khi mở khoá → admin X đăng nhập lại bình thường
+    const reloginRes = await request.post(`${API_BASE}/auth/login`, {
+      data: { email: USERS.admin.email, password: PASSWORD },
+    });
+    expect(reloginRes.status()).toBe(200);
   });
 });

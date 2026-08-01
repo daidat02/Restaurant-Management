@@ -35,17 +35,3 @@ export interface IRevenueBranch {
   branchName: string;
   averageBill: number;
 }
-
-export interface ISystemOverview {
-  totalRestaurants: number;
-  activeRestaurants: number;
-  inactiveRestaurants: number;
-  totalTenantUsers: number;
-  totalCustomers: number;
-  totalRevenue: number;
-  totalOrders: number;
-  cancelledOrders: number;
-  cancellationRate: number;
-  averagePerOrder: number;
-  totalReservations: number;
-}

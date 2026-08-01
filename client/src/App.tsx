@@ -36,8 +36,10 @@ import Table from './pages/Admin/TablePage/table';
 import Users from './pages/Admin/UserPage/users';
 import FormMenuItem from './pages/Admin/ProductPage/components/FormCreateItem';
 import SuperAdminDashboard from './pages/SuperAdmin/Dashboard';
-import SuperAdminRestaurants from './pages/SuperAdmin/Restaurants';
 import SuperAdminTenants from './pages/SuperAdmin/Tenants';
+import SuperAdminPricing from './pages/SuperAdmin/Pricing';
+import SuperAdminTransactions from './pages/SuperAdmin/Transactions';
+import SuperAdminAudit from './pages/SuperAdmin/Audit';
 import { Toaster } from '@/components/ui/sonner';
 import { useDispatch } from 'react-redux';
 import { login, logout } from './redux/slices/authSlice';
@@ -175,8 +177,10 @@ export default function App() {
       >
         <Route path="/super-admin" element={<LayoutSuperAdmin />}>
           <Route index element={<SuperAdminDashboard />} />
-          <Route path="restaurants" element={<SuperAdminRestaurants />} />
           <Route path="tenants" element={<SuperAdminTenants />} />
+          <Route path="pricing" element={<SuperAdminPricing />} />
+          <Route path="transactions" element={<SuperAdminTransactions />} />
+          <Route path="audit" element={<SuperAdminAudit />} />
         </Route>
       </Route>
 

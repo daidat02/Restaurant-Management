@@ -6,7 +6,6 @@ import type {
   IOrderChannel,
   IAnalyticQueryParams,
   IRevenueBranch,
-  ISystemOverview,
 } from '@/types/analytic.type';
 
 import { API_ENDPOINTS } from '@/constants/index';
@@ -38,12 +37,5 @@ export const getRevenueChannels = async (params: IAnalyticQueryParams) => {
   const res = await axiosClient.get<any, ApiResponse<IRevenueBranch[]>>(ANALYTIC.REVENUE_CHANNELS, {
     params,
   });
-  return res.data;
-};
-
-export const getSystemOverview = async () => {
-  const res = await axiosClient.get<any, ApiResponse<ISystemOverview>>(
-    ANALYTIC.SYSTEM_OVERVIEW,
-  );
   return res.data;
 };
