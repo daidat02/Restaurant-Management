@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import authService from './auth.service.js'; // Nhận instance Singleton trực tiếp, không cần 'new'
 import type { AuthRequest } from '../../middlewares/auth.middleware.js';
+import { writeAuditLog } from '../../services/auditLog.service.js';
 
 class AuthController {
   /**
@@ -10,6 +11,17 @@ class AuthController {
     const userData = req.body;
     try {
       const result = await authService.registerUserService(userData);
+      if (result.code === 201 || result.code === 200) {
+        await writeAuditLog({
+          action: 'user.register',
+          restaurant: userData?.restaurant || req.query?.restaurantId || null,
+          actor: null,
+          targetType: 'user',
+          targetId: result.data?._id || null,
+          summary: `Đăng ký tài khoản mới (${userData?.role || 'customer'})`,
+          meta: { email: userData?.email },
+        });
+      }
       return res.status(result.code).json(result);
     } catch (error) {
       console.error('Error during user registration:', error);
@@ -109,6 +121,19 @@ class AuthController {
       }
 
       const result = await authService.updateUserService(id, userId || '', updateData);
+      // Đổi role user là hành động nhạy cảm → ghi audit
+      if (req.params?.id && updateData?.role) {
+        await writeAuditLog({
+          action: 'user.update.role',
+          restaurant: req.tenantId || req.user?.restaurantId || null,
+          actor: req.user?.userId || null,
+          actorInfo: { name: req.user?.name, role: req.user?.role },
+          targetType: 'user',
+          targetId: id || null,
+          summary: `Đổi role user ${id} thành ${updateData.role}`,
+          meta: { role: updateData.role },
+        });
+      }
       return res.status(result.code).json(result);
     } catch (error) {
       console.error('Error updating user:', error);
@@ -161,6 +186,17 @@ class AuthController {
     const { id } = req.params;
     try {
       const result = await authService.deleteUserService(id || '');
+      if (result.code === 200) {
+        await writeAuditLog({
+          action: 'user.delete',
+          restaurant: req.tenantId || req.user?.restaurantId || null,
+          actor: req.user?.userId || null,
+          actorInfo: { name: req.user?.name, role: req.user?.role },
+          targetType: 'user',
+          targetId: id || null,
+          summary: `Xóa user ${id}`,
+        });
+      }
       return res.status(result.code).json(result);
     } catch (error) {
       console.error('Error deleting user:', error);
@@ -240,6 +276,17 @@ class AuthController {
     try {
       const userId = req.user?.userId;
       const result = await authService.switchTenantService(userId || '', restaurantId);
+      if (result.code === 200) {
+        await writeAuditLog({
+          action: 'user.switch-tenant',
+          restaurant: restaurantId || null,
+          actor: userId || null,
+          actorInfo: { name: req.user?.name, role: req.user?.role },
+          targetType: 'system',
+          targetId: restaurantId || null,
+          summary: `Chuyển nhà hàng hoạt động sang ${restaurantId}`,
+        });
+      }
       return res.status(result.code).json(result);
     } catch (error) {
       console.error('Error switching tenant:', error);

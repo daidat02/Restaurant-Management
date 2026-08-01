@@ -6,12 +6,13 @@ import {
   requireResourceTenant,
   orderTenantResolver,
 } from '../../middlewares/auth.middleware.js';
+import { orderCreateRateLimit } from '../../middlewares/rateLimit.middleware.js';
 import orderController from './order.controller.js';
 
 const router = Router();
 
-router.post('/', orderController.createOrder);
-router.post('/add-item', orderController.addItemIntoOrder);
+router.post('/', orderCreateRateLimit, orderController.createOrder);
+router.post('/add-item', orderCreateRateLimit, orderController.addItemIntoOrder);
 router.post('/item/:itemId/:status', verifyToken, orderController.updateOrederItemStatus);
 
 router.get('/my-orders', verifyToken, verifyRole(['customer']), orderController.getMyOrders);

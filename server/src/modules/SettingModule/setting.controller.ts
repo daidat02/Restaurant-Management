@@ -1,6 +1,7 @@
 import SettingService from './setting.service.js';
 import type { Request, Response } from 'express';
 import type { AuthRequest } from '../../middlewares/auth.middleware.js';
+import { writeAuditLog } from '../../services/auditLog.service.js';
 
 const settingService = new SettingService();
 
@@ -123,6 +124,17 @@ class SettingController {
     const restaurantId = req.tenantId;
     try {
       const result = await settingService.generateKitchenCodeService(restaurantId || '');
+      if (result.code === 200) {
+        await writeAuditLog({
+          action: 'setting.kds-code.generate',
+          restaurant: restaurantId || null,
+          actor: req.user?.userId || null,
+          actorInfo: { name: req.user?.name, role: req.user?.role },
+          targetType: 'system',
+          targetId: (result as any)?.data?._id || null,
+          summary: `Tạo mã nhà bếp mới cho nhà hàng ${restaurantId}`,
+        });
+      }
       res.status(result.code).json(result);
     } catch (error) {
       console.error(error);

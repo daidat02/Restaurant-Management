@@ -24,7 +24,8 @@ const AuditLogSchema = new Schema<IAuditLog>(
     action: { type: String, required: true, index: true },
 
     // Thêm ref tới model Restaurant của bạn (điều chỉnh tên ref nếu khác)
-    restaurant: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true, index: true },
+    // Optional: một số hành động hệ thống (register khách hàng) không có ngữ cảnh nhà hàng.
+    restaurant: { type: Schema.Types.ObjectId, ref: 'Restaurant', index: true },
 
     actor: { type: Schema.Types.ObjectId, ref: 'User' },
     actorInfo: {
@@ -37,7 +38,7 @@ const AuditLogSchema = new Schema<IAuditLog>(
       required: true,
       index: true,
     },
-    targetId: { type: Schema.Types.ObjectId, required: true, index: true },
+    targetId: { type: Schema.Types.ObjectId, index: true },
     summary: { type: String, required: true },
     meta: { type: Schema.Types.Mixed },
   },
@@ -48,5 +49,6 @@ const AuditLogSchema = new Schema<IAuditLog>(
 // Giúp Admin và Super Manager vừa lọc theo chi nhánh, vừa lọc theo loại bảng, vừa sắp xếp theo thời gian mới nhất cực mượt
 AuditLogSchema.index({ restaurant: 1, createdAt: -1 });
 AuditLogSchema.index({ restaurant: 1, targetType: 1, targetId: 1, createdAt: -1 });
+AuditLogSchema.index({ createdAt: -1 });
 
 export const AuditLog = model<IAuditLog>('AuditLog', AuditLogSchema);

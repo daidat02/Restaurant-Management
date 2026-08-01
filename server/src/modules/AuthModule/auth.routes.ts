@@ -7,13 +7,14 @@ import {
   requireResourceTenant,
   userTenantResolver,
 } from '../../middlewares/auth.middleware.js';
+import { authRateLimit } from '../../middlewares/rateLimit.middleware.js';
 
 const router = Router();
 // Đăng ký các route cho user
 router.get('/profile/me', verifyToken, authController.getProfileUserById);
-router.post('/register', authController.registerUser);
-router.post('/login', authController.loginUser);
-router.post('/refresh', authController.refreshToken);
+router.post('/register', authRateLimit, authController.registerUser);
+router.post('/login', authRateLimit, authController.loginUser);
+router.post('/refresh', authRateLimit, authController.refreshToken);
 router.post('/switch-tenant', verifyToken, authController.switchTenant);
 router.patch('/update/me', verifyToken, authController.updateUser);
 router.post('/reset-password', verifyToken, authController.updatePassword);

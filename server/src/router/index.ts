@@ -10,6 +10,7 @@ import paymentRoute from '../modules/PaymentModule/payment.routes.js';
 import notificationRoute from '../modules/Notification/notification.routes.js';
 import analyticsRoute from '../modules/AnalyticModule/analytic.route.js';
 import settingsRoute from '../modules/SettingModule/setting.routes.js';
+import auditLogRoute from '../modules/AuditLogModule/auditLog.routes.js';
 const router = Router();
 
 router.use('/auth', authRoutes);
@@ -23,5 +24,6 @@ router.use('/payments', paymentRoute);
 router.use('/notifications', notificationRoute);
 router.use('/analytics', analyticsRoute);
 router.use('/settings', settingsRoute);
+router.use('/audit-logs', auditLogRoute);
 
 export default router;

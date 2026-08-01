@@ -7,6 +7,7 @@ import {
   requireResourceTenant,
   settingTenantResolver,
 } from '../../middlewares/auth.middleware.js';
+import { kdsVerifyRateLimit } from '../../middlewares/rateLimit.middleware.js';
 
 const router = Router();
 
@@ -14,7 +15,7 @@ const router = Router();
 router.post('/create', verifyToken, verifyRole(['admin']), SettingController.createSetting);
 
 // Xác thực mã nhà bếp để vào màn hình KDS (Public - không cần đăng nhập)
-router.post('/kds/verify', SettingController.verifyKitchenCode);
+router.post('/kds/verify', kdsVerifyRateLimit, SettingController.verifyKitchenCode);
 
 // Tạo mã nhà bếp mới cho màn hình KDS (Chỉ admin/manager, mã hiển thị đúng 1 lần)
 router.post(

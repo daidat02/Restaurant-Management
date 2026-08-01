@@ -8,6 +8,7 @@ import {
   menuCategoryTenantResolver,
   menuItemTenantResolver,
 } from '../../middlewares/auth.middleware.js';
+import { menuReadRateLimit } from '../../middlewares/rateLimit.middleware.js';
 
 const router = Router();
 
@@ -26,7 +27,7 @@ router.put(
   requireResourceTenant(menuCategoryTenantResolver),
   menuController.updateMenuCat,
 );
-router.get('/category/:restaurantId', menuController.findAllMenuCat);
+router.get('/category/:restaurantId', menuReadRateLimit, menuController.findAllMenuCat);
 
 // Menu Item
 router.post(
@@ -50,9 +51,9 @@ router.put(
   requireResourceTenant(menuItemTenantResolver),
   menuController.updateAvailability,
 );
-router.get('/item/category/:catId', menuController.getItemsByCategory);
-router.get('/items/:restaurantId', menuController.getAllItems);
-router.get('/item/available/:restaurantId', menuController.getAvailableItems);
-router.get('/items/bestsellers/:restaurantId', menuController.getTopBestSellers);
-router.get('/item/:id', menuController.getItemById);
+router.get('/item/category/:catId', menuReadRateLimit, menuController.getItemsByCategory);
+router.get('/items/:restaurantId', menuReadRateLimit, menuController.getAllItems);
+router.get('/item/available/:restaurantId', menuReadRateLimit, menuController.getAvailableItems);
+router.get('/items/bestsellers/:restaurantId', menuReadRateLimit, menuController.getTopBestSellers);
+router.get('/item/:id', menuReadRateLimit, menuController.getItemById);
 export default router;

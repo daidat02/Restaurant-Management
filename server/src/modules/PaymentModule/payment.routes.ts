@@ -6,6 +6,7 @@ import {
   requireResourceTenant,
   paymentTenantResolver,
 } from '../../middlewares/auth.middleware.js';
+import { paymentWebhookRateLimit } from '../../middlewares/rateLimit.middleware.js';
 
 const router = Router();
 
@@ -24,10 +25,10 @@ router.post(
   verifyRole(['staff', 'customer']),
   paymentController.ewalletCreateUrlPayment,
 );
-router.post('/return/vnpay', paymentController.paymentReturn);
-router.post('/banking/:orderId', paymentController.createPayOsUrl);
-router.post('/webhook', paymentController.handleWebhook);
-router.post('/:orderId/cancel', paymentController.hanldeCancelPayosUrl);
-router.post('/check-connect', paymentController.checkPayOSConnection);
+router.post('/return/vnpay', paymentWebhookRateLimit, paymentController.paymentReturn);
+router.post('/banking/:orderId', paymentWebhookRateLimit, paymentController.createPayOsUrl);
+router.post('/webhook', paymentWebhookRateLimit, paymentController.handleWebhook);
+router.post('/:orderId/cancel', paymentWebhookRateLimit, paymentController.hanldeCancelPayosUrl);
+router.post('/check-connect', paymentWebhookRateLimit, paymentController.checkPayOSConnection);
 
 export default router;
