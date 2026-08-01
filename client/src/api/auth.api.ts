@@ -30,6 +30,16 @@ export const registerUser = async (credentials: RegisterCredentials) => {
   }
 };
 
+// Đăng ký chủ nhà hàng (role = admin) — tách khỏi form đăng ký khách
+export const registerOwner = async (credentials: RegisterCredentials & { phone?: string }) => {
+  try {
+    await axiosClient.post(AUTH.REGISTER_OWNER, credentials);
+    return { success: true, message: 'Owner registered successfully' };
+  } catch (error: any) {
+    return error;
+  }
+};
+
 // Tạo user nội bộ (staff/manager) thuộc tenant đang xác thực — dùng trong wizard onboarding
 export const createStaffUser = async (userData: {
   name: string;

@@ -4,6 +4,7 @@ import LayoutSuperAdmin from './layouts/LayoutSuperAdmin';
 import LayoutCustomer from './layouts/LayoutCustomer';
 import Payment from './pages/Customer/payment';
 import Auth from './pages/Auth/Auth';
+import OwnerRegister from './pages/Auth/OwnerRegister';
 import { useAuth } from './hooks/use-auth';
 import { useEffect } from 'react';
 import { socket } from './configs/socket.io';
@@ -156,6 +157,7 @@ export default function App() {
       {/* Nên bọc PublicRoute để người đã đăng nhập không vào được trang Login */}
       <Route element={<PublicRoute isAuthenticated={isAuthenticated} />}>
         <Route path="/auth" element={<Auth />} />
+        <Route path="/auth/owner" element={<OwnerRegister />} />
       </Route>
 
       {/* ---------------- CHỌN NHÀ HÀNG (đa tenant) ---------------- */}

@@ -7,6 +7,7 @@ export const API_ENDPOINTS = {
   AUTH: {
     LOGIN: `${API_BASE_URL}/auth/login`,
     REGISTER: `${API_BASE_URL}/auth/register`,
+    REGISTER_OWNER: `${API_BASE_URL}/auth/register-owner`,
     LOGOUT: `${API_BASE_URL}/auth/logout`,
     PROFILE_ME: `${API_BASE_URL}/auth/profile/me`,
     PROFILE_BY_ID: (id: string) => `${API_BASE_URL}/auth/profile/${id}`,

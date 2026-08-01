@@ -1,5 +1,5 @@
 import { useAppDispatch, useAppSelector } from './redux-hook'; // Hook của Redux ta đã tạo ở bước trước
-import { loginUser, registerUser } from '@/api/auth.api'; // Đường dẫn tới file chứa hàm loginUser bạn vừa viết
+import { loginUser, registerOwner, registerUser } from '@/api/auth.api'; // Đường dẫn tới file chứa hàm loginUser bạn vừa viết
 import { logout } from '@/redux/slices/authSlice';
 import type { RegisterCredentials } from '@/types/user.type';
 import { useNavigate } from 'react-router-dom';
@@ -27,6 +27,15 @@ export const useAuth = () => {
     return result;
   };
 
+  const handleRegisterOwner = async (credentials: RegisterCredentials & { phone?: string }) => {
+    const result = await registerOwner(credentials);
+    if (result.success) {
+      // Tự động đăng nhập để vào wizard tạo nhà hàng đầu tiên
+      await loginUser({ email: credentials.email, password: credentials.password }, dispatch);
+    }
+    return result;
+  };
+
   // Hàm bọc logic xử lý đăng xuất
   const handleLogout = () => {
     dispatch(logout());
@@ -43,5 +52,6 @@ export const useAuth = () => {
     login: handleLogin,
     logout: handleLogout,
     register: handleRegister,
+    registerOwner: handleRegisterOwner,
   };
 };

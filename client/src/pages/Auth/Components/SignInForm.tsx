@@ -143,6 +143,16 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           Đăng Ký
         </button>
       </p>
+      <p className="text-center text-sm text-gray-600 mt-3">
+        Bạn là chủ nhà hàng?{' '}
+        <button
+          type="button"
+          onClick={() => navigate('/auth/owner')}
+          className={`font-semibold hover:underline ${textColorClass}`}
+        >
+          Đăng ký tại đây
+        </button>
+      </p>
     </div>
   );
 };
