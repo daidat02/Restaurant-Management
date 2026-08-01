@@ -46,6 +46,31 @@ class AuthController {
   }
 
   /**
+   * Đăng ký chủ nhà hàng (role admin, self-serve) — tách khỏi đăng ký khách.
+   */
+  async registerOwner(req: Request, res: Response) {
+    const userData = req.body;
+    try {
+      const result = await authService.registerOwnerService(userData);
+      if (result.code === 201 || result.code === 200) {
+        await writeAuditLog({
+          action: 'user.register',
+          restaurant: null,
+          actor: null,
+          targetType: 'user',
+          targetId: result.data?._id || null,
+          summary: `Đăng ký chủ nhà hàng mới (${userData?.email})`,
+          meta: { email: userData?.email, role: 'admin' },
+        });
+      }
+      return res.status(result.code).json(result);
+    } catch (error) {
+      console.error('Error during owner registration:', error);
+      return res.status(500).json({ message: 'Lỗi server khi đăng ký chủ nhà hàng' });
+    }
+  }
+
+  /**
    * Đăng nhập người dùng + Cài đặt HttpOnly Cookie
    */
   async loginUser(req: Request, res: Response) {

@@ -13,6 +13,7 @@ const router = Router();
 // Đăng ký các route cho user
 router.get('/profile/me', verifyToken, authController.getProfileUserById);
 router.post('/register', authRateLimit, authController.registerUser);
+router.post('/register-owner', authRateLimit, authController.registerOwner);
 router.post('/login', authRateLimit, authController.loginUser);
 router.post('/refresh', authRateLimit, authController.refreshToken);
 router.post('/switch-tenant', verifyToken, authController.switchTenant);

@@ -95,6 +95,26 @@ class AuthService {
   }
 
   /**
+   * Đăng ký chủ nhà hàng (self-serve SaaS): role = admin, restaurantIds = [].
+   * Chủ đăng ký xong sẽ vào wizard tạo nhà hàng đầu tiên (trial 30 ngày).
+   */
+  async registerOwnerService(userData: Partial<IUser>): Promise<ServiceResponse<any>> {
+    const exitUser = await authRepository.findOneUser({ email: userData.email });
+    if (exitUser) {
+      return { message: 'Email đã tồn tại!', code: 400 };
+    }
+
+    const { restaurant: _legacyRestaurant, restaurantIds: _legacyIds, ...rest } = userData;
+    const createData: Partial<IUser> = {
+      ...rest,
+      role: 'admin',
+      restaurantIds: [],
+    };
+    const user = await authRepository.createUser(createData);
+    return { message: 'Đăng ký chủ nhà hàng thành công!', data: this.serializeUser(user), code: 201 };
+  }
+
+  /**
    * Đăng nhập hệ thống
    */
   async loginUserService(userData: {

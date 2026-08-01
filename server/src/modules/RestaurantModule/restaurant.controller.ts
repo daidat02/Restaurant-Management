@@ -14,6 +14,7 @@ class RestaurantController {
       );
       if (result.code === 201 || result.code === 200) {
         const newId = (result as any)?.result?._id || (result as any)?.data?._id || restaurantData?._id;
+        const tx = (result as any)?.transaction;
         await writeAuditLog({
           action: 'restaurant.create',
           restaurant: String(newId || ''),
@@ -23,6 +24,28 @@ class RestaurantController {
           targetId: newId || null,
           summary: `Tạo nhà hàng mới (${restaurantData?.name || ''})`,
         });
+        if (tx) {
+          await writeAuditLog({
+            action: 'transaction.create',
+            restaurant: String(newId || ''),
+            actor: req.user?.userId || null,
+            actorInfo: { name: req.user?.name, role: req.user?.role },
+            targetType: 'restaurant',
+            targetId: newId || null,
+            summary: `Thanh toán mở nhà hàng (${tx.amount.toLocaleString('vi-VN')}đ)`,
+            meta: { transactionId: tx.id, amount: tx.amount },
+          });
+        } else {
+          await writeAuditLog({
+            action: 'subscription.trial.started',
+            restaurant: String(newId || ''),
+            actor: req.user?.userId || null,
+            actorInfo: { name: req.user?.name, role: req.user?.role },
+            targetType: 'restaurant',
+            targetId: newId || null,
+            summary: `Bắt đầu dùng thử 30 ngày cho nhà hàng (${restaurantData?.name || ''})`,
+          });
+        }
       }
       res.status(result.code).json({ result });
     } catch (error) {
