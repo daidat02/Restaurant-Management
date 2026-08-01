@@ -51,8 +51,9 @@ describe('T1 — Auth & token', () => {
       email: 'admin.test@nhamnhi.vn',
       password: TEST_PASSWORD,
     });
-    const cookie = login.headers['set-cookie'][0].split(';')[0];
-    const res = await request.post('/api/auth/refresh').set('Cookie', cookie).send({});
+    const setCookie = login.headers['set-cookie'];
+    const cookie = (setCookie?.[0] ?? '').split(';')[0];
+    const res = await request.post('/api/auth/refresh').set('Cookie', cookie || '').send({});
     expect(res.status).toBe(200);
     expect(res.body.data.accessToken).toBeTruthy();
     const decoded = jwt.decode(res.body.data.accessToken) as any;

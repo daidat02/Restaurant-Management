@@ -1,5 +1,11 @@
 import { Router } from 'express';
-import { verifyRole, verifyTenant, verifyToken } from '../../middlewares/auth.middleware.js';
+import {
+  verifyRole,
+  verifyTenant,
+  verifyToken,
+  requireResourceTenant,
+  orderTenantResolver,
+} from '../../middlewares/auth.middleware.js';
 import orderController from './order.controller.js';
 
 const router = Router();
@@ -9,7 +15,12 @@ router.post('/add-item', orderController.addItemIntoOrder);
 router.post('/item/:itemId/:status', verifyToken, orderController.updateOrederItemStatus);
 
 router.get('/my-orders', verifyToken, verifyRole(['customer']), orderController.getMyOrders);
-router.get('/:id', verifyToken, orderController.getDetailOrder);
+router.get(
+  '/:id',
+  verifyToken,
+  requireResourceTenant(orderTenantResolver),
+  orderController.getDetailOrder,
+);
 router.get(
   '/restaurant/:id/:status',
   verifyToken,
@@ -25,11 +36,18 @@ router.get(
 router.get('/active/:restaurantId', verifyToken, verifyTenant, orderController.getActiveOrders);
 router.get('/table/:tableId', orderController.getOrderByTableId);
 
-router.put('/:id', verifyToken, verifyRole(['staff', 'manager']), orderController.updateOrder);
+router.put(
+  '/:id',
+  verifyToken,
+  verifyRole(['staff', 'manager']),
+  requireResourceTenant(orderTenantResolver),
+  orderController.updateOrder,
+);
 router.put(
   '/:id/status',
   verifyToken,
   verifyRole(['staff', 'manager']),
+  requireResourceTenant(orderTenantResolver),
   orderController.updateStatusOrder,
 );
 

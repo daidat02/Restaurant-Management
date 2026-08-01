@@ -1,11 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { request, tokenFor } from './utils.js';
+import { request, tokenFor, idOf } from './utils.js';
 import { SEED_IDS } from './seed.js';
 
 const X = SEED_IDS.tenantX.toString();
 const Y = SEED_IDS.tenantY.toString();
 
-const idOf = (oid: unknown) => oid.toString();
 
 const adminX = () => tokenFor('admin', X);
 const staffX = () => tokenFor('staff', X);

@@ -1,11 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { request } from './utils.js';
+import { request, idOf } from './utils.js';
 import { SEED_IDS } from './seed.js';
 
 const X = SEED_IDS.tenantX.toString();
 const Y = SEED_IDS.tenantY.toString();
-
-const idOf = (oid: unknown) => oid.toString();
 
 describe('T8 — QR / bàn: tạo đơn công khai tại bàn + đọc đơn theo bàn', () => {
   it('POST /api/orders (không token) tại bàn X2 → 201', async () => {

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterAll } from 'vitest';
 import { createServer } from 'http';
 import type { AddressInfo } from 'net';
 import { io as createClient, type Socket } from 'socket.io-client';
@@ -22,7 +22,7 @@ function connect(token?: string): Promise<{ socket: Socket; error?: string }> {
   return new Promise((resolve) => {
     const socket = createClient(url, {
       transports: ['websocket'],
-      auth: token ? { token } : undefined,
+      auth: token ? { token } : {},
       forceNew: true,
     });
     const timer = setTimeout(() => resolve({ socket }), 1500);

@@ -1,6 +1,12 @@
 import { Router } from 'express';
 import reservationController from './reservation.controller.js';
-import { verifyRole, verifyTenant, verifyToken } from '../../middlewares/auth.middleware.js';
+import {
+  verifyRole,
+  verifyTenant,
+  verifyToken,
+  requireResourceTenant,
+  reservationTenantResolver,
+} from '../../middlewares/auth.middleware.js';
 
 const router = Router();
 
@@ -33,6 +39,7 @@ router.get(
   '/:id',
   verifyToken,
   verifyRole(['admin', 'staff']),
+  requireResourceTenant(reservationTenantResolver),
   reservationController.getReservationById,
 );
 
@@ -40,6 +47,7 @@ router.put(
   '/update/:id',
   verifyToken,
   verifyRole(['admin', 'staff', 'manager']),
+  requireResourceTenant(reservationTenantResolver),
   reservationController.updateReservation,
 );
 
@@ -47,6 +55,7 @@ router.put(
   '/update-status/:id',
   verifyToken,
   verifyRole(['admin', 'staff', 'manager']),
+  requireResourceTenant(reservationTenantResolver),
   reservationController.updateStatusReservation,
 );
 
@@ -54,6 +63,7 @@ router.put(
   '/cancel/:id',
   verifyToken,
   verifyRole(['customer', 'staff', 'admin']),
+  requireResourceTenant(reservationTenantResolver),
   reservationController.updateStatusReservation,
 );
 

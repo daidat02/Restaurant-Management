@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { request, tokenFor } from './utils.js';
+import { request, tokenFor, idOf } from './utils.js';
 import { SEED_IDS } from './seed.js';
 
 const X = SEED_IDS.tenantX.toString();
@@ -7,7 +7,6 @@ const X = SEED_IDS.tenantX.toString();
 const managerX = () => tokenFor('manager', X);
 const adminX = () => tokenFor('admin', X);
 const customer = () => tokenFor('customer');
-const idOf = (oid: unknown) => oid.toString();
 
 const d = (daysFromNow: number) => {
   const dt = new Date();

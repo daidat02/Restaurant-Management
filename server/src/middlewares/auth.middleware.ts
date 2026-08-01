@@ -241,3 +241,117 @@ export const canAccessTenant = (
   }
   return (user.restaurantIds ?? []).some((id) => String(id) === String(restaurantId));
 };
+
+/**
+ * Resolver trả về tenant (nhà hàng) sở hữu tài nguyên, hoặc mảng tenant nếu tài nguyên thuộc nhiều nơi.
+ * Trả null khi tài nguyên không tồn tại (tránh leak thông tin sự tồn tại).
+ */
+type ResourceTenantResolver = (req: AuthRequest) => Promise<string | string[] | null>;
+
+/**
+ * Ownership middleware: yêu cầu tài nguyên (qua :id / :paymentId) thuộc đúng tenant đang xác thực.
+ * - Tài nguyên không tồn tại → 404 (không leak).
+ * - Tài nguyên thuộc tenant khác → 403.
+ * - super-admin: bypass (quyền nền tảng, quản lý chéo mọi tenant).
+ * - Không yêu cầu middleware `verifyTenant` phía trước — dùng `req.tenantId` nếu có, nếu không fallback `req.user.restaurantId`.
+ */
+export const requireResourceTenant =
+  (resolveResourceTenant: ResourceTenantResolver) =>
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
+    try {
+      if (req.user?.role === "super-admin") return next();
+
+      const resourceTenant = await resolveResourceTenant(req);
+      if (!resourceTenant) {
+        return res.status(404).json({ message: "Không tìm thấy tài nguyên!" });
+      }
+
+      const actorTenant = req.tenantId ?? req.user?.restaurantId;
+      if (!actorTenant) {
+        return res
+          .status(403)
+          .json({ message: "Bạn không có quyền truy cập tài nguyên này!" });
+      }
+
+      const owned = Array.isArray(resourceTenant)
+        ? resourceTenant.some((id) => String(id) === String(actorTenant))
+        : String(resourceTenant) === String(actorTenant);
+
+      if (!owned) {
+        return res
+          .status(403)
+          .json({ message: "Bạn không có quyền truy cập tài nguyên này!" });
+      }
+      return next();
+    } catch (error) {
+      console.error("requireResourceTenant error:", error);
+      return res.status(500).json({ message: "Lỗi xác thực quyền tài nguyên!" });
+    }
+  };
+
+// ---- Resolver tài nguyên → tenant (dùng cho requireResourceTenant) ----
+
+export const tableTenantResolver: ResourceTenantResolver = async (req) => {
+  const doc = await DB_Connection.Table.findById(req.params.id).select("restaurant").exec();
+  return doc?.restaurant?.toString?.() ?? null;
+};
+
+export const menuCategoryTenantResolver: ResourceTenantResolver = async (req) => {
+  const doc = await DB_Connection.MenuCategory.findById(req.params.id).select("restaurant").exec();
+  return doc?.restaurant?.toString?.() ?? null;
+};
+
+export const menuItemTenantResolver: ResourceTenantResolver = async (req) => {
+  const doc = await DB_Connection.MenuItem.findById(req.params.id).select("restaurant").exec();
+  return doc?.restaurant?.toString?.() ?? null;
+};
+
+export const orderTenantResolver: ResourceTenantResolver = async (req) => {
+  const doc = await DB_Connection.Order.findById(req.params.id).select("restaurant").exec();
+  return doc?.restaurant?.toString?.() ?? null;
+};
+
+export const reservationTenantResolver: ResourceTenantResolver = async (req) => {
+  const doc = await DB_Connection.Reservation.findById(req.params.id)
+    .select("restaurant")
+    .exec();
+  return doc?.restaurant?.toString?.() ?? null;
+};
+
+export const settingTenantResolver: ResourceTenantResolver = async (req) => {
+  const doc = await DB_Connection.Setting.findById(req.params.id)
+    .select("scope targetModel targetId")
+    .exec();
+  if (!doc) return null;
+  // Setting hệ thống (scope = admin) không thuộc tenant nào → chỉ super-admin (đã bypass) truy cập.
+  if (doc.scope !== "restaurant" || doc.targetModel !== "Restaurant") return null;
+  return doc.targetId?.toString?.() ?? null;
+};
+
+export const userTenantResolver: ResourceTenantResolver = async (req) => {
+  const doc = await DB_Connection.User.findById(req.params.id)
+    .select("restaurantIds restaurant")
+    .exec();
+  if (!doc) return null;
+  const ids = Array.from(
+    new Set(
+      [
+        ...(doc.restaurantIds ?? []).map((id: any) => String(id)),
+        doc.restaurant?.toString ? String(doc.restaurant) : "",
+      ].filter(Boolean),
+    ),
+  );
+  return ids.length ? ids : null;
+};
+
+export const restaurantTenantResolver: ResourceTenantResolver = async (req) => {
+  const doc = await DB_Connection.Restaurant.findById(req.params.id).select("_id").exec();
+  return doc ? String(doc._id) : null;
+};
+
+export const paymentTenantResolver: ResourceTenantResolver = async (req) => {
+  const doc = await DB_Connection.Payment.findById(req.params.paymentId)
+    .select("restaurant")
+    .exec();
+  return doc?.restaurant?.toString?.() ?? null;
+};

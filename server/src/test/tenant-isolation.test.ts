@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { request, tokenFor } from './utils.js';
+import { request, tokenFor, idOf } from './utils.js';
 import { SEED_IDS } from './seed.js';
 
 const X = SEED_IDS.tenantX.toString();
@@ -9,7 +9,6 @@ const adminX = () => tokenFor('admin', X);
 const managerX = () => tokenFor('manager', X);
 const staffX = () => tokenFor('staff', X);
 
-const idOf = (oid: unknown) => oid.toString();
 
 describe('T2 — Tenant isolation: token X chặn truy cập resource của tenant Y', () => {
   // ============ ĐỌC (READ) ============

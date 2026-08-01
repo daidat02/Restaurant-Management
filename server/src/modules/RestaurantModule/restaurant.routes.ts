@@ -1,6 +1,11 @@
 import { Router } from 'express';
 import restaurantController from './restaurant.controller.js';
-import { verifyRole, verifyToken } from '../../middlewares/auth.middleware.js';
+import {
+  verifyRole,
+  verifyToken,
+  requireResourceTenant,
+  restaurantTenantResolver,
+} from '../../middlewares/auth.middleware.js';
 
 const router = Router();
 
@@ -11,6 +16,7 @@ router.put(
   '/update/:id',
   verifyToken,
   verifyRole(['admin']),
+  requireResourceTenant(restaurantTenantResolver),
   restaurantController.updateRestaurant,
 );
 router.patch(
@@ -19,6 +25,12 @@ router.patch(
   verifyRole(['super-admin']),
   restaurantController.updateRestaurantStatus,
 );
-router.delete('/:id', verifyToken, verifyRole(['admin']), restaurantController.deleteRestaurant);
+router.delete(
+  '/:id',
+  verifyToken,
+  verifyRole(['admin']),
+  requireResourceTenant(restaurantTenantResolver),
+  restaurantController.deleteRestaurant,
+);
 
 export default router;

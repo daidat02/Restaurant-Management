@@ -150,6 +150,18 @@ class OrderController {
     const { tableId } = req.params;
     try {
       const result = await orderService.getOrderByTableId(tableId || '');
+
+      // Public endpoint (khách tại bàn): che thông tin nhạy cảm nếu request không có tenant hợp lệ.
+      const order = result.data as any;
+      const orderTenant = order?.restaurant?.toString?.() ?? order?.restaurant ?? '';
+      const hasTenant = Boolean(req.user?.restaurantId) && req.user?.restaurantId === orderTenant;
+      if (result.code === 200 && order && !hasTenant) {
+        const { customer, staff, deliveryInfo, notes, reservation, ...safe } = order.toObject
+          ? order.toObject()
+          : order;
+        result.data = safe;
+      }
+
       res.status(result.code).json(result);
     } catch (error) {
       res.status(500).json({ message: 'Lỗi server...' });

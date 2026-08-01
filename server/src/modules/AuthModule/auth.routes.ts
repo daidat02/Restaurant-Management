@@ -4,6 +4,8 @@ import {
   verifyRole,
   verifyTenant,
   verifyToken,
+  requireResourceTenant,
+  userTenantResolver,
 } from '../../middlewares/auth.middleware.js';
 
 const router = Router();
@@ -22,6 +24,7 @@ router.get(
   '/profile/:id',
   verifyToken,
   verifyRole(['manager', 'admin']),
+  requireResourceTenant(userTenantResolver),
   authController.getProfileUserById,
 );
 router.get(
@@ -35,12 +38,14 @@ router.delete(
   '/admin/delete/:id',
   verifyToken,
   verifyRole(['admin', 'manager']),
+  requireResourceTenant(userTenantResolver),
   authController.deleteUser,
 );
 router.put(
   '/admin/update/:id',
   verifyToken,
   verifyRole(['admin', 'manager']),
+  requireResourceTenant(userTenantResolver),
   authController.updateUser,
 );
 

@@ -34,7 +34,7 @@ export function signToken(
 
 /** Tạo token cho một role với tenant cụ thể (dùng userId mặc định theo SEED_IDS). */
 export function tokenFor(
-  role: 'admin' | 'manager' | 'staff' | 'customer' | 'super-admin' | 'kds',
+  role: 'admin' | 'manager' | 'staff' | 'staffY' | 'customer' | 'super-admin' | 'kds',
   tenantId?: string,
 ): string {
   const idByRole: Record<string, string> = {
@@ -52,6 +52,9 @@ export function tokenFor(
   }
   return signToken(userId, role, tenantId);
 }
+
+/** Chuyển ObjectId/string thành string — dùng trong assertion URL. */
+export const idOf = (oid: unknown): string => String(oid);
 
 /** Đăng nhập thật qua endpoint /api/auth/login (verify password hash thật). */
 export async function loginAs(email: string): Promise<string> {

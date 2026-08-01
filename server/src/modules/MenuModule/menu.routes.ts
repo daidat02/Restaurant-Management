@@ -1,6 +1,13 @@
 import { Router } from 'express';
 import menuController from './menu.controller.js';
-import { verifyRole, verifyTenant, verifyToken } from '../../middlewares/auth.middleware.js';
+import {
+  verifyRole,
+  verifyTenant,
+  verifyToken,
+  requireResourceTenant,
+  menuCategoryTenantResolver,
+  menuItemTenantResolver,
+} from '../../middlewares/auth.middleware.js';
 
 const router = Router();
 
@@ -16,6 +23,7 @@ router.put(
   '/category/:id',
   verifyToken,
   verifyRole(['manager', 'admin']),
+  requireResourceTenant(menuCategoryTenantResolver),
   menuController.updateMenuCat,
 );
 router.get('/category/:restaurantId', menuController.findAllMenuCat);
@@ -32,12 +40,14 @@ router.put(
   '/item/:id',
   verifyToken,
   verifyRole(['manager', 'admin']),
+  requireResourceTenant(menuItemTenantResolver),
   menuController.updateMenuItem,
 );
 router.put(
   '/item/:id/availability',
   verifyToken,
   verifyRole(['staff', 'manager', 'admin']),
+  requireResourceTenant(menuItemTenantResolver),
   menuController.updateAvailability,
 );
 router.get('/item/category/:catId', menuController.getItemsByCategory);

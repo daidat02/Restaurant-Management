@@ -30,7 +30,7 @@ router.get(
 router.get(
   '/revenue-channels',
   verifyToken,
-  verifyRole(['admin']),
+  verifyRole(['super-admin']),
   analyticController.getBranchRevenueStats,
 );
 // Dashboard gộp toàn hệ thống — chỉ super-admin (quyền nền tảng)

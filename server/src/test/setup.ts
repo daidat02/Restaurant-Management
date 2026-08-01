@@ -8,6 +8,8 @@ beforeAll(async () => {
     await mongoose.connect(process.env.MONGODB_MEMORY_URI || '');
   }
   await seedDatabase();
+  // Chờ index build xong để tránh transient "catalog changes" khi transaction ghi ngay sau seed
+  await mongoose.connection.syncIndexes();
 });
 
 afterAll(async () => {

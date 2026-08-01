@@ -1,10 +1,20 @@
 import { Router } from 'express';
 import paymentController from './payment.controller.js';
-import { verifyRole, verifyToken } from '../../middlewares/auth.middleware.js';
+import {
+  verifyRole,
+  verifyToken,
+  requireResourceTenant,
+  paymentTenantResolver,
+} from '../../middlewares/auth.middleware.js';
 
 const router = Router();
 
-router.get('/:paymentId', verifyToken, paymentController.getPaymentDetail);
+router.get(
+  '/:paymentId',
+  verifyToken,
+  requireResourceTenant(paymentTenantResolver),
+  paymentController.getPaymentDetail,
+);
 router.post('/initiate', verifyToken, paymentController.initiatePayment);
 router.post('/:paymentId/method/:method', verifyToken, paymentController.updatePaymentMethod);
 router.patch('/status', verifyToken, paymentController.changePaymentStatus);
