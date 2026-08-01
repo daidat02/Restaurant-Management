@@ -1,5 +1,21 @@
 import type { Request, Response } from 'express';
-import authService from './auth.service.js'; // Nhận instance Singleton trực tiếp, không cần 'new'
+import authService from './auth.service.js';
+
+/**
+ * Options cookie refresh token.
+ * Production: client (Vercel) gọi cross-site tới server (Render) → bắt buộc
+ * `sameSite: 'none'` + `secure: true` (HTTPS) để browser gửi cookie khi refresh.
+ * Local/test (HTTP, không cross-site): giữ `lax` + không `secure`.
+ */
+const refreshCookieOptions = (): any => {
+  const isProd = process.env.NODE_ENV === 'production';
+  return {
+    httpOnly: true,
+    secure: isProd,
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
+    sameSite: (isProd ? 'none' : 'lax') as 'none' | 'lax',
+  };
+}; // Nhận instance Singleton trực tiếp, không cần 'new'
 import type { AuthRequest } from '../../middlewares/auth.middleware.js';
 import { writeAuditLog } from '../../services/auditLog.service.js';
 
@@ -42,12 +58,7 @@ class AuthController {
       }
 
       // Lưu refreshToken vào HttpOnly Cookie an toàn
-      res.cookie('refreshToken', result.data.refreshToken, {
-        httpOnly: true,
-        secure: false, // Để true nếu chạy production có HTTPS
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 ngày
-        sameSite: 'lax',
-      });
+      res.cookie('refreshToken', result.data.refreshToken, refreshCookieOptions());
 
       // Bóc tách bỏ refreshToken khỏi object trả về Client DApp/Frontend
       const { refreshToken, ...userWithoutRefreshToken } = result.data;
@@ -87,12 +98,7 @@ class AuthController {
       }
 
       // Set lại cookie Refresh Token mới tuần hoàn
-      res.cookie('refreshToken', result.data.refreshToken, {
-        httpOnly: true,
-        secure: false,
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-        sameSite: 'lax',
-      });
+      res.cookie('refreshToken', result.data.refreshToken, refreshCookieOptions());
 
       const { refreshToken: newRefreshToken, ...resultWithoutRefreshToken } = result.data;
 

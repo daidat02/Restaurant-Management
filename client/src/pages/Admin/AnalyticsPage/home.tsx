@@ -47,7 +47,6 @@ export default function Home() {
     orderChannels,
     revenueBranch,
     fetchDashboardData,
-    fetchRevenueChannels,
   } = useAnalytic();
   const { user } = useAuth();
   const activeRestaurantId = useActiveRestaurantId();
@@ -68,10 +67,8 @@ export default function Home() {
     // Luôn gắn tenant đang làm việc (admin/manager/staff thuộc 1 nhà hàng; super-admin gửi param để chọn tenant)
     payload.restaurantId = activeRestaurantId;
 
-    // revenue-channels chỉ dành cho admin (server verifyRole(['admin']))
-    if (user.role === 'admin') {
-      fetchRevenueChannels(payload);
-    }
+    // KHÔNG gọi revenue-channels ở đây: endpoint này chỉ dành cho super-admin
+    // (doanh thu gộp toàn hệ thống, không lọc tenant — admin gọi sẽ 403 + rò dữ liệu).
     fetchDashboardData(payload);
   }, [date.from, date.to, user?.role, activeRestaurantId]);
 
