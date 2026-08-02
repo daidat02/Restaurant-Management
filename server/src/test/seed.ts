@@ -53,6 +53,9 @@ export const SEED_IDS = {
   paymentX: oid('69fccba996a14809070b9efe'),
   paymentY: oid('69fb58d6ca9d7bade016e91e'),
 
+  transactionX: oid('69fccba996a14809070b9e04'),
+  transactionY: oid('69fccba996a14809070b9e05'),
+
   auditLogX: oid('69fccba996a14809070b9eff'),
   auditLogY: oid('69fb58d6ca9d7bade016e91f'),
 
@@ -385,6 +388,34 @@ async function seedPayments(): Promise<void> {
   ]);
 }
 
+/** Lịch sử thanh toán phí chuỗi của adminX (2 chi nhánh) — dữ liệu cho tab Thanh Toán /admin/logs. */
+async function seedTransactions(): Promise<void> {
+  const now = new Date();
+  const paidUntil = new Date(now.getTime() + 30 * 24 * 3600 * 1000);
+  await DB_Connection.Transaction.insertMany([
+    {
+      _id: SEED_IDS.transactionX,
+      restaurant: SEED_IDS.tenantX,
+      ownerId: SEED_IDS.adminX,
+      amount: 299000,
+      cycleMonths: 1,
+      type: 'restaurant-fee',
+      status: 'paid',
+      paidUntil,
+    },
+    {
+      _id: SEED_IDS.transactionY,
+      restaurant: SEED_IDS.tenantY,
+      ownerId: SEED_IDS.adminX,
+      amount: 299000,
+      cycleMonths: 1,
+      type: 'restaurant-fee',
+      status: 'paid',
+      paidUntil,
+    },
+  ]);
+}
+
 async function seedAuditLogs(): Promise<void> {
   await DB_Connection.AuditLog.insertMany([
     {
@@ -424,5 +455,6 @@ export async function seedDatabase(): Promise<void> {
   await seedReservations();
   await seedNotifications();
   await seedPayments();
+  await seedTransactions();
   await seedAuditLogs();
 }

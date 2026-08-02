@@ -44,6 +44,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { useDispatch } from 'react-redux';
 import { login, logout } from './redux/slices/authSlice';
 import BillingPage from './pages/Admin/BillingPage/billing';
+import LogsPage from './pages/Admin/LogsPage/logs';
 const ProtectedRoute = ({
   isAuthenticated,
   userRole,
@@ -181,6 +182,7 @@ export default function App() {
           <Route path="products" element={<Product />} />
           <Route path="orders" element={<Order />} />
           <Route path="reports" element={<AnalyticsPage />} />
+          <Route path="logs" element={<LogsPage />} />
         </Route>
       </Route>
 

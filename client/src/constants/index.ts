@@ -152,6 +152,7 @@ export const API_ENDPOINTS = {
   // --- AUDIT LOG (chỉ super-admin) ---
   AUDIT_LOG: {
     LIST: `${API_BASE_URL}/audit-logs`,
+    PAYMENTS: `${API_BASE_URL}/audit-logs/payments`,
   },
   SETTING: {
     CREATE: '/settings/create',
