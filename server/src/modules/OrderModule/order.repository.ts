@@ -277,6 +277,62 @@ class OrderRepository {
       },
     ]);
   }
+
+  /**
+   * Doanh thu từng chi nhánh — lọc theo danh sách nhà hàng (admin chủ chuỗi).
+   */
+  async getBranchRevenueStatsByIds(startDate: Date, endDate: Date, restaurantIds: string[]) {
+    const matchQuery: any = {
+      status: 'paid',
+      createdAt: { $gte: startDate, $lte: endDate },
+    };
+
+    if (restaurantIds && restaurantIds.length > 0) {
+      matchQuery.restaurant = {
+        $in: restaurantIds.map((id) => new DB_Connection.Order.base.Types.ObjectId(id)),
+      };
+    }
+
+    return await DB_Connection.Order.aggregate([
+      { $match: matchQuery },
+      {
+        $group: {
+          _id: '$restaurant',
+          revenue: { $sum: '$totalAmount' },
+          orderCount: { $sum: 1 },
+        },
+      },
+      {
+        $lookup: {
+          from: 'restaurants',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'branchInfo',
+        },
+      },
+      {
+        $unwind: { path: '$branchInfo', preserveNullAndEmptyArrays: true },
+      },
+      {
+        $project: {
+          _id: 0,
+          branchName: { $ifNull: ['$branchInfo.name', 'Chi nhánh ẩn hoặc đã xóa'] },
+          revenue: 1,
+          orderCount: 1,
+          averageBill: {
+            $cond: [
+              { $gt: ['$orderCount', 0] },
+              { $round: [{ $divide: ['$revenue', '$orderCount'] }] },
+              0,
+            ],
+          },
+        },
+      },
+      {
+        $sort: { revenue: -1 },
+      },
+    ]);
+  }
 }
 
 export default new OrderRepository();

@@ -14,6 +14,7 @@ import {
   getRevenueHourly,
   getOrderChannels,
   getRevenueChannels,
+  getRevenueBranches,
 } from '@/api/analytic.api';
 
 import { useGlobalLoading } from '@/components/LoadingOverlay';
@@ -86,6 +87,27 @@ export const useAnalytic = () => {
     [showLoading, hideLoading],
   );
 
+  const fetchRevenueBranches = useCallback(
+    async (params: IAnalyticQueryParams) => {
+      setIsLoading(true);
+      showLoading();
+      setError(null);
+
+      try {
+        const branchRevenueRes = await getRevenueBranches(params);
+        setRevenueBranch(branchRevenueRes);
+      } catch (err: any) {
+        const errMsg = err.message || 'Đã xảy ra lỗi khi tải dữ liệu báo cáo';
+        setError(errMsg);
+        toast.error(errMsg, { position: 'top-right' });
+      } finally {
+        setIsLoading(false);
+        hideLoading();
+      }
+    },
+    [showLoading, hideLoading],
+  );
+
   return {
     overviewStats,
     revenueHourly,
@@ -95,5 +117,6 @@ export const useAnalytic = () => {
     error,
     fetchDashboardData, // Chỉ cần export hàm gộp này ra cho Dashboard dùng
     fetchRevenueChannels,
+    fetchRevenueBranches,
   };
 };

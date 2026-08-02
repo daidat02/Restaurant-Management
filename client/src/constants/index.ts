@@ -129,6 +129,7 @@ export const API_ENDPOINTS = {
     REVENUE_HOURLY: '/analytics/revenue-hourly',
     ORDER_CHANNELS: '/analytics/order-channels',
     REVENUE_CHANNELS: '/analytics/revenue-channels',
+    REVENUE_BRANCHES: '/analytics/revenue-branches',
   },
 
   // --- PHÂN HỆ QUẢN TRỊ NỀN TẢNG (SUPER-ADMIN) ---

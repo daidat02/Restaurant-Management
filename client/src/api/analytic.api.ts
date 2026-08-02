@@ -39,3 +39,11 @@ export const getRevenueChannels = async (params: IAnalyticQueryParams) => {
   });
   return res.data;
 };
+
+// Doanh thu từng chi nhánh của admin (chủ chuỗi) — lọc theo restaurantIds.
+export const getRevenueBranches = async (params: IAnalyticQueryParams) => {
+  const res = await axiosClient.get<any, ApiResponse<IRevenueBranch[]>>(ANALYTIC.REVENUE_BRANCHES, {
+    params,
+  });
+  return res.data;
+};

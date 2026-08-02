@@ -167,6 +167,19 @@ class AnalyticsService {
   }
 
   /**
+   * Doanh thu từng chi nhánh của chủ chuỗi (admin) — lọc theo restaurantIds.
+   */
+  async getBranchRevenueByIdsService(startDate: Date, endDate: Date, restaurantIds: string[]) {
+    const rawStats = await orderRepository.getBranchRevenueStatsByIds(
+      startDate,
+      endDate,
+      restaurantIds,
+    );
+
+    return rawStats;
+  }
+
+  /**
    * Dashboard gộp toàn hệ thống (chỉ super-admin): không lọc theo nhà hàng.
    */
   async getSystemOverviewService() {

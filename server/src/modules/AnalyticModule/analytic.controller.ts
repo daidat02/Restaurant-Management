@@ -172,6 +172,44 @@ class AnalyticController {
   }
 
   /**
+   * GET /analytics/revenue-branches — doanh thu từng chi nhánh của admin (chủ chuỗi).
+   * Lọc theo restaurantIds (qua intersectRestaurantIds).
+   */
+  async getBranchRevenueByIds(req: AuthRequest, res: Response): Promise<Response> {
+    try {
+      const { startDate, endDate } = req.query;
+      const restaurantIds = req.user?.restaurantIds;
+
+      if (!startDate || !endDate) {
+        return res.status(400).json({
+          success: false,
+          message: 'Thiếu tham số bắt buộc: startDate, hoặc endDate.',
+        });
+      }
+
+      const start = new Date(startDate as string);
+      const end = new Date(endDate as string);
+
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+
+      const data = await analyticService.getBranchRevenueByIdsService(
+        start,
+        end,
+        restaurantIds as string[],
+      );
+
+      return res.status(200).json({ success: true, data });
+    } catch (error) {
+      console.error('Error in AnalyticController.getBranchRevenueByIds:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Đã xảy ra lỗi hệ thống khi phân tích doanh thu chi nhánh.',
+      });
+    }
+  }
+
+  /**
    * API Endpoint: GET /api/v1/analytics/system-overview
    * Dashboard gộp toàn hệ thống (chỉ super-admin).
    */

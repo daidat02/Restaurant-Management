@@ -36,6 +36,16 @@ router.get(
   verifyRole(['super-admin']),
   analyticController.getBranchRevenueStats,
 );
+
+// Doanh thu từng chi nhánh của admin (chủ chuỗi) — lọc theo restaurantIds
+router.get(
+  '/revenue-branches',
+  verifyToken,
+  verifyRole(['manager', 'admin']),
+  verifyTenant,
+  intersectRestaurantIds,
+  analyticController.getBranchRevenueByIds,
+);
 // Dashboard gộp toàn hệ thống — chỉ super-admin (quyền nền tảng)
 router.get(
   '/system-overview',
