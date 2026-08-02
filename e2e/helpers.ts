@@ -23,16 +23,16 @@ export async function readPersistedAuth(page: Page) {
 }
 
 /** Chờ auth state được persist với token đầy đủ. Trả auth object. */
-export async function waitAuthPersisted(page: Page, restaurantId?: string) {
+export async function waitAuthPersisted(page: Page, restaurantId?: string | null) {
   await expect
     .poll(
       async () => {
         const auth = await readPersistedAuth(page);
-        return auth?.token ? auth.currentRestaurantId ?? null : undefined;
+        return auth?.token ? (auth.currentRestaurantId ?? null) : undefined;
       },
       { timeout: 10_000 },
     )
-    .toEqual(restaurantId ?? expect.anything());
+    .toEqual(restaurantId === undefined ? expect.anything() : restaurantId);
   return readPersistedAuth(page);
 }
 
@@ -75,15 +75,14 @@ export async function login(
   await page.getByRole('button', { name: 'Đăng Nhập', exact: true }).first().click();
 }
 
-/** Đăng nhập admin (2 cơ sở) và chọn 1 nhà hàng ở switcher → về /admin. */
+/** Đăng nhập admin (chủ chuỗi) → vào thẳng /admin, KHÔNG qua /select-restaurant. */
 export async function loginAdminAndSelect(
-  page: Page,
-  restaurantName: string,
+  _page: Page,
+  _restaurantName: string,
 ): Promise<void> {
-  await login(page, USERS.admin.email);
-  await expect(page).toHaveURL(/select-restaurant/, { timeout: 15_000 });
-  await page.getByRole('button', { name: restaurantName }).click();
-  await expect(page).toHaveURL(/\/admin/, { timeout: 15_000 });
+  throw new Error(
+    'RestaurantSwitcher đã bị gỡ (admin vào thẳng /admin, quản toàn chuỗi). Dùng login(page, USERS.admin.email) rồi chờ URL /admin.',
+  );
 }
 
 /** Đăng nhập qua API → trả accessToken. Dùng để tạo data / verify chặn. */

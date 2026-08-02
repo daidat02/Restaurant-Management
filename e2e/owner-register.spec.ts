@@ -42,9 +42,9 @@ test.describe('T9 — Đăng ký chủ + wizard nhà hàng đầu', () => {
     await page.getByRole('button', { name: /Tạo bàn & QR/ }).click();
     await page.getByRole('button', { name: /Hoàn tất & vào quản trị/ }).click();
 
-    // Về /admin → banner trial hiển thị đúng (nhà hàng đầu = dùng thử miễn phí)
+    // Về /admin — admin toàn chuỗi (Q14): không còn "nhà hàng đang chọn" nên banner trial
+    // cũ được thay bằng cảnh báo thuê bao toàn chuỗi (T07/Q16). TODO(T07): bổ sung assertion.
     await expect(page).toHaveURL(/\/admin$/, { timeout: 20_000 });
-    await expect(page.getByText(/đang dùng thử miễn phí — còn lại/)).toBeVisible({ timeout: 30_000 });
   });
 
   test('link từ trang đăng nhập tới đăng ký chủ nhà hàng', async ({ page }) => {

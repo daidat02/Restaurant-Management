@@ -3,18 +3,19 @@ import { login } from './helpers';
 
 const OWNER_EMAIL = 'owner.sub@nhamnhi.vn';
 
-/** Đăng nhập ownerSub (3 nhà hàng) rồi chọn 1 nhà hàng ở switcher → /admin. */
-async function loginOwnerAndSelect(page: Page, restaurantName: string) {
-  await login(page, OWNER_EMAIL);
-  await expect(page).toHaveURL(/select-restaurant/, { timeout: 15_000 });
-  await page.getByRole('button', { name: restaurantName }).click();
-  await expect(page).toHaveURL(/\/admin/, { timeout: 15_000 });
-}
-
-test.describe('T7 — Frontend chủ: banner trạng thái, badge, modal trả phí, billing', () => {
+/**
+ * TODO(T07): Viết lại theo admin toàn chuỗi (Q14/Q15/Q16) — admin không còn chọn nhà hàng,
+ * banner/badge/billing hiển thị theo toàn chuỗi. File này dùng /select-restaurant đã bị gỡ.
+ */
+test.describe.skip('T7 — Frontend chủ (chờ viết lại theo admin toàn chuỗi)', () => {
+  /** Đăng nhập ownerSub (3 nhà hàng) — admin toàn chuỗi vào thẳng /admin. */
+  async function loginOwnerAndSelect(page: Page) {
+    await login(page, OWNER_EMAIL);
+    await expect(page).toHaveURL(/\/admin/, { timeout: 15_000 });
+  }
   test('banner 3 trạng thái theo nhà hàng đang chọn (trial / sắp hết / bị khoá)', async ({ page }) => {
     // 1. Trial còn nhiều ngày → banner xanh
-    await loginOwnerAndSelect(page, 'NhamNhi Sub Trial');
+    await loginOwnerAndSelect(page);
     await expect(page.getByText(/đang dùng thử miễn phí — còn lại/)).toBeVisible({ timeout: 15_000 });
 
     // 2. Trial sắp hết hạn (≤7 ngày) → banner cam
@@ -29,7 +30,7 @@ test.describe('T7 — Frontend chủ: banner trạng thái, badge, modal trả p
   });
 
   test('trang nhà hàng hiện badge trạng thái + modal trả phí khi mở nhà hàng 2+', async ({ page }) => {
-    await loginOwnerAndSelect(page, 'NhamNhi Sub Trial');
+    await loginOwnerAndSelect(page);
     await page.goto('/admin/restaurants');
 
     // Badge trạng thái cho nhà hàng của chủ
@@ -43,7 +44,7 @@ test.describe('T7 — Frontend chủ: banner trạng thái, badge, modal trả p
   });
 
   test('billing mock: thanh toán 299.000đ mở lại nhà hàng bị khoá → màn thành công', async ({ page }) => {
-    await loginOwnerAndSelect(page, 'NhamNhi Sub Bị Khoá');
+    await loginOwnerAndSelect(page);
     await page.goto('/admin/billing');
 
     await expect(page.getByRole('heading', { name: 'Thanh Toán & Gia Hạn' })).toBeVisible({ timeout: 15_000 });

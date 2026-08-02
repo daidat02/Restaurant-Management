@@ -24,14 +24,15 @@ const initialState: AuthState = {
 };
 
 // Tự chọn nhà hàng mặc định sau login:
-// - đúng 1 nhà hàng -> chọn luôn; nhiều nhà hàng -> null (chờ màn hình chọn)
+// - admin (chủ chuỗi): không chọn nhà hàng → null (vào thẳng /admin, quản toàn chuỗi)
+// - manager/staff nhiều restaurantIds legacy → ưu tiên id đầu; đúng 1 → chọn luôn
 // - super-admin / customer -> null
 const deriveDefaultRestaurant = (user: IUser | null): string | null => {
   if (!user) return null;
+  if (user.role === 'admin') return null;
   if (user.role === 'super-admin' || user.role === 'customer') return null;
   const ids = Array.isArray(user.restaurantIds) ? user.restaurantIds : [];
-  if (ids.length === 1) return idOf(ids[0]);
-  if (ids.length > 1) return null;
+  if (ids.length >= 1) return idOf(ids[0]);
   // Legacy: chỉ có field `restaurant`
   return idOf(user.restaurant) || null;
 };
