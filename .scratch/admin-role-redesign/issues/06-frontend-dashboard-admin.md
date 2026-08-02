@@ -4,7 +4,7 @@
 
 **Blocked by:** 02 — Backend analytics mảng restaurantIds; 04 — Frontend auth flow; 05 — Frontend shell.
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] Dashboard admin gửi `restaurantIds = user.restaurantIds` cho 3 API analytic; hiển thị KPI gộp chuỗi.
 - [ ] Bảng cảnh báo thuê bao: mỗi dòng = chi nhánh (tên, trạng thái locked/trial≤7 ngày, ngày hết hạn, nút "Thanh toán" → /admin/billing). Trạng thái "xấu nhất" không còn bị gói vào 1 banner đơn.

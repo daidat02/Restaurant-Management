@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 — Backend auth: admin bypass tenant + ownership theo ownerId.
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] `getOverviewStats(startDate, endDate, restaurantIds: string[])` — order stats + reservation count theo `$in`.
 - [x] `getRevenueByHour` + `getOrderChannelAnalytics` nhận mảng `restaurantIds`, query `$in`.

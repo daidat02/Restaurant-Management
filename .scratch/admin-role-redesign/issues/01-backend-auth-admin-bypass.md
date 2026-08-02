@@ -4,7 +4,7 @@
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] `verifyTenant` cho role admin: bypass yêu cầu `tokenRestaurantId`, `req.tenantId` lấy từ query/params/body (giống super-admin).
 - [x] Middleware `assertOwnerOfRestaurant` tồn tại: tài nguyên (restaurant / :id / body restaurantId) phải nằm trong `user.restaurantIds`; ngoài phạm vi → 403; không tồn tại → 404 (không leak).

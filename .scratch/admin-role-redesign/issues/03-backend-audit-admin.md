@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 — Backend auth: admin bypass tenant + ownership theo ownerId.
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] `GET /api/audit-logs` chấp nhận role admin; filter theo `restaurantIds` của chủ (intersect).
 - [x] `GET /api/audit-logs/payments` (admin): trả transactions của `ownerId`, populate tên nhà hàng, sắp xếp mới nhất, phân trang.

@@ -4,7 +4,7 @@
 
 **Blocked by:** 01, 04 — Backend auth admin bypass + Frontend auth flow.
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [ ] Sidebar admin hiển thị đúng menu mới; không còn mục vận hành (POS/menu/tables/orders...).
 - [ ] "Cài Đặt Chung" admin mở modal tài khoản cá nhân (thông tin + đổi mật khẩu + logout); manager giữ "Cài Đặt Nhà Hàng" → SettingModal.

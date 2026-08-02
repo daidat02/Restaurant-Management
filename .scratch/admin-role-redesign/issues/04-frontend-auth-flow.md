@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 — Backend auth: admin bypass tenant + ownership theo ownerId.
 
-**Status:** ready-for-agent
+**Status:** done
 
 - [x] `deriveDefaultRestaurant`: admin → null; manager/staff → `restaurantIds[0]` (nếu nhiều id); không còn trả null chờ chọn.
 - [x] Xoá route `/select-restaurant`, component `RestaurantSwitcher`, redirect ép chọn ở `ProtectedRoute`.
