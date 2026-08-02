@@ -45,4 +45,18 @@ test.describe('T04 — Admin & tenant sau redesign (bỏ /select-restaurant)', (
     await login(page, USERS.staff.email);
     await expect(page).toHaveURL(/\/staff\/orders\/pos/, { timeout: 15_000 });
   });
+
+  test('admin bị chặn URL /manager/menu/items → redirect về /admin', async ({ page }) => {
+    await login(page, USERS.admin.email);
+    await expect(page).toHaveURL(/\/admin/, { timeout: 15_000 });
+    await page.goto('/manager/menu/items');
+    await expect(page).toHaveURL(/\/admin/, { timeout: 15_000 });
+  });
+
+  test('manager bị chặn URL /admin/customers → redirect về /manager', async ({ page }) => {
+    await login(page, USERS.manager.email);
+    await expect(page).toHaveURL(/\/manager/, { timeout: 15_000 });
+    await page.goto('/admin/customers');
+    await expect(page).toHaveURL(/\/manager/, { timeout: 15_000 });
+  });
 });
