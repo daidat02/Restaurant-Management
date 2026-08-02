@@ -7,7 +7,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 export interface AuthRequest extends Request {
-  user?: JwtPayload & { userId: string; role: string; restaurantId?: string; scope?: string };
+  user?: JwtPayload & { userId: string; role: string; restaurantId?: string; restaurantIds?: string[]; scope?: string };
   /** Nhà hàng đang hoạt động (được xác thực từ token, hoặc do super-admin chỉ định). */
   tenantId?: string;
 }
@@ -109,10 +109,30 @@ const assertRestaurantActive = async (
 };
 
 /**
+ * Lấy tenant (nhà hàng) do request chỉ định — ưu tiên query/params/body.
+ * Không dùng `req.params.id` vì với route tài nguyên (:id bàn/món/đơn) đó là id tài nguyên,
+ * không phải restaurantId; ownership tài nguyên do `requireResourceTenant` xử lý.
+ */
+const tenantFromRequest = (req: AuthRequest): string => {
+  return String(
+    req.query.restaurantId ||
+      req.params.restaurantId ||
+      req.params.targetId ||
+      req.body?.restaurant ||
+      req.body?.restaurantId ||
+      req.body?.restaurantData?.restaurant ||
+      "",
+  );
+};
+
+/**
  * Xác minh ngữ cảnh nhà hàng (tenant) cho request.
  * - Admin/manager/staff: lấy restaurantId từ token (claim `restaurantId`), kiểm tra user thực sự thuộc nhà hàng đó,
  *   gán `req.tenantId`. Chặn mọi request dùng restaurantId của nhà hàng khác.
  * - super-admin: bypass — `req.tenantId` lấy từ query/params/body (để quản lý chéo mọi tenant).
+ * - admin (chủ chuỗi): bypass yêu cầu `currentRestaurantId` giống super-admin — `req.tenantId` lấy từ request,
+ *   NHƯNG tenant chỉ định phải thuộc `restaurantIds` của chủ (ownership). Không áp dụng assertRestaurantActive
+ *   (admin luôn vào được để xử lý thanh toán chi nhánh bị khoá).
  */
 export const verifyTenant = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
@@ -130,6 +150,36 @@ export const verifyTenant = async (req: AuthRequest, res: Response, next: NextFu
           req.body?.restaurantId ||
           "",
       );
+      return next();
+    }
+
+    // admin (chủ chuỗi): không bị ép chọn 1 nhà hàng, nhưng vẫn giữ `restaurantId` trong token
+    // (restaurantIds[0]) làm tenant mặc định. Nếu request chỉ định tenant khác → phải thuộc chuỗi.
+    if (role === "admin") {
+      const user = await DB_Connection.User.findById(req.user?.userId)
+        .select("restaurantIds")
+        .exec();
+      if (!user) {
+        return res.status(401).json({ message: "Người dùng không tồn tại!" });
+      }
+      const ownedIds = (user.restaurantIds || []).map((id: any) => id.toString());
+      req.user = {
+        userId: String(req.user?.userId),
+        role: String(req.user?.role),
+        restaurantIds: ownedIds,
+      };
+      const requestedTenant = tenantFromRequest(req);
+      if (requestedTenant) {
+        if (!ownedIds.includes(requestedTenant)) {
+          return res
+            .status(403)
+            .json({ message: "Bạn không sở hữu nhà hàng này!" });
+        }
+        req.tenantId = requestedTenant;
+      } else {
+        // Không chỉ định → fallback tenant mặc định trong token (restaurantIds[0])
+        req.tenantId = tokenRestaurantId ?? "";
+      }
       return next();
     }
 
@@ -270,6 +320,23 @@ export const requireResourceTenant =
       const resourceTenant = await resolveResourceTenant(req);
       if (!resourceTenant) {
         return res.status(404).json({ message: "Không tìm thấy tài nguyên!" });
+      }
+
+      // admin (chủ chuỗi): tài nguyên phải thuộc MỘT trong các restaurantIds của chủ
+      if (req.user?.role === "admin") {
+        const user = await DB_Connection.User.findById(req.user.userId)
+          .select("restaurantIds")
+          .exec();
+        const ownedIds = (user?.restaurantIds || []).map((id: any) => id.toString());
+        const owned = Array.isArray(resourceTenant)
+          ? resourceTenant.some((id) => ownedIds.includes(String(id)))
+          : ownedIds.includes(String(resourceTenant));
+        if (!owned) {
+          return res
+            .status(403)
+            .json({ message: "Bạn không có quyền truy cập tài nguyên này!" });
+        }
+        return next();
       }
 
       const actorTenant = req.tenantId ?? req.user?.restaurantId;

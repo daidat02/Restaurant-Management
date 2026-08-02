@@ -43,11 +43,10 @@ describe('T5 — KDS: xác thực mã nhà bếp', () => {
     expect(String(res.body.data.kitchenCode)).toMatch(/^\d{6}$/);
   });
 
-  it('admin X không generate được mã cho Y → 403 (verifyTenant đã chặn)', async () => {
+  it('admin khác (không sở hữu Y) không generate được mã cho Y → 403', async () => {
     const res = await request
       .post(`/api/settings/${SEED_IDS.settingY.toString()}/kds-code`)
-      .set('Authorization', `Bearer ${adminX()}`);
-    // verifyTenant dùng req.tenantId = X → generate cho X. Kỳ vọng route phải chặn tham chiếu Y.
+      .set('Authorization', `Bearer ${tokenFor('owner-sub')}`);
     expect(res.status).toBe(403);
   });
 });

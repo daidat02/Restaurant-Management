@@ -8,6 +8,8 @@ const Y = SEED_IDS.tenantY.toString();
 const adminX = () => tokenFor('admin', X);
 const managerX = () => tokenFor('manager', X);
 const staffX = () => tokenFor('staff', X);
+// admin khác (chủ chuỗi subscription) KHÔNG sở hữu X/Y → dùng để test admin bị chặn tài nguyên ngoài chuỗi
+const adminOther = () => tokenFor('owner-sub');
 
 
 describe('T2 — Tenant isolation: token X chặn truy cập resource của tenant Y', () => {
@@ -20,10 +22,10 @@ describe('T2 — Tenant isolation: token X chặn truy cập resource của tena
     expect(res.status).toBe(403);
   });
 
-  it('GET /reservations/:id — admin X không đọc được đặt bàn của Y → 403', async () => {
+  it('GET /reservations/:id — admin khác (không sở hữu Y) không đọc được đặt bàn của Y → 403', async () => {
     const res = await request
       .get(`/api/reservations/${idOf(SEED_IDS.reservationY)}`)
-      .set('Authorization', `Bearer ${adminX()}`);
+      .set('Authorization', `Bearer ${adminOther()}`);
     expect(res.status).toBe(403);
   });
 
@@ -43,10 +45,10 @@ describe('T2 — Tenant isolation: token X chặn truy cập resource của tena
 
   // ============ GHI (WRITE) — TABLE ============
 
-  it('PUT /tables/:id — admin X không sửa được bàn của Y → 403', async () => {
+  it('PUT /tables/:id — admin khác (không sở hữu Y) không sửa được bàn của Y → 403', async () => {
     const res = await request
       .put(`/api/tables/${idOf(SEED_IDS.tableY1)}`)
-      .set('Authorization', `Bearer ${adminX()}`)
+      .set('Authorization', `Bearer ${adminOther()}`)
       .send({ tableData: { capacity: 99 } });
     expect(res.status).toBe(403);
   });
@@ -61,18 +63,18 @@ describe('T2 — Tenant isolation: token X chặn truy cập resource của tena
 
   // ============ GHI (WRITE) — MENU ============
 
-  it('PUT /menu/category/:id — admin X không sửa danh mục của Y → 403', async () => {
+  it('PUT /menu/category/:id — admin khác (không sở hữu Y) không sửa danh mục của Y → 403', async () => {
     const res = await request
       .put(`/api/menu/category/${idOf(SEED_IDS.categoryY)}`)
-      .set('Authorization', `Bearer ${adminX()}`)
+      .set('Authorization', `Bearer ${adminOther()}`)
       .send({ name: 'Xâm nhập' });
     expect(res.status).toBe(403);
   });
 
-  it('PUT /menu/item/:id — admin X không sửa món của Y → 403', async () => {
+  it('PUT /menu/item/:id — admin khác (không sở hữu Y) không sửa món của Y → 403', async () => {
     const res = await request
       .put(`/api/menu/item/${idOf(SEED_IDS.menuItemY1)}`)
-      .set('Authorization', `Bearer ${adminX()}`)
+      .set('Authorization', `Bearer ${adminOther()}`)
       .send({ name: 'Xâm nhập' });
     expect(res.status).toBe(403);
   });
@@ -105,18 +107,18 @@ describe('T2 — Tenant isolation: token X chặn truy cập resource của tena
 
   // ============ GHI (WRITE) — SETTING ============
 
-  it('PUT /settings/:id — admin X không sửa cấu hình của Y → 403', async () => {
+  it('PUT /settings/:id — admin khác (không sở hữu Y) không sửa cấu hình của Y → 403', async () => {
     const res = await request
       .put(`/api/settings/${idOf(SEED_IDS.settingY)}`)
-      .set('Authorization', `Bearer ${adminX()}`)
+      .set('Authorization', `Bearer ${adminOther()}`)
       .send({ systemConfig: { autoPushKDS: false } });
     expect(res.status).toBe(403);
   });
 
-  it('PATCH /settings/:id/payment-method — admin X không đổi phương thức thanh toán của Y → 403', async () => {
+  it('PATCH /settings/:id/payment-method — admin khác (không sở hữu Y) không đổi phương thức thanh toán của Y → 403', async () => {
     const res = await request
       .patch(`/api/settings/${idOf(SEED_IDS.settingY)}/payment-method`)
-      .set('Authorization', `Bearer ${adminX()}`)
+      .set('Authorization', `Bearer ${adminOther()}`)
       .send({
         paymentMethodType: 'bank_transfer',
         payload: {
@@ -133,10 +135,10 @@ describe('T2 — Tenant isolation: token X chặn truy cập resource của tena
 
   // ============ GHI (WRITE) — RESERVATION ============
 
-  it('PUT /reservations/update/:id — admin X không sửa đặt bàn của Y → 403', async () => {
+  it('PUT /reservations/update/:id — admin khác (không sở hữu Y) không sửa đặt bàn của Y → 403', async () => {
     const res = await request
       .put(`/api/reservations/update/${idOf(SEED_IDS.reservationY)}`)
-      .set('Authorization', `Bearer ${adminX()}`)
+      .set('Authorization', `Bearer ${adminOther()}`)
       .send({ partySize: 8 });
     expect(res.status).toBe(403);
   });
@@ -159,49 +161,49 @@ describe('T2 — Tenant isolation: token X chặn truy cập resource của tena
 
   // ============ GHI (WRITE) — USER & RESTAURANT ============
 
-  it('PUT /auth/admin/update/:id — admin X không sửa user của Y → 403', async () => {
+  it('PUT /auth/admin/update/:id — admin khác (không sở hữu Y) không sửa user của Y → 403', async () => {
     const res = await request
       .put(`/api/auth/admin/update/${idOf(SEED_IDS.staffY)}`)
-      .set('Authorization', `Bearer ${adminX()}`)
+      .set('Authorization', `Bearer ${adminOther()}`)
       .send({ name: 'Xâm nhập' });
     expect(res.status).toBe(403);
   });
 
-  it('PUT /restaurants/update/:id — admin X không sửa nhà hàng Y → 403', async () => {
+  it('PUT /restaurants/update/:id — admin khác (không sở hữu Y) không sửa nhà hàng Y → 403', async () => {
     const res = await request
       .put(`/api/restaurants/update/${Y}`)
-      .set('Authorization', `Bearer ${adminX()}`)
+      .set('Authorization', `Bearer ${adminOther()}`)
       .send({ name: 'Xâm nhập' });
     expect(res.status).toBe(403);
   });
 
   // ============ XOÁ (DELETE) — đặt cuối để không phá data các case trên ============
 
-  it('DELETE /tables/:id — admin X không xóa bàn của Y → 403', async () => {
+  it('DELETE /tables/:id — admin khác (không sở hữu Y) không xóa bàn của Y → 403', async () => {
     const res = await request
       .delete(`/api/tables/${idOf(SEED_IDS.tableY2)}`)
-      .set('Authorization', `Bearer ${adminX()}`);
+      .set('Authorization', `Bearer ${adminOther()}`);
     expect(res.status).toBe(403);
   });
 
-  it('DELETE /settings/:id — admin X không xóa cấu hình của Y → 403', async () => {
+  it('DELETE /settings/:id — admin khác (không sở hữu Y) không xóa cấu hình của Y → 403', async () => {
     const res = await request
       .delete(`/api/settings/${idOf(SEED_IDS.settingY)}`)
-      .set('Authorization', `Bearer ${adminX()}`);
+      .set('Authorization', `Bearer ${adminOther()}`);
     expect(res.status).toBe(403);
   });
 
-  it('DELETE /auth/admin/delete/:id — admin X không xóa user của Y → 403', async () => {
+  it('DELETE /auth/admin/delete/:id — admin khác (không sở hữu Y) không xóa user của Y → 403', async () => {
     const res = await request
       .delete(`/api/auth/admin/delete/${idOf(SEED_IDS.staffY)}`)
-      .set('Authorization', `Bearer ${adminX()}`);
+      .set('Authorization', `Bearer ${adminOther()}`);
     expect(res.status).toBe(403);
   });
 
-  it('DELETE /restaurants/:id — admin X không xóa nhà hàng Y → 403', async () => {
+  it('DELETE /restaurants/:id — admin khác (không sở hữu Y) không xóa nhà hàng Y → 403', async () => {
     const res = await request
       .delete(`/api/restaurants/${Y}`)
-      .set('Authorization', `Bearer ${adminX()}`);
+      .set('Authorization', `Bearer ${adminOther()}`);
     expect(res.status).toBe(403);
   });
 });

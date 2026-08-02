@@ -34,10 +34,10 @@ describe('T4 — Super-admin: quyền nền tảng chỉ cho super-admin', () =>
     expect(res.status).toBe(200);
   });
 
-  it('GET /orders/:id — admin X không đọc được đơn của Y → 403 (bổ sung T2)', async () => {
+  it('GET /orders/:id — admin khác (không sở hữu Y) không đọc được đơn của Y → 403 (bổ sung T2)', async () => {
     const res = await request
       .get(`/api/orders/${SEED_IDS.orderYActive.toString()}`)
-      .set('Authorization', `Bearer ${adminX()}`);
+      .set('Authorization', `Bearer ${tokenFor('owner-sub')}`);
     expect(res.status).toBe(403);
   });
 
