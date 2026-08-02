@@ -1,26 +1,37 @@
-import { useEffect } from 'react';
-import { useDispatch } from 'react-redux';
+import { useEffect, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
 import { SidebarTrigger } from './ui/sidebar';
-import { SelectDropdown } from './SelectDropdown';
 import { useNotification } from '@/hooks/use-notification';
-import { logout } from '@/redux/slices/authSlice';
 import soundNotification from '@/assets/notification_sound.mp3';
 import { MailBoxPopover } from '@/pages/Admin/components/MailBoxPopover';
 import { NotificationPopover } from '@/pages/Admin/components/NotificationPopover';
+import { extractId } from '@/utils/helpers';
 
-export default function Header() {
+interface HeaderProps {
+  onOpenAccount?: () => void;
+}
+
+export default function Header({ onOpenAccount }: HeaderProps) {
   const { user } = useAuth();
-  const dispatch = useDispatch();
   const activeRestaurantId = useActiveRestaurantId();
   const { notifications, startLiseningNotification, markReadNoti, markReadAllNoti } =
     useNotification(soundNotification);
 
+  // Chuông admin: gộp toàn chuỗi (mọi restaurantIds); manager/staff theo 1 nhà hàng hiện tại.
+  const notificationScope = useMemo(() => {
+    if (user?.role === 'admin' && Array.isArray(user.restaurantIds)) {
+      return (user.restaurantIds.map((id) => extractId(id)).filter(Boolean) as string[]).filter(
+        (id) => id.length > 0,
+      );
+    }
+    return [activeRestaurantId].filter((id): id is string => Boolean(id));
+  }, [user, activeRestaurantId]);
+
   // Kích hoạt lắng nghe Socket thông báo khi Header được tải
   useEffect(() => {
-    startLiseningNotification(activeRestaurantId);
-  }, [startLiseningNotification, activeRestaurantId]);
+    startLiseningNotification(notificationScope);
+  }, [startLiseningNotification, notificationScope]);
 
   // DATA MOCK: Tạm thời giữ lại Data Tin Nhắn MailBox
   const mockMessages = [
@@ -45,20 +56,6 @@ export default function Header() {
   const unreadMessagesCount = mockMessages.filter((m) => m.isUnread).length;
   const unreadNotificationsCount = notifications.filter((n) => n.isRead === false).length;
 
-  const dropdownData = [
-    {
-      label: 'My Account',
-      items: [
-        { label: 'Profile', shortcut: '⇧⌘P' },
-        { label: 'Billing', shortcut: '⌘B' },
-        { label: 'Settings', shortcut: '⌘S' },
-      ],
-    },
-    {
-      items: [{ label: 'Log out', shortcut: '⇧⌘Q', action: () => dispatch(logout()) }],
-    },
-  ];
-
   return (
     <header className="flex items-center bg-white border-b justify-between px-4 lg:px-6  h-[66px] shrink-0">
       {/* VÙNG TRÁI: Tìm kiếm */}
@@ -77,7 +74,7 @@ export default function Header() {
             notifications={notifications}
             unreadCount={unreadNotificationsCount}
             onMarkReadAll={() => {
-              markReadAllNoti(activeRestaurantId);
+              markReadAllNoti(notificationScope);
             }}
             onMarkAsRead={(id) => {
               markReadNoti(id);
@@ -88,30 +85,29 @@ export default function Header() {
 
         <div className="h-8 w-[1px] bg-gray-300 mx-1 hidden sm:block" />
 
-        {/* Profile User Dropdown */}
-        <SelectDropdown
-          groupLabel={dropdownData}
-          children={
-            <div className="flex items-center gap-3 cursor-pointer">
-              <div className="relative">
-                <img
-                  src="https://github.com/shadcn.png"
-                  alt="Avatar"
-                  className="h-4 w-4 sm:h-10 sm:w-10 rounded-lg object-cover border"
-                />
-                <span className="absolute -bottom-1 -right-1 h-3 w-3 bg-green-500 border-2 border-white rounded-full" />
-              </div>
-              <div className="hidden md:flex flex-col text-left">
-                <span className="text-xs font-semibold text-gray-900 leading-tight">
-                  {user?.name || 'Người dùng'}
-                </span>
-                <span className="text-xs text-gray-500 capitalize leading-tight mt-0.5">
-                  {user?.role || 'Nhân viên'}
-                </span>
-              </div>
-            </div>
-          }
-        />
+        {/* Profile User: click mở thẳng modal tài khoản cá nhân (Q15) */}
+        <button
+          type="button"
+          onClick={onOpenAccount}
+          className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 rounded-xl px-1 py-1 transition-all"
+        >
+          <div className="relative">
+            <img
+              src={user?.avatar || 'https://github.com/shadcn.png'}
+              alt="Avatar"
+              className="h-4 w-4 sm:h-10 sm:w-10 rounded-lg object-cover border"
+            />
+            <span className="absolute -bottom-1 -right-1 h-3 w-3 bg-green-500 border-2 border-white rounded-full" />
+          </div>
+          <div className="hidden md:flex flex-col text-left">
+            <span className="text-xs font-semibold text-gray-900 leading-tight">
+              {user?.name || 'Người dùng'}
+            </span>
+            <span className="text-xs text-gray-500 capitalize leading-tight mt-0.5">
+              {user?.role || 'Nhân viên'}
+            </span>
+          </div>
+        </button>
       </div>
     </header>
   );

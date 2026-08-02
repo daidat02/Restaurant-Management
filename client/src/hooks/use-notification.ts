@@ -1,5 +1,6 @@
 import {
   getMyNotifications,
+  getChainNotifications,
   markAllNotificationsAsRead,
   markNotificationAsRead,
 } from '@/api/notification.api';
@@ -16,21 +17,27 @@ export const useNotification = (soundUr?: string) => {
 
   const [notifications, setNotifications] = useState<INotification[]>([]);
   const [listeningNotificationSocket, setListeningNotificationSocket] = useState<boolean>(false);
-  const [restaurantId, setRestaurantId] = useState<string | null>(null);
+  const [restaurantIds, setRestaurantIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false); // State quản lý trạng thái loading API
 
   // 1. Luồng API: Tự động gọi API lấy thông báo cũ khi có restaurantId và được kích hoạt lắng nghe
   useEffect(() => {
     const fetchInitialNotifications = async () => {
-      if (!listeningNotificationSocket || !restaurantId) return;
+      if (!listeningNotificationSocket || restaurantIds.length === 0) return;
 
       try {
         setIsLoading(true);
-        // Gọi API phân trang, mặc định lấy trang 1, tối đa 50 thông báo gần nhất
-        const result = await getMyNotifications(restaurantId, 1, 50);
-
-        if (result && Array.isArray(result)) {
-          setNotifications(result);
+        // Admin (chủ chuỗi) gộp toàn chuỗi; manager/staff vẫn theo từng nhà hàng (lấy id đầu).
+        if (restaurantIds.length > 1) {
+          const result = await getChainNotifications(1, 50);
+          if (result && Array.isArray(result)) {
+            setNotifications(result);
+          }
+        } else {
+          const result = await getMyNotifications(restaurantIds[0], 1, 50);
+          if (result && Array.isArray(result)) {
+            setNotifications(result);
+          }
         }
       } catch (error: any) {
         console.error('[NotificationHook] Lỗi lấy danh sách thông báo cũ:', error);
@@ -40,7 +47,7 @@ export const useNotification = (soundUr?: string) => {
     };
 
     fetchInitialNotifications();
-  }, [listeningNotificationSocket, restaurantId]);
+  }, [listeningNotificationSocket, restaurantIds.join(',')]);
 
   useEffect(() => {
     if (!listeningNotificationSocket) return;
@@ -93,9 +100,15 @@ export const useNotification = (soundUr?: string) => {
   }, [listeningNotificationSocket]);
 
   // Hàm kích hoạt lắng nghe được gọi từ Header hoặc App Layout
-  const startLiseningNotification = useCallback((id?: string) => {
-    if (id) {
-      setRestaurantId(id);
+  // Hỗ trợ 1 restaurantId (manager/staff) hoặc mảng restaurantIds (admin gộp chuỗi)
+  const startLiseningNotification = useCallback((ids?: string | string[]) => {
+    const normalized = Array.isArray(ids)
+      ? ids.filter((id): id is string => Boolean(id))
+      : ids
+        ? [ids]
+        : [];
+    if (normalized.length > 0) {
+      setRestaurantIds(normalized);
       setListeningNotificationSocket(true);
     }
   }, []);
@@ -175,14 +188,19 @@ export const useNotification = (soundUr?: string) => {
     }
   };
 
-  const markReadAllNoti = async (restaurantId: string) => {
+  const markReadAllNoti = async (restaurantIds: string | string[]) => {
     try {
-      const result = await markAllNotificationsAsRead(restaurantId);
+      const ids = Array.isArray(restaurantIds)
+        ? restaurantIds.filter(Boolean)
+        : [restaurantIds].filter(Boolean);
+      // Admin gộp chuỗi: đánh dấu đọc theo từng nhà hàng; manager/staff theo 1 nhà hàng.
+      await Promise.all(ids.map((id) => markAllNotificationsAsRead(id)));
       // 2. Cập nhật State cục bộ để UI lập tức đổi màu hoặc giảm số lượng Badge chưa đọc
       setNotifications((prevNotis) => prevNotis.map((noti) => ({ ...noti, isRead: true })));
-      return result;
+      return true;
     } catch (err: any) {
       console.log(err.message);
+      return false;
     }
   };
 

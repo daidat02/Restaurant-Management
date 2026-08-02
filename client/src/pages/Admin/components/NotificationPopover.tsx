@@ -198,6 +198,14 @@ export function NotificationPopover({
                           ? 'Vui lòng kiểm tra và xác nhận đơn.'
                           : notif.message}
                       </p>
+                      {/* Admin (gộp chuỗi): hiển thị nhà hàng phát sinh thông báo */}
+                      {role === 'admin' &&
+                        typeof notif.restaurant === 'object' &&
+                        notif.restaurant?.name && (
+                          <span className="inline-block mt-1 text-[10px] font-medium text-cerulean-blue-600 bg-cerulean-blue-50 px-1.5 py-0.5 rounded">
+                            {notif.restaurant.name}
+                          </span>
+                        )}
                     </div>
                   </div>
                 );

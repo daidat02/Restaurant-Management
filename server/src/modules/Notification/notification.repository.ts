@@ -25,6 +25,20 @@ class NotificationRepository {
       .exec();
   }
 
+  // LẤY THEO MẢNG RESTAURANT: Dành cho admin (chủ chuỗi) — gộp thông báo toàn chuỗi, kèm tên nhà hàng.
+  async getChainNotifications(
+    restaurantIds: string[],
+    limit = 20,
+    skip = 0
+  ): Promise<INotification[]> {
+    return DB_Connection.Notification.find({ restaurant: { $in: restaurantIds } })
+      .populate('restaurant', 'name')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .exec();
+  }
+
   async findNotifications(
     filter: FilterQuery<INotification>,
     limit = 20,
