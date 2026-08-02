@@ -10,7 +10,7 @@ class AnalyticController {
   async getOverviewStats(req: AuthRequest, res: Response): Promise<Response> {
     try {
       const { startDate, endDate } = req.query;
-      const restaurantId = req.tenantId;
+      const restaurantIds = req.user?.restaurantIds;
       // 1. Kiểm tra các tham số bắt buộc phải có
       if (!startDate || !endDate) {
         return res.status(400).json({
@@ -40,7 +40,7 @@ class AnalyticController {
       }
 
       // 4. Gọi tầng Service xử lý tính toán
-      const data = await analyticService.getOverviewStats(start, end, restaurantId as string);
+      const data = await analyticService.getOverviewStats(start, end, restaurantIds as string[]);
 
       // 5. Trả kết quả thành công về cho Frontend
       return res.status(200).json({
@@ -61,7 +61,7 @@ class AnalyticController {
   async getRevenueHourly(req: AuthRequest, res: Response): Promise<Response> {
     try {
       const { startDate, endDate } = req.query;
-      const restaurantId = req.tenantId;
+      const restaurantIds = req.user?.restaurantIds;
 
       // 1. Kiểm tra tham số đầu vào bắt buộc
       if (!startDate || !endDate) {
@@ -87,7 +87,7 @@ class AnalyticController {
       end.setHours(23, 59, 59, 999);
 
       // 3. Gọi xuống tầng Service để lấy mảng dữ liệu đã điền đầy các khung giờ trống (amount = 0)
-      const chartData = await analyticService.getRevenueByHour(restaurantId as string, start, end);
+      const chartData = await analyticService.getRevenueByHour(restaurantIds as string[], start, end);
 
       // 4. Trả mảng dữ liệu sạch về cho Frontend nạp vào Component Chart
       return res.status(200).json({
@@ -106,7 +106,7 @@ class AnalyticController {
   async getOrderChannels(req: AuthRequest, res: Response): Promise<Response> {
     try {
       const { startDate, endDate } = req.query;
-      const restaurantId = req.tenantId;
+      const restaurantIds = req.user?.restaurantIds;
 
       if (!startDate || !endDate) {
         return res.status(400).json({
@@ -124,7 +124,7 @@ class AnalyticController {
       const data = await analyticService.getOrderChannelAnalytics(
         start,
         end,
-        restaurantId as string,
+        restaurantIds as string[],
       );
 
       return res.status(200).json({

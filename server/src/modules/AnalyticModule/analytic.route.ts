@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import analyticController from './analytic.controller.js'; // 🌟 Import Analytic Controller bạn vừa tạo
-import { verifyRole, verifyTenant, verifyToken } from '../../middlewares/auth.middleware.js';
+import { verifyRole, verifyTenant, verifyToken, intersectRestaurantIds } from '../../middlewares/auth.middleware.js';
 
 const router = Router();
 
@@ -9,6 +9,7 @@ router.get(
   verifyToken,
   verifyRole(['manager', 'admin']),
   verifyTenant,
+  intersectRestaurantIds,
   analyticController.getOverviewStats,
 );
 
@@ -17,6 +18,7 @@ router.get(
   verifyToken,
   verifyRole(['manager', 'admin']),
   verifyTenant,
+  intersectRestaurantIds,
   analyticController.getRevenueHourly,
 );
 
@@ -25,6 +27,7 @@ router.get(
   verifyToken,
   verifyRole(['manager', 'admin']),
   verifyTenant,
+  intersectRestaurantIds,
   analyticController.getOrderChannels,
 );
 router.get(

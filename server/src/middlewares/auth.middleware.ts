@@ -126,6 +126,63 @@ const tenantFromRequest = (req: AuthRequest): string => {
 };
 
 /**
+ * Intersect danh sách restaurantIds do request gửi với restaurantIds của user (đọc từ DB).
+ * - Không gửi mảng: admin → toàn bộ chuỗi của chủ; manager/staff → tenant hiện tại (token).
+ * - Có id ngoài phạm vi → 403; kết quả rỗng → 403.
+ * Ghi danh sách hợp lệ vào `req.user.restaurantIds` để controller/service dùng (query $in).
+ */
+export const intersectRestaurantIds = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    if (req.user?.role === "super-admin") return next();
+
+    const user = await DB_Connection.User.findById(req.user?.userId)
+      .select("restaurantIds")
+      .exec();
+    const ownedIds = (user?.restaurantIds || []).map((id: any) => id.toString());
+
+    const raw = req.query.restaurantIds;
+    let requested: string[] = [];
+    if (Array.isArray(raw)) {
+      requested = raw.map(String);
+    } else if (typeof raw === "string") {
+      requested = raw.split(",").map((s) => s.trim()).filter(Boolean);
+    } else if (raw) {
+      requested = [String(raw)];
+    }
+
+    if (requested.length === 0) {
+      // Không chỉ định → mặc định: admin toàn chuỗi, manager/staff tenant hiện tại
+      if (req.user?.role === "admin") {
+        requested = ownedIds;
+      } else {
+        requested = [req.tenantId ?? ownedIds[0] ?? ""].filter(Boolean);
+      }
+    }
+
+    if (requested.some((id) => !ownedIds.includes(id))) {
+      return res
+        .status(403)
+        .json({ message: "Bạn không có quyền truy cập các nhà hàng này!" });
+    }
+    if (requested.length === 0) {
+      return res
+        .status(403)
+        .json({ message: "Bạn không có quyền truy cập các nhà hàng này!" });
+    }
+
+    req.user = {
+      userId: String(req.user?.userId),
+      role: String(req.user?.role),
+      restaurantIds: requested,
+    };
+    return next();
+  } catch (error) {
+    console.error("intersectRestaurantIds error:", error);
+    return res.status(500).json({ message: "Lỗi xác thực quyền nhà hàng!" });
+  }
+};
+
+/**
  * Xác minh ngữ cảnh nhà hàng (tenant) cho request.
  * - Admin/manager/staff: lấy restaurantId từ token (claim `restaurantId`), kiểm tra user thực sự thuộc nhà hàng đó,
  *   gán `req.tenantId`. Chặn mọi request dùng restaurantId của nhà hàng khác.

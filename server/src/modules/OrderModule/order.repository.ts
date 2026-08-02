@@ -82,15 +82,16 @@ class OrderRepository {
     return await DB_Connection.Order.findById(id).populate(['table', 'restaurant', 'items']).exec();
   }
 
-  async getRawOrderStats(startDate: Date, endDate: Date, restaurantId?: string) {
+  async getRawOrderStats(startDate: Date, endDate: Date, restaurantIds?: string[]) {
     const matchQuery: any = {
       createdAt: { $gte: startDate, $lte: endDate },
     };
 
-    if (restaurantId) {
-      matchQuery.restaurant = new DB_Connection.Order.base.Types.ObjectId(restaurantId);
+    if (restaurantIds && restaurantIds.length > 0) {
+      matchQuery.restaurant = {
+        $in: restaurantIds.map((id) => new DB_Connection.Order.base.Types.ObjectId(id)),
+      };
     }
-    console.log('restaurantId:', restaurantId);
     const stats = await DB_Connection.Order.aggregate([
       {
         $match: matchQuery,
@@ -121,14 +122,16 @@ class OrderRepository {
     return stats[0] || null; // Trả ra object thô đầu tiên hoặc null nếu không có đơn
   }
 
-  async getRevenueByHourStats(startDate: Date, endDate: Date, restaurantId: string) {
+  async getRevenueByHourStats(startDate: Date, endDate: Date, restaurantIds: string[]) {
     const matchQuery: any = {
       createdAt: { $gte: startDate, $lte: endDate },
       status: 'paid',
     };
 
-    if (restaurantId) {
-      matchQuery.restaurant = new DB_Connection.Order.base.Types.ObjectId(restaurantId);
+    if (restaurantIds && restaurantIds.length > 0) {
+      matchQuery.restaurant = {
+        $in: restaurantIds.map((id) => new DB_Connection.Order.base.Types.ObjectId(id)),
+      };
     }
 
     return await DB_Connection.Order.aggregate([
@@ -173,14 +176,16 @@ class OrderRepository {
     ]);
   }
 
-  async getOrderChannelStats(startDate: Date, endDate: Date, restaurantId: string) {
+  async getOrderChannelStats(startDate: Date, endDate: Date, restaurantIds: string[]) {
     const matchQuery: any = {
       createdAt: { $gte: startDate, $lte: endDate },
       status: { $ne: 'cancelled' },
     };
 
-    if (restaurantId) {
-      matchQuery.restaurant = new DB_Connection.Order.base.Types.ObjectId(restaurantId);
+    if (restaurantIds && restaurantIds.length > 0) {
+      matchQuery.restaurant = {
+        $in: restaurantIds.map((id) => new DB_Connection.Order.base.Types.ObjectId(id)),
+      };
     }
     return await DB_Connection.Order.aggregate([
       {

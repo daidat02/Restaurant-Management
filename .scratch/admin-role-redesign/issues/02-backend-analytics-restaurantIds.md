@@ -6,11 +6,18 @@
 
 **Status:** ready-for-agent
 
-- [ ] `getOverviewStats(startDate, endDate, restaurantIds: string[])` — order stats + reservation count theo `$in`.
-- [ ] `getRevenueByHour` + `getOrderChannelAnalytics` nhận mảng `restaurantIds`, query `$in`.
-- [ ] Middleware intersect: mảng id từ query ∩ `user.restaurantIds` (DB); trống/id ngoài phạm vi → 403.
-- [ ] Route 3 endpoint dùng mảng `restaurantIds` (query param lặp hoặc dạng mảng) + middleware intersect.
-- [ ] Backend integration test: admin gửi 2 id thuộc chuỗi → data gộp đúng; gửi 1 id không thuộc → 403; manager gửi 1 id → vẫn hoạt động.
-- [ ] Suite server test xanh.
+- [x] `getOverviewStats(startDate, endDate, restaurantIds: string[])` — order stats + reservation count theo `$in`.
+- [x] `getRevenueByHour` + `getOrderChannelAnalytics` nhận mảng `restaurantIds`, query `$in`.
+- [x] Middleware intersect: mảng id từ query ∩ `user.restaurantIds` (DB); trống/id ngoài phạm vi → 403.
+- [x] Route 3 endpoint dùng mảng `restaurantIds` (query param lặp hoặc dạng mảng) + middleware intersect.
+- [x] Backend integration test: admin gửi 2 id thuộc chuỗi → data gộp đúng; gửi 1 id không thuộc → 403; manager gửi 1 id → vẫn hoạt động.
+- [x] Suite server test xanh.
 
 ### Kết quả đạt được (điền sau khi hoàn thành)
+- `order.repository.ts`: `getRawOrderStats` / `getRevenueByHourStats` / `getOrderChannelStats` đổi từ `restaurantId?: string` sang `restaurantIds: string[]`, query `matchQuery.restaurant = { $in: [...ObjectId] }`. Bỏ `console.log` dư.
+- `analytic.service.ts`: `getOverviewStats` nhận mảng, `Reservation.countDocuments` dùng `$in`; `getRevenueByHour` / `getOrderChannelAnalytics` nhận mảng.
+- `auth.middleware.ts`: thêm `intersectRestaurantIds` — không gửi mảng thì admin mặc định toàn chuỗi, manager/staff mặc định tenant hiện tại (token); id ngoài `user.restaurantIds` (DB) → 403; kết quả rỗng → 403; ghi danh sách hợp lệ vào `req.user.restaurantIds`.
+- `analytic.route.ts`: 3 endpoint `/overview` `/revenue-hourly` `/order-channels` thêm `intersectRestaurantIds` sau `verifyTenant`.
+- `analytic.controller.ts`: đọc `req.user.restaurantIds` thay `req.tenantId`.
+- Test: thêm 7 case trong `analytics.test.ts` (admin gộp X+Y 200, admin id ngoài chuỗi 403, manager gửi Y 403, manager gửi X 200, admin không gửi → mặc định toàn chuỗi 200).
+- Kết quả: toàn bộ 194 tests / 24 files xanh, `npm run build` sạch.
