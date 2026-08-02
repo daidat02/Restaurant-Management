@@ -7,7 +7,8 @@ import { useAuth } from '@/hooks/use-auth';
 import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
 import { OverviewCards, TopDishesTable } from './components/OverView';
 import { ChartsSection } from './components/ChartsSection';
-import { SubscriptionBanner } from '../components/SubscriptionBanner';
+import { SubscriptionAlertsTable } from '../components/SubscriptionAlertsTable';
+import { extractId } from '@/utils/helpers';
 
 interface IHeaderProps {
   value: { from: string; to: string };
@@ -57,6 +58,12 @@ export default function Home() {
     to: format(new Date(), 'yyyy-MM-dd'),
   });
 
+  // Admin: danh sách id nhà hàng trong chuỗi (dùng làm dep ổn định).
+  const adminRestaurantIds = Array.isArray(user?.restaurantIds)
+    ? user!.restaurantIds.map((id) => extractId(id)).filter((id) => id.length > 0)
+    : [];
+  const adminRestaurantIdsKey = adminRestaurantIds.join(',');
+
   useEffect(() => {
     if (!user?.role) return;
 
@@ -65,13 +72,18 @@ export default function Home() {
       endDate: date.to,
     };
 
-    // Luôn gắn tenant đang làm việc (admin/manager/staff thuộc 1 nhà hàng; super-admin gửi param để chọn tenant)
-    payload.restaurantId = activeRestaurantId;
+    // Admin (chủ chuỗi): gộp toàn bộ restaurantIds → KPI toàn chuỗi (ticket 02/06).
+    // Manager/staff: vẫn theo 1 nhà hàng đang chọn (activeRestaurantId).
+    if (user?.role === 'admin' && adminRestaurantIdsKey.length > 0) {
+      payload.restaurantIds = adminRestaurantIdsKey.split(',').filter(Boolean);
+    } else {
+      payload.restaurantId = activeRestaurantId;
+    }
 
     // KHÔNG gọi revenue-channels ở đây: endpoint này chỉ dành cho super-admin
     // (doanh thu gộp toàn hệ thống, không lọc tenant — admin gọi sẽ 403 + rò dữ liệu).
     fetchDashboardData(payload);
-  }, [date.from, date.to, user?.role, activeRestaurantId]);
+  }, [date.from, date.to, user?.role, activeRestaurantId, adminRestaurantIdsKey, fetchDashboardData]);
 
   const handleSelectDate = (val: { from: string; to: string }) => {
     setDate(val);
@@ -82,8 +94,8 @@ export default function Home() {
       <div className="min-h-screen bg-slate-50 text-slate-800 p-4 md:p-8">
         <GlobalHeader value={date} onSelectDate={handleSelectDate} />
 
-        {/* Banner trạng thái thuê bao — chỉ hiển thị với chủ nhà hàng (admin) */}
-        {user?.role === 'admin' && <SubscriptionBanner />}
+        {/* Bảng cảnh báo thuê bao từng chi nhánh — chỉ hiển thị với admin (chủ chuỗi) */}
+        {user?.role === 'admin' && <SubscriptionAlertsTable />}
 
         <div className="space-y-8 animate-fade-in">
           {/* Cụm 1: Thẻ thông số tổng quan */}
