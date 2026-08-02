@@ -46,6 +46,11 @@ export const updateUser = async (_id: string, updateData: Partial<IUser>) => {
   return res.data;
 };
 
+export const createStaffUser = async (userData: Partial<IUser>) => {
+  const res = await axiosClient.post<any, ApiResponse<IUser>>(AUTH.ADMIN.CREATE, userData);
+  return res.data;
+};
+
 export const updateMe = async (updateData: Partial<IUser>) => {
   const res = await axiosClient.patch<any, ApiResponse<IUser>>(AUTH.UPDATE_ME, updateData);
   return res.data;
