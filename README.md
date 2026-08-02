@@ -5,14 +5,18 @@
 🔗 **Live Demo:** [nhamnhitidi.vercel.app](https://nhamnhitidi.vercel.app/)
 📁 **Repository:** [github.com/daidat02/Restaurant-Management](https://github.com/daidat02/Restaurant-Management)
 
-👥 **Tài khoản dùng thử (Test Accounts) — môi trường dev (multi-tenant):**
+👥 **Tài khoản dùng thử (Test Accounts) — mật khẩu dùng chung `Test@NhamNhi2026`:**
 
-- **Super Admin:** `super.admin@nhamnhi.vn` / `Super@NhamNhi2026` (quyền nền tảng, khoá/mở nhà hàng)
-- **Admin** (thuộc Cơ Sở 1 `X` và Cơ Sở 2 `Y`): `admin.test@nhamnhi.vn` / `Test@NhamNhi2026`
-- **Manager** (chỉ thuộc Cơ Sở 1 `X`): `manager.test@nhamnhi.vn` / `Test@NhamNhi2026`
-- Mọi user `admin`/`manager`/`staff` được tạo qua UI dùng chung mật khẩu mặc định `Test@NhamNhi2026`.
+| Role | Email | Ghi chú |
+|---|---|---|
+| Super Admin | `super.admin@nhamnhi.vn` | Nền tảng: KPI, tenants, pricing, transactions, audit, khoá/mở chủ |
+| Admin (chủ 2 cơ sở) | `admin.test@nhamnhi.vn` | Tenant switcher + `/admin/*` |
+| Manager | `manager.test@nhamnhi.vn` | `/manager/*`: menu, POS, bàn, đặt bàn, nhân viên |
+| Staff | `staff.test@nhamnhi.vn` | POS, sơ đồ bàn, đơn hàng |
+| Customer | `customer.test@nhamnhi.vn` | Đăng nhập khách, lịch sử đơn |
+| Owner (3 nhà hàng thuê bao) | `owner.sub@nhamnhi.vn` | Test trial / sắp hết hạn / bị khoá + billing |
 
-> ⚠️ Tài khoản super-admin hiện được seed cứng trong `server/src/modules/AuthModule/.../migrate-tenant.ts` — nên đổi mật khẩu khi triển khai thực tế.
+> Các tài khoản trên có thể seed lại lên DB (theo `MONGODB_URL` trong `server/.env`) bằng `node scripts/seed-test-accounts.mjs`. Mọi user `admin`/`manager`/`staff` tạo qua UI dùng mật khẩu mặc định `Test@NhamNhi2026`. Reset super-admin: `SUPER_ADMIN_PASSWORD='...' node scripts/reset-super-admin.mjs`.
 
 ---
 
