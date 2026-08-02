@@ -31,6 +31,8 @@ graphify-out/
 !.scratch/multi-tenant-refactor/**
 !.scratch/saas-mvp/
 !.scratch/saas-mvp/**
+!.scratch/admin-role-redesign/
+!.scratch/admin-role-redesign/**
 .playwright-mcp/
 # Planning
 ROADMAP.VI.md
