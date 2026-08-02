@@ -31,6 +31,11 @@ import { isValid } from 'date-fns';
 interface SettingModalProps {
   isOpen: boolean;
   onChangeOpenModal: () => void;
+  /**
+   * Ticket 09: chỉ định nhà hàng cấu hình (admin mở Cài Đặt từ danh sách chi nhánh).
+   * Khi có override → mọi hook trong modal dùng id này; ngược lại dùng useActiveRestaurantId() (manager/staff).
+   */
+  restaurantIdOverride?: string;
 }
 
 type SettingTab =
@@ -42,12 +47,15 @@ type SettingTab =
   | 'security'
   | 'system';
 
-const SettingModal = ({ isOpen, onChangeOpenModal }: SettingModalProps) => {
+const SettingModal = ({ isOpen, onChangeOpenModal, restaurantIdOverride }: SettingModalProps) => {
   const activeRestaurantId = useActiveRestaurantId();
-  const { selectedRestaurant, selectRestaurant } = useRestaurant();
+  const { selectedRestaurant, selectRestaurant, updateRestaurant } = useRestaurant();
   const { tables, fetchTablesByRestaurant, addTable, editTable } = useTable();
   const { categories, fetchCategories } = useMenu();
   const { currentSetting, fetchSettingById, editSetting, changePaymentMethodType, generateKitchenCode } = useSetting();
+
+  // Nhà hàng hiệu lực: override (admin từ trang chi nhánh) ưu tiên hơn useActiveRestaurantId.
+  const effectiveRestaurantId = restaurantIdOverride || activeRestaurantId;
 
   const [activeTab, setActiveTab] = useState<SettingTab>('profile');
   const [openModalTable, setOpenModalTable] = useState(false);
@@ -144,13 +152,13 @@ const SettingModal = ({ isOpen, onChangeOpenModal }: SettingModalProps) => {
     paymentMethodType,
   ]);
   useEffect(() => {
-    if (activeRestaurantId) {
-      fetchTablesByRestaurant(activeRestaurantId);
-      selectRestaurant(activeRestaurantId);
-      fetchCategories(activeRestaurantId);
-      fetchSettingById(activeRestaurantId);
+    if (effectiveRestaurantId) {
+      fetchTablesByRestaurant(effectiveRestaurantId);
+      selectRestaurant(effectiveRestaurantId);
+      fetchCategories(effectiveRestaurantId);
+      fetchSettingById(effectiveRestaurantId);
     }
-  }, [activeRestaurantId]);
+  }, [effectiveRestaurantId]);
 
   useEffect(() => {
     if (selectedRestaurant) {
@@ -207,9 +215,9 @@ const SettingModal = ({ isOpen, onChangeOpenModal }: SettingModalProps) => {
     setIsSaving(true);
     try {
       if (activeTab === 'profile' && profileConfig) {
-        // Gọi API lưu profile ở đây (ví dụ: updateRestaurant(profileConfig))
-        console.log('Lưu thông tin nhà hàng:', profileConfig);
-        setOriginalRestaurant(profileConfig);
+        // Lưu hồ sơ chi nhánh (ticket 09) — chỉ admin có quyền update restaurant.
+        const updated = await updateRestaurant(profileConfig._id, profileConfig);
+        if (updated) setOriginalRestaurant(profileConfig);
       } else if (activeTab === 'receipt' && receiptConfig) {
         await editSetting(currentSetting._id, { receiptConfig });
         setOriginalReceiptConfig(receiptConfig);
