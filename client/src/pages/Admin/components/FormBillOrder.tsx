@@ -123,7 +123,7 @@ const OrderSummary = ({
   onPayment?: () => void;
   onSave?: () => void;
   isPOS?: boolean;
-  onAddItem?: () => void;
+  onAddItem?: (e: React.MouseEvent<HTMLButtonElement>) => void;
 }) => {
   return (
     <div className="bg-[#f4f6fa] p-6 flex flex-col gap-3 shrink-0 border-t border-gray-100">
@@ -158,7 +158,8 @@ const OrderSummary = ({
           </button>
         ) : (
           <button
-            onClick={onAddItem}
+            type="button"
+            onClick={(e) => onAddItem?.(e)}
             className="h-9 bg-white border border-gray-200 rounded-xl text-gray-700 font-bold text-[10px] shadow-sm hover:bg-gray-50 active:scale-95 transition-all"
           >
             Thêm Món
@@ -166,6 +167,7 @@ const OrderSummary = ({
         )}
 
         <button
+          type="button"
           onClick={onPayment}
           className="h-9 col-span-2 bg-cerulean-blue-500 border border-cerulean-blue-600 rounded-xl text-white font-bold text-[10px] shadow-sm hover:bg-cerulean-blue-600 active:scale-95 transition-all"
         >
@@ -210,24 +212,39 @@ const FormBillOrder = ({
   const totalPayment = Math.max(0, subTotal - discount);
   const totalItemsCount = orderItems.reduce((sum, item) => sum + item.quantity, 0);
 
-  const handleRedirectToPOS = () => {
-    let url = '/manager/orders/pos';
+  const handleRedirectToPOS = (e?: React.MouseEvent | React.SyntheticEvent) => {
+    e?.preventDefault();
+
     const queryParams = new URLSearchParams();
 
     const actualOrderId = extractId(order, '_id') || extractId(tableInfo?.currentOrder, '_id');
+    console.log(
+      '[FormBill] navigating with orderId:',
+      actualOrderId,
+      'order:',
+      order,
+      'tableInfo:',
+      tableInfo,
+    );
 
     if (actualOrderId) {
       queryParams.append('orderId', actualOrderId);
-    } else if (tableInfo && tableInfo._id) {
+    }
+
+    if (tableInfo?._id) {
       queryParams.append('tableId', tableInfo._id as string);
     }
 
     const queryString = queryParams.toString();
-    if (queryString) {
-      url += `?${queryString}`;
-    }
+    const currentRole = user?.role || 'staff';
 
-    navigate(url);
+    navigate(
+      {
+        pathname: `/${currentRole}/orders/pos`,
+        search: queryString ? `?${queryString}` : '',
+      },
+      { replace: true },
+    );
   };
 
   const handleAddOrder = async (isPaid: boolean = false) => {
@@ -242,23 +259,15 @@ const FormBillOrder = ({
     try {
       if (existingOrderId) {
         // 1. ĐÃ CÓ ĐƠN HÀNG
-        const newItemsOnly = orderItems
-          .filter((item: any) => !item._id)
-          .map((item) => ({
-            menuItem: extractId(item.menuItem),
-            quantity: item.quantity,
-            priceSnapshot: item.priceSnapshot,
-            nameSnapshot: item.nameSnapshot,
-          }));
+        const itemsToSend = orderItems.map((item: any) => ({
+          _id: item._id || undefined,
+          menuItem: extractId(item.menuItem),
+          quantity: item.quantity,
+          priceSnapshot: item.priceSnapshot,
+          nameSnapshot: item.nameSnapshot,
+        }));
 
-        if (newItemsOnly.length > 0) {
-          // Thêm món mới vào đơn cũ
-          await addItemToOrder({ orderId: existingOrderId, items: newItemsOnly });
-        } else if (!isPaid) {
-          toast.info('Không có món mới nào để thêm vào bill.');
-          if (pos) navigate(-1);
-          return;
-        }
+        await addItemToOrder({ orderId: existingOrderId, items: itemsToSend });
       } else {
         // 2. CHƯA CÓ ĐƠN HÀNG -> TẠO MỚI
         const formattedItems = orderItems.map((item) => ({
@@ -292,7 +301,9 @@ const FormBillOrder = ({
         }
       } else {
         // NẾU CHỈ LƯU ĐƠN
-        toast.success(existingOrderId ? 'Thêm món thành công!' : 'Đã lưu đơn cho bếp!');
+        toast.success(existingOrderId ? 'Thêm món thành công!' : 'Đã lưu đơn cho bếp!', {
+          position: 'top-right',
+        });
         setNotes('');
         onClearOrder?.();
         if (pos) navigate(-1);
@@ -353,7 +364,7 @@ const FormBillOrder = ({
         onSave={() => handleAddOrder(false)}
         onPayment={() => handleAddOrder(true)}
         isPOS={pos}
-        onAddItem={handleRedirectToPOS}
+        onAddItem={(e) => handleRedirectToPOS(e)}
       />
     </div>
   );
