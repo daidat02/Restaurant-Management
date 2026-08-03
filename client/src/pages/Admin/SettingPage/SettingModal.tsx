@@ -63,8 +63,14 @@ const SettingModal = ({ isOpen, onChangeOpenModal, restaurantIdOverride }: Setti
   const activeRestaurantId = useActiveRestaurantId();
   const { selectedRestaurant, selectRestaurant, updateRestaurant } = useRestaurant();
   const { tables, fetchTablesByRestaurant, addTable, editTable } = useTable();
-  const { categories, fetchCategories } = useMenu();
-  const { currentSetting, fetchSettingById, editSetting, changePaymentMethodType, generateKitchenCode } = useSetting();
+  const { categories, fetchCategories, addCategory } = useMenu();
+  const {
+    currentSetting,
+    fetchSettingById,
+    editSetting,
+    changePaymentMethodType,
+    generateKitchenCode,
+  } = useSetting();
 
   // Nhà hàng hiệu lực: override (admin từ trang chi nhánh) ưu tiên hơn useActiveRestaurantId.
   const effectiveRestaurantId = restaurantIdOverride || activeRestaurantId;
@@ -477,9 +483,7 @@ const SettingModal = ({ isOpen, onChangeOpenModal, restaurantIdOverride }: Setti
   ] as const;
 
   // Chỉ Super Admin được xem tab cấu hình cổng thanh toán hệ thống (Ticket 07)
-  const gatewayMenu = [
-    { id: 'gateway', title: 'Thanh Toán Hệ Thống', icon: CreditCard },
-  ] as const;
+  const gatewayMenu = [{ id: 'gateway', title: 'Thanh Toán Hệ Thống', icon: CreditCard }] as const;
 
   const restaurantMenu = [
     { id: 'profile', title: 'Thông Tin Nhà Hàng', icon: Store },
@@ -520,6 +524,9 @@ const SettingModal = ({ isOpen, onChangeOpenModal, restaurantIdOverride }: Setti
                 <FormAddCategory
                   restaurantId={selectedRestaurant?._id as string}
                   onSuccess={() => setOpenModalTable(false)}
+                  onSubmit={(data) => {
+                    addCategory(data);
+                  }}
                 />
               ) : null
             }

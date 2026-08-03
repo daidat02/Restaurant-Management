@@ -4,10 +4,11 @@ import { CustomInput } from '@/components/FormInput';
 import { CustomTextarea } from '@/components/CustomTextArea';
 interface FormAddCategoryProps {
   restaurantId: string; // ID của nhà hàng hiện tại
-  onSuccess: (newCat: any) => void; // Callback xử lý sau khi tạo thành công (đóng modal, cập nhật state)
+  onSuccess: () => void; // Callback xử lý sau khi tạo thành công (đóng modal, cập nhật state)
+  onSubmit: (data: any) => void; // Callback xử lý khi submit form (nếu cần)
 }
 
-export const FormAddCategory = ({ restaurantId, onSuccess }: FormAddCategoryProps) => {
+export const FormAddCategory = ({ restaurantId, onSuccess, onSubmit }: FormAddCategoryProps) => {
   const [name, setName] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -27,22 +28,10 @@ export const FormAddCategory = ({ restaurantId, onSuccess }: FormAddCategoryProp
         restaurant: restaurantId,
         name: name.trim(),
         description: description.trim() || undefined,
-      };
+      }; // Kích hoạt callback truyền dữ liệu ngược lên component cha
+      onSubmit(categoryData);
 
-      // Giả lập gọi API (Thế bằng hàm kết nối API thực tế của bạn tại đây)
-      console.log('Dữ liệu tạo danh mục gửi lên Backend:', categoryData);
-
-      // Giả lập phản hồi thành công từ server
-      const mockNewCategory = {
-        _id: Math.random().toString(),
-        ...categoryData,
-        foodCount: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      // Kích hoạt callback truyền dữ liệu ngược lên component cha
-      onSuccess(mockNewCategory);
+      onSuccess();
 
       // Reset form
       setName('');
@@ -84,7 +73,7 @@ export const FormAddCategory = ({ restaurantId, onSuccess }: FormAddCategoryProp
       <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 mt-4">
         <button
           type="button"
-          onClick={() => onSuccess(null)}
+          onClick={() => onSuccess()}
           className="px-4 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
         >
           Hủy bỏ
