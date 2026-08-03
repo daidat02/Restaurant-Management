@@ -33,7 +33,7 @@ export const TabProfile = ({
       <CustomInput
         label="Giờ hoạt động"
         value={data?.operatingHours}
-        onChange={(e) => onChange({ ...data, time: e.target.value })}
+        onChange={(e) => onChange({ ...data, operatingHours: e.target.value })}
       />
       <CustomInput
         type="number"

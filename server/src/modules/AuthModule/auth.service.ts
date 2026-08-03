@@ -205,6 +205,17 @@ class AuthService {
         if (error) {
           return { message: error, code: 400 };
         }
+        // Admin (chủ chuỗi) chỉ được gán user vào nhà hàng thuộc chuỗi của chính mình
+        if (exitUser.role === 'admin') {
+          const ownedIds = (exitUser.restaurantIds || []).map((id) => String(id));
+          const notOwned = restaurantIds.filter((id) => !ownedIds.includes(id));
+          if (notOwned.length > 0) {
+            return {
+              message: 'Chỉ được gán nhà hàng thuộc chuỗi của bạn!!!',
+              code: 403,
+            };
+          }
+        }
         const { restaurant: _legacyRestaurant, ...cleanUpdate } = updateData;
         updateData = { ...cleanUpdate, restaurantIds: restaurantIds as unknown as ObjectId[] };
       }

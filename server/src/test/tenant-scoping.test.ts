@@ -74,14 +74,14 @@ describe('T3 — Tenant scoping: route có verifyTenant phải cô lập theo te
 
   // ============ GIẢ MẠO PARAM → KHÔNG LEAK (data vẫn của token tenant) ============
 
-  it('GET /tables/restaurant/Y — token admin X → 200 nhưng KHÔNG trả bàn Y', async () => {
+  it('GET /tables/restaurant/Y — admin X (sở hữu Y) truy cập Y → 200, trả bàn Y (mô hình chủ chuỗi)', async () => {
     const res = await request
       .get(`/api/tables/restaurant/${Y}`)
       .set('Authorization', `Bearer ${adminX()}`);
     expect(res.status).toBe(200);
     const tables = res.body.data as any[];
     for (const t of tables) {
-      expect(t.restaurant?.toString?.() ?? t.restaurant).toBe(X);
+      expect(t.restaurant?.toString?.() ?? t.restaurant).toBe(Y);
     }
   });
 
@@ -107,12 +107,12 @@ describe('T3 — Tenant scoping: route có verifyTenant phải cô lập theo te
     }
   });
 
-  it('GET /settings/get-or-create/:scope/:model/:targetId — token admin X với targetId Y → vẫn tạo cho X', async () => {
+  it('GET /settings/get-or-create/:scope/:model/:targetId — token admin X với targetId Y (thuộc chuỗi) → tạo cho Y', async () => {
     const res = await request
       .get(`/api/settings/get-or-create/restaurant/Restaurant/${Y}`)
       .set('Authorization', `Bearer ${adminX()}`);
     expect(res.status).toBe(200);
-    expect(String(res.body.data.targetId)).toBe(X);
+    expect(String(res.body.data.targetId)).toBe(Y);
   });
 
   // ============ SUPER-ADMIN BYPASS → 200 (quyền nền tảng) ============

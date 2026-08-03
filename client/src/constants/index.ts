@@ -50,6 +50,8 @@ export const API_ENDPOINTS = {
   // --- PHÂN HỆ THÔNG BÁO (NOTIFICATIONS) ---
   NOTIFICATIONS: {
     GET_MY: (restaurantId: string) => `${API_BASE_URL}/notifications/${restaurantId}`,
+    // Admin (chủ chuỗi): lấy toàn bộ thông báo các nhà hàng trong chuỗi
+    GET_CHAIN: () => `${API_BASE_URL}/notifications`,
     MARK_READ: (id: string) => `${API_BASE_URL}/notifications/${id}/read`,
     MARK_READ_ALL: (restaurantId: string) =>
       `${API_BASE_URL}/notifications/read-all/${restaurantId}`,
@@ -127,6 +129,7 @@ export const API_ENDPOINTS = {
     REVENUE_HOURLY: '/analytics/revenue-hourly',
     ORDER_CHANNELS: '/analytics/order-channels',
     REVENUE_CHANNELS: '/analytics/revenue-channels',
+    REVENUE_BRANCHES: '/analytics/revenue-branches',
   },
 
   // --- PHÂN HỆ QUẢN TRỊ NỀN TẢNG (SUPER-ADMIN) ---
@@ -149,6 +152,7 @@ export const API_ENDPOINTS = {
   // --- AUDIT LOG (chỉ super-admin) ---
   AUDIT_LOG: {
     LIST: `${API_BASE_URL}/audit-logs`,
+    PAYMENTS: `${API_BASE_URL}/audit-logs/payments`,
   },
   SETTING: {
     CREATE: '/settings/create',

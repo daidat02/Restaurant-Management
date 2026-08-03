@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { login, loginAdminAndSelect, waitAuthPersisted, USERS, SEED_IDS } from './helpers';
+import { login, waitAuthPersisted, USERS, SEED_IDS } from './helpers';
 
 test.describe('T12/T13 — Admin & manager flows', () => {
   test('menu: thêm món mới (manager cơ sở X)', async ({ page }) => {

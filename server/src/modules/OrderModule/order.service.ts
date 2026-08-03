@@ -50,16 +50,28 @@ class OrderService {
         throw new Error(`Món ăn với ID ${item.menuItem} không tồn tại`);
       }
 
-      const orderItem = await orderRepository.createOrderItem({
-        ...item,
-        nameSnapshot: menuItem.name,
-        priceSnapshot: menuItem.price,
-        order: orderId as any,
-      });
-
-      totalAmount += orderItem.priceSnapshot * orderItem.quantity;
-      totalCount += orderItem.quantity;
-      orderItems.push(new ObjectId(orderItem._id.toString()));
+      if (item._id) {
+        const existingItem = await orderRepository.updateOrderItem(item._id.toString(), {
+          quantity: item.quantity ?? 1,
+          priceSnapshot: menuItem.price,
+          nameSnapshot: menuItem.name,
+        });
+        if (existingItem) {
+          totalAmount += existingItem.priceSnapshot * existingItem.quantity;
+          totalCount += existingItem.quantity;
+          orderItems.push(new ObjectId(existingItem._id.toString()));
+        }
+      } else {
+        const orderItem = await orderRepository.createOrderItem({
+          ...item,
+          nameSnapshot: menuItem.name,
+          priceSnapshot: menuItem.price,
+          order: orderId as any,
+        });
+        totalAmount += orderItem.priceSnapshot * orderItem.quantity;
+        totalCount += orderItem.quantity;
+        orderItems.push(new ObjectId(orderItem._id.toString()));
+      }
     }
 
     return { totalAmount, totalCount, orderItems };
@@ -258,13 +270,15 @@ class OrderService {
       return { code: 400, message: 'Không thể thêm món vào đơn hàng giao đi đã chốt' };
 
     try {
-      const { totalAmount, totalCount, orderItems } = await this.processOrderItems(
+      const { orderItems } = await this.processOrderItems(
         items,
         new ObjectId(order._id.toString()),
       );
-      order.totalAmount += totalAmount;
-      order.itemsCount += totalCount;
-      order.items.push(...(orderItems as any));
+
+      const uniqueNewItemIds = [...new Set(orderItems.map((id) => id.toString()))];
+      const existingItemIds = new Set(order.items.map((id) => id.toString()));
+      const itemsToAdd = uniqueNewItemIds.filter((id) => !existingItemIds.has(id));
+      order.items.push(...itemsToAdd.map((id) => new Types.ObjectId(id)) as any);
       await order.save();
 
       const populatedOrder = await order.populate([
@@ -272,6 +286,17 @@ class OrderService {
         { path: 'customer', select: 'name email phone' },
         { path: 'items' },
       ]);
+
+      const allItems = (populatedOrder as any).items as IOrderItemDocument[];
+      populatedOrder.totalAmount = allItems.reduce(
+        (sum: number, item: IOrderItemDocument) => sum + item.priceSnapshot * item.quantity,
+        0,
+      );
+      populatedOrder.itemsCount = allItems.reduce(
+        (sum: number, item: IOrderItemDocument) => sum + item.quantity,
+        0,
+      );
+      await populatedOrder.save();
 
       const tableData = populatedOrder.table as any;
 

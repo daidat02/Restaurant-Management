@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Download, Plus, Eye, Edit2, Trash2, CreditCard } from 'lucide-react';
+import { Search, Download, Plus, Edit2, Trash2, CreditCard, Settings } from 'lucide-react';
 
 import { useRestaurant } from '@/hooks/use-restaurant';
 import { useSubscription } from '@/hooks/use-subscription';
@@ -15,6 +15,7 @@ import { AlertDialogCustom } from '@/components/AlertDialog';
 import { FilterToolbar } from '../OrderPage/management-order';
 import FormCreateRestaurant from './components/FormCreateRestaurant';
 import { PayForNewRestaurantModal } from './components/PayForNewRestaurantModal';
+import SettingModal from '../SettingPage/SettingModal';
 import { format } from 'date-fns';
 
 export default function RestaurantsPage() {
@@ -26,13 +27,15 @@ export default function RestaurantsPage() {
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [editingRestaurant, setEditingRestaurant] = useState<IRestaurant | null>(null);
 
+  // Ticket 09: id chi nhánh đang mở Cài Đặt (admin) → SettingModal dùng restaurantIdOverride
+  const [settingsRestaurantId, setSettingsRestaurantId] = useState<string | null>(null);
+
   // Các State quản lý bộ lọc & tìm kiếm
   const [searchTerm, setSearchTerm] = useState('');
 
-  // State quản lý phân trang & dữ liệu hiển thị cục bộ
+  // State quản lý phân trang
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
-  const [filteredRestaurants, setFilteredRestaurants] = useState<IRestaurant[]>([]);
 
   // 1. Lấy dữ liệu từ API khi component mount
   useEffect(() => {
@@ -56,16 +59,12 @@ export default function RestaurantsPage() {
       });
   }, [restaurants, subscriptions]);
 
-  // 2. Xử lý Tìm kiếm cục bộ (Client-side Search) liên kết mượt mà với phân trang
-  useEffect(() => {
-    if (!ownerRestaurants) {
-      setFilteredRestaurants([]);
-      return;
-    }
-
+  // 2. Tìm kiếm cục bộ (Client-side Search) qua derived state — liên kết mượt mà với phân trang
+  const filteredRestaurants = useMemo(() => {
+    if (!ownerRestaurants) return [];
     let result = [...ownerRestaurants];
 
-    // Tiến hành lọc theo tên nhà hàng hoặc địa chỉ, số điện thoại
+    // Lọc theo tên nhà hàng, địa chỉ hoặc số điện thoại
     if (searchTerm.trim() !== '') {
       const keyword = searchTerm.toLowerCase();
       result = result.filter(
@@ -75,18 +74,19 @@ export default function RestaurantsPage() {
           item.phone?.toLowerCase().includes(keyword),
       );
     }
-
-    setFilteredRestaurants(result);
-    setCurrentPage(1); // Quay về trang 1 khi gõ từ khóa mới
+    return result;
   }, [ownerRestaurants, searchTerm]);
 
-  // 3. Tính toán dữ liệu phân trang chuẩn xác từ mảng đã qua bộ lọc "filteredRestaurants"
-  const paginatedData = useMemo(() => {
-    const startIndex = (currentPage - 1) * pageSize;
-    return filteredRestaurants.slice(startIndex, startIndex + pageSize);
-  }, [filteredRestaurants, currentPage]);
+  const totalPages = Math.max(1, Math.ceil(filteredRestaurants.length / pageSize));
 
-  const totalPages = Math.ceil(filteredRestaurants.length / pageSize) || 1;
+  // Trang hiện tại an toàn: nếu bộ lọc làm giảm số trang thì chặn lại trang cuối
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+
+  // 3. Tính toán dữ liệu phân trang chuẩn xác từ mảng đã qua bộ lọc
+  const paginatedData = useMemo(() => {
+    const startIndex = (safeCurrentPage - 1) * pageSize;
+    return filteredRestaurants.slice(startIndex, startIndex + pageSize);
+  }, [filteredRestaurants, safeCurrentPage]);
 
   // Cấu hình các cột hiển thị trong bảng dữ liệu nhà hàng
   const columns: ColumnDef<IRestaurant>[] = [
@@ -149,6 +149,15 @@ export default function RestaurantsPage() {
       className: 'text-right',
       render: (item) => (
         <div className="flex justify-end gap-1.5">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-cerulean-blue-600 hover:bg-cerulean-blue-50 rounded-lg"
+            title="Cài đặt chi nhánh"
+            onClick={() => setSettingsRestaurantId(item._id)}
+          >
+            <Settings className="h-4 w-4" />
+          </Button>
           {item.subscription === 'locked' && (
             <Button
               variant="ghost"
@@ -243,7 +252,10 @@ export default function RestaurantsPage() {
               type="text"
               placeholder="Tìm kiếm tên nhà hàng, số điện thoại, địa chỉ chi nhánh..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1); // Quay về trang 1 khi gõ từ khóa mới
+              }}
               className="w-full pl-10 pr-4 py-2 h-9 rounded-xl border border-slate-200 focus:outline-none focus:border-cerulean-blue-500 text-sm bg-slate-50/50"
             />
           </div>
@@ -253,7 +265,7 @@ export default function RestaurantsPage() {
         <DataTable
           columns={columns}
           data={paginatedData}
-          currentPage={currentPage}
+          currentPage={safeCurrentPage}
           totalPages={totalPages}
           totalItems={filteredRestaurants.length}
           pageSize={pageSize}
@@ -288,6 +300,14 @@ export default function RestaurantsPage() {
           open={isPayModalOpen}
           onOpenChange={setIsPayModalOpen}
           onSuccess={() => fetchRestaurants()}
+        />
+
+        {/* TICKET 09: CÀI ĐẶT CHI NHÁNH (admin) — key remount để reset state khi đổi chi nhánh */}
+        <SettingModal
+          key={settingsRestaurantId ?? 'none'}
+          isOpen={!!settingsRestaurantId}
+          onChangeOpenModal={() => setSettingsRestaurantId(null)}
+          restaurantIdOverride={settingsRestaurantId || undefined}
         />
       </div>
     </div>

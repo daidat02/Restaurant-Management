@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Search, Download, Plus, Edit2, Trash2, Eye, Users, UserRoundCheck } from 'lucide-react';
+import { Search, Download, Plus, Edit2, Trash2, Eye } from 'lucide-react';
 
 // Import hook và type của User
 import { useUser } from '@/hooks/use-user';
@@ -34,11 +34,14 @@ export default function UsersPage() {
   const [editingUser, setEditingUser] = useState<IUser | null>(null);
 
   // State quản lý bộ lọc & tìm kiếm
-  const [activeTab, setActiveTab] = useState<'staff' | 'customer'>('staff');
   const [searchTerm, setSearchTerm] = useState('');
 
   // State quản lý bộ lọc nhà hàng cho Admin
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<string>('all');
+
+  // State quản lý phân trang
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   // Hàm helper dùng chung để bóc tách/chuẩn bị tham số Filter hiện tại trước khi gọi API
   const getCurrentFilterParams = () => {
@@ -47,46 +50,36 @@ export default function UsersPage() {
 
     if (!user?.role) return { rolesToFetch, restaurantId };
 
-    const managerRestaurantId = activeRestaurantId;
-
     if (user.role === 'manager') {
-      if (activeTab === 'staff') {
-        rolesToFetch = ['staff', 'manager'];
-        restaurantId = managerRestaurantId;
-      } else if (activeTab === 'customer') {
-        rolesToFetch = ['customer'];
-      }
+      // Manager /manager/staff: chỉ staff + manager của chi nhánh mình
+      rolesToFetch = ['staff', 'manager'];
+      restaurantId = activeRestaurantId;
     } else if (user.role === 'admin') {
-      if (activeTab === 'staff') {
-        rolesToFetch = ['manager', 'admin'];
-        restaurantId = selectedRestaurantId !== 'all' ? selectedRestaurantId : undefined;
-      } else if (activeTab === 'customer') {
-        rolesToFetch = ['customer'];
-      }
+      // Admin /admin/customers: manager + chính admin, lọc theo chi nhánh (hoặc toàn chuỗi)
+      rolesToFetch = ['manager', 'admin'];
+      restaurantId = selectedRestaurantId !== 'all' ? selectedRestaurantId : undefined;
     }
 
     return { rolesToFetch, restaurantId };
   };
 
-  // 1. Tự động fetch dữ liệu khi đổi Tab hoặc đổi Nhà hàng
+  // 1. Tự động fetch dữ liệu khi đổi Nhà hàng (admin)
   useEffect(() => {
-    if (user?.role == 'admin') {
+    if (user?.role === 'admin') {
       fetchRestaurants();
     }
     const { rolesToFetch, restaurantId } = getCurrentFilterParams();
 
-    console.log(rolesToFetch);
     if (rolesToFetch.length > 0) {
       fetchUsersWithFilter(rolesToFetch, restaurantId);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedRestaurantId, user, fetchUsersWithFilter]);
 
-    setSearchTerm(''); // Reset từ khóa tìm kiếm khi đổi tab
-  }, [activeTab, selectedRestaurantId, user, fetchUsersWithFilter]);
-
-  // 2. Xử lý Tìm kiếm cục bộ (Client-side Search)
-  useEffect(() => {
+  // 2. Lọc + phân trang dựa trên dữ liệu đã fetch (derived state — không dùng effect)
+  const filteredUsers = useMemo(() => {
     const currentRawData = users;
-    if (!currentRawData) return;
+    if (!currentRawData) return [];
 
     let result = [...currentRawData];
 
@@ -100,20 +93,14 @@ export default function UsersPage() {
       );
     }
 
-    setFilteredUsers(result);
-    setCurrentPage(1);
-  }, [users, activeTab, searchTerm]);
-
-  // State quản lý phân trang
-  const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 10;
-  const [filteredUsers, setFilteredUsers] = useState<IUser[]>([]);
+    return result;
+  }, [users, searchTerm]);
 
   // 3. Tính toán dữ liệu phân trang
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * pageSize;
     return filteredUsers.slice(startIndex, startIndex + pageSize);
-  }, [filteredUsers, currentPage]);
+  }, [filteredUsers, currentPage, pageSize]);
 
   const totalPages = Math.ceil(filteredUsers.length / pageSize) || 1;
 
@@ -212,8 +199,9 @@ export default function UsersPage() {
               Quản Lý Người Dùng
             </h1>
             <p className="text-sm text-slate-500 mt-1">
-              Quản lý phân quyền tài khoản thành viên hệ thống tài khoản{' '}
-              {activeTab === 'staff' ? 'nhân viên' : 'khách hàng'}
+              {user?.role === 'admin'
+                ? 'Quản lý các tài khoản quản lý chi nhánh trong chuỗi.'
+                : 'Quản lý phân quyền tài khoản nhân viên trong chi nhánh.'}
             </p>
           </div>
         </div>
@@ -222,30 +210,6 @@ export default function UsersPage() {
         <FilterToolbar
           rightActions={
             <div className="flex flex-wrap items-center gap-2">
-              {/* ĐIỀU HƯỚNG TAB */}
-              <div className="flex items-center gap-1 bg-slate-200/60 p-1 rounded-xl border border-slate-200/30">
-                <button
-                  onClick={() => setActiveTab('staff')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    activeTab === 'staff'
-                      ? 'bg-white text-cerulean-blue-600 shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <UserRoundCheck size={14} /> Nhân viên
-                </button>
-                <button
-                  onClick={() => setActiveTab('customer')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    activeTab === 'customer'
-                      ? 'bg-white text-cerulean-blue-600 shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <Users size={14} /> Khách hàng
-                </button>
-              </div>
-
               <Button
                 variant="outline"
                 className="text-slate-700 border-slate-200 bg-white hover:bg-slate-50 h-9 rounded-xl text-sm"
@@ -260,8 +224,7 @@ export default function UsersPage() {
                   setIsDrawerOpen(true);
                 }}
               >
-                Thêm {activeTab === 'staff' ? 'nhân viên' : 'khách hàng'}{' '}
-                <Plus className="ml-2 h-4 w-4" />
+                Thêm nhân viên <Plus className="ml-2 h-4 w-4" />
               </Button>
             </div>
           }
@@ -275,7 +238,7 @@ export default function UsersPage() {
               />
               <input
                 type="text"
-                placeholder={`Tìm kiếm tên, email, sđt ${activeTab === 'staff' ? 'nhân viên' : 'khách hàng'}...`}
+                placeholder="Tìm kiếm tên, email, sđt nhân viên..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 h-9 rounded-xl border border-slate-200 focus:outline-none focus:border-cerulean-blue-500 text-sm bg-slate-50/50"
@@ -283,7 +246,7 @@ export default function UsersPage() {
             </div>
 
             {/* Ô CHỌN NHÀ HÀNG CHO ADMIN */}
-            {user?.role === 'admin' && activeTab === 'staff' && (
+            {user?.role === 'admin' && (
               <div className="min-w-[180px]">
                 <Select value={selectedRestaurantId} onValueChange={setSelectedRestaurantId}>
                   <SelectTrigger className="h-9 rounded-xl border-slate-200 bg-white text-xs text-slate-700 focus:ring-1 focus:ring-cerulean-blue-500">
@@ -325,17 +288,13 @@ export default function UsersPage() {
             setIsDrawerOpen(false);
             setEditingUser(null);
           }}
-          title={
-            editingUser
-              ? 'Chỉnh sửa thông tin'
-              : `Thêm ${activeTab === 'staff' ? 'nhân viên' : 'khách hàng'} mới`
-          }
+          title={editingUser ? 'Chỉnh sửa thông tin' : 'Thêm nhân viên mới'}
           description="Điền thông tin bên dưới để lưu vào hệ thống."
           className="w-[90vw] !max-w-[600px]"
         >
           <FormUser
+            key={editingUser?._id ?? 'new'}
             initialData={editingUser}
-            userType={activeTab}
             onSuccess={() => {
               setIsDrawerOpen(false);
               setEditingUser(null);

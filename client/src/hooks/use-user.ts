@@ -6,6 +6,7 @@ import {
   getUsersWithFilter,
   deleteUser,
   updateUser,
+  createStaffUser,
   updateMe,
   changePassword,
 } from '@/api/user.api';
@@ -126,6 +127,22 @@ export const useUser = () => {
     }
   }, []);
 
+  const handleCreateUser = useCallback(async (userData: Partial<IUser>) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const newUser = await createStaffUser(userData);
+      toast.success('Tạo nhân viên thành công', { position: 'top-right' });
+      return newUser;
+    } catch (err: any) {
+      setError(err.message || 'Đã xảy ra lỗi khi tạo nhân viên');
+      toast.error(err.message || 'Đã xảy ra lỗi khi tạo nhân viên', { position: 'top-right' });
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   const handleEditProfile = async (dataUpdate: Partial<IUser>) => {
     setIsLoading(true);
     setError(null);
@@ -173,6 +190,7 @@ export const useUser = () => {
     fetchUserById,
     removeUser: handelRemoveUser,
     editUser: handelEditUser,
+    createUser: handleCreateUser,
     editProfile: handleEditProfile,
     changePassword: handleChangePassword,
   };

@@ -2,8 +2,10 @@ import DB_Connection from '../../models/DB_Connection.js';
 import orderRepository from '../OrderModule/order.repository.js';
 
 class AnalyticsService {
-  async getOverviewStats(startDate: Date, endDate: Date, restaurantId?: string) {
-    const restaurantObjectId = new DB_Connection.Order.base.Types.ObjectId(restaurantId);
+  async getOverviewStats(startDate: Date, endDate: Date, restaurantIds: string[]) {
+    const restaurantObjectIds = (restaurantIds || []).map(
+      (id) => new DB_Connection.Order.base.Types.ObjectId(id),
+    );
 
     // 1. TỰ ĐỘNG TÍNH TOÁN KHOẢNG THỜI GIAN KỲ TRƯỚC (Last Period)
     const timeDiff = endDate.getTime() - startDate.getTime(); // Khoảng cách mili-giây của kỳ này
@@ -11,14 +13,14 @@ class AnalyticsService {
     const lastEndDate = new Date(startDate.getTime() - 1000);
     // 2. GỌI REPO SONG SONG (Promise.all) ĐỂ LẤY DỮ LIỆU THÔ CỦA CẢ 2 KỲ (Tối ưu hiệu năng)
     const [currentRawStats, lastRawStats] = await Promise.all([
-      orderRepository.getRawOrderStats(startDate, endDate, restaurantId),
-      orderRepository.getRawOrderStats(lastStartDate, lastEndDate, restaurantId),
+      orderRepository.getRawOrderStats(startDate, endDate, restaurantIds),
+      orderRepository.getRawOrderStats(lastStartDate, lastEndDate, restaurantIds),
     ]);
 
     // 3. Lấy lượt đặt bàn (Giao thoa logic - làm tương tự cho cả 2 kỳ nếu cần, ở đây ví dụ cho đơn hàng)
     const totalReservations =
       (await DB_Connection.Reservation?.countDocuments({
-        restaurant: restaurantObjectId,
+        restaurant: { $in: restaurantObjectIds },
         date: { $gte: startDate, $lte: endDate },
         status: { $ne: 'cancelled' },
       })) || 0;
@@ -72,9 +74,9 @@ class AnalyticsService {
     };
   }
 
-  async getRevenueByHour(restaurantId: string, startDate: Date, endDate: Date) {
+  async getRevenueByHour(restaurantIds: string[], startDate: Date, endDate: Date) {
     // 1. Gọi Repo lấy dữ liệu các giờ có doanh thu từ DB
-    const rawData = await orderRepository.getRevenueByHourStats(startDate, endDate, restaurantId);
+    const rawData = await orderRepository.getRevenueByHourStats(startDate, endDate, restaurantIds);
 
     // 2. Tạo một Map để tra cứu nhanh dữ liệu từ DB
     const dataMap = new Map(rawData.map((item) => [item.hour, item]));
@@ -109,11 +111,11 @@ class AnalyticsService {
     return finalChartData;
   }
 
-  async getOrderChannelAnalytics(startDate: Date, endDate: Date, restaurantId?: string) {
+  async getOrderChannelAnalytics(startDate: Date, endDate: Date, restaurantIds: string[]) {
     const rawStats = await orderRepository.getOrderChannelStats(
       startDate,
       endDate,
-      restaurantId as string,
+      restaurantIds,
     );
 
     // Mẫu dữ liệu mặc định nếu nhà hàng chưa có đơn nào
@@ -160,6 +162,19 @@ class AnalyticsService {
 
   async getBranchRevenueStatsService(startDate: Date, endDate: Date) {
     const rawStats = await orderRepository.getBranchRevenueStats(startDate, endDate);
+
+    return rawStats;
+  }
+
+  /**
+   * Doanh thu từng chi nhánh của chủ chuỗi (admin) — lọc theo restaurantIds.
+   */
+  async getBranchRevenueByIdsService(startDate: Date, endDate: Date, restaurantIds: string[]) {
+    const rawStats = await orderRepository.getBranchRevenueStatsByIds(
+      startDate,
+      endDate,
+      restaurantIds,
+    );
 
     return rawStats;
   }

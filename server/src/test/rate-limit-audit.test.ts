@@ -75,8 +75,20 @@ describe('T05 — Rate limit + Audit log', () => {
   });
 
   describe('GET /audit-logs — bảo vệ role', () => {
-    it('admin X → 403 (chỉ super-admin)', async () => {
+    it('admin X → 200, chỉ thấy log của chuỗi mình (X/Y)', async () => {
       const res = await request.get('/api/audit-logs').set('Authorization', `Bearer ${adminX()}`);
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body.data)).toBe(true);
+      for (const log of res.body.data as any[]) {
+        const rid = idOf(log.restaurant);
+        expect([X, Y]).toContain(rid);
+      }
+    });
+
+    it('admin X gửi restaurantIds có id ngoài chuỗi → 403', async () => {
+      const res = await request
+        .get(`/api/audit-logs?restaurantIds=${idOf(SEED_IDS.tenantSubTrial)}`)
+        .set('Authorization', `Bearer ${adminX()}`);
       expect(res.status).toBe(403);
     });
 
@@ -97,6 +109,33 @@ describe('T05 — Rate limit + Audit log', () => {
       for (const log of res.body.data as any[]) {
         expect(idOf(log.restaurant)).toBe(X);
       }
+    });
+  });
+
+  describe('GET /audit-logs/payments — lịch sử thanh toán của chủ', () => {
+    it('admin X → 200, mọi transaction thuộc ownerId adminX', async () => {
+      // Tạo 1 giao dịch thanh toán cho chủ adminX
+      await request
+        .post('/api/subscriptions/pay')
+        .set('Authorization', `Bearer ${adminX()}`)
+        .send({ restaurantId: X, cycleMonths: 1 });
+
+      const res = await request
+        .get('/api/audit-logs/payments')
+        .set('Authorization', `Bearer ${adminX()}`);
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body.data)).toBe(true);
+      expect(res.body.total).toBeGreaterThanOrEqual(1);
+      for (const tx of res.body.data as any[]) {
+        expect(idOf(tx.ownerId)).toBe(idOf(SEED_IDS.adminX));
+      }
+    });
+
+    it('manager → 403 (chỉ admin chủ chuỗi)', async () => {
+      const res = await request
+        .get('/api/audit-logs/payments')
+        .set('Authorization', `Bearer ${tokenFor('manager', X)}`);
+      expect(res.status).toBe(403);
     });
   });
 

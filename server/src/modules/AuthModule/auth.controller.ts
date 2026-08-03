@@ -17,6 +17,7 @@ const refreshCookieOptions = (): any => {
   };
 }; // Nhận instance Singleton trực tiếp, không cần 'new'
 import type { AuthRequest } from '../../middlewares/auth.middleware.js';
+import type { IUser } from '../../models/Schema/UserSchema.js';
 import { writeAuditLog } from '../../services/auditLog.service.js';
 
 class AuthController {
@@ -239,8 +240,13 @@ class AuthController {
    * Tạo nhân viên mới (Staff / Manager)
    */
   async createStaff(req: AuthRequest, res: Response) {
-    // Ép user được tạo thuộc đúng tenant đang xác thực (req.tenantId), chặn gán tùy ý restaurantIds
-    const userData = { ...req.body, restaurantIds: req.tenantId ? [req.tenantId] : undefined };
+    // Ép user được tạo thuộc đúng tenant đang xác thực (req.tenantId), chặn gán tùy ý restaurantIds.
+    // Bỏ field legacy `restaurant` để buildRestaurantIds không gộp nhầm id ngoài phạm vi.
+    const { restaurant: _legacyRestaurant, ...bodyRest } = req.body;
+    const userData = {
+      ...bodyRest,
+      restaurantIds: req.tenantId ? [req.tenantId] : undefined,
+    } as IUser;
     try {
       const result = await authService.createStaffService(userData);
       return res.status(result.code).json(result);

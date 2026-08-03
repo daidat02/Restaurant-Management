@@ -1,30 +1,26 @@
 import { test, expect } from '@playwright/test';
 import {
   login,
-  loginAdminAndSelect,
   waitAuthPersisted,
   USERS,
   SEED_IDS,
 } from './helpers';
 
-test.describe('T12 — Auth & tenant switcher', () => {
-  test('admin login → /select-restaurant hiện 2 cơ sở', async ({ page }) => {
+test.describe('T04 — Admin & tenant sau redesign (bỏ /select-restaurant)', () => {
+  test('admin (2 cơ sở) login → vào thẳng /admin, KHÔNG qua /select-restaurant', async ({ page }) => {
     await login(page, USERS.admin.email);
-    await expect(page).toHaveURL(/select-restaurant/, { timeout: 15_000 });
-    await expect(page.getByRole('button', { name: /NhamNhi Cơ Sở 1/ })).toBeVisible();
-    await expect(page.getByRole('button', { name: /NhamNhi Cơ Sở 2/ })).toBeVisible();
-  });
-
-  test('chọn cơ sở Y → vào /admin, reload giữ Y (redux-persist)', async ({ page }) => {
-    await loginAdminAndSelect(page, /NhamNhi Cơ Sở 2/);
-    await waitAuthPersisted(page, SEED_IDS.tenantY);
-
-    await page.reload();
     await expect(page).toHaveURL(/\/admin/, { timeout: 15_000 });
-    await waitAuthPersisted(page, SEED_IDS.tenantY);
+    expect(page.url()).not.toContain('select-restaurant');
   });
 
-  test('manager chỉ có cơ sở X — không thấy Y ở switcher', async ({ page }) => {
+  test('admin login → currentRestaurantId = null (quản toàn chuỗi)', async ({ page }) => {
+    await login(page, USERS.admin.email);
+    await expect(page).toHaveURL(/\/admin/, { timeout: 15_000 });
+    const auth = await waitAuthPersisted(page, null);
+    expect(auth.currentRestaurantId).toBe(null);
+  });
+
+  test('manager chỉ có cơ sở X — tự chọn X, vào thẳng /manager', async ({ page }) => {
     await login(page, USERS.manager.email);
     // Manager có 1 nhà hàng → tự chọn X, không bị bắt qua switcher
     await expect(page).toHaveURL(/\/manager/, { timeout: 15_000 });
@@ -48,5 +44,19 @@ test.describe('T12 — Auth & tenant switcher', () => {
   test('staff login → vào POS tự động (cơ sở X)', async ({ page }) => {
     await login(page, USERS.staff.email);
     await expect(page).toHaveURL(/\/staff\/orders\/pos/, { timeout: 15_000 });
+  });
+
+  test('admin bị chặn URL /manager/menu/items → redirect về /admin', async ({ page }) => {
+    await login(page, USERS.admin.email);
+    await expect(page).toHaveURL(/\/admin/, { timeout: 15_000 });
+    await page.goto('/manager/menu/items');
+    await expect(page).toHaveURL(/\/admin/, { timeout: 15_000 });
+  });
+
+  test('manager bị chặn URL /admin/customers → redirect về /manager', async ({ page }) => {
+    await login(page, USERS.manager.email);
+    await expect(page).toHaveURL(/\/manager/, { timeout: 15_000 });
+    await page.goto('/admin/customers');
+    await expect(page).toHaveURL(/\/manager/, { timeout: 15_000 });
   });
 });

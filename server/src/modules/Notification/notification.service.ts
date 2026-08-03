@@ -35,6 +35,22 @@ class NotificationService {
         };
     }
 
+    // 1b. Lấy thông báo TOÀN CHUỖI cho admin (chủ chuỗi)
+    async getChainNotifications(
+        restaurantIds: string[],
+        page = 1,
+        limit = 20
+    ): Promise<ServiceResponse<INotification[]>> {
+        const skip = (page - 1) * limit;
+        const list = await notificationRepository.getChainNotifications(restaurantIds, limit, skip);
+
+        return {
+        data: list,
+        code: 200,
+        message: "Lấy danh sách thông báo toàn chuỗi thành công",
+        };
+    }
+
     // 3. Đọc 1 thông báo cụ thể
     async readSingleNotification(notificationId: string): Promise<ServiceResponse<INotification | null>> {
         const updatedNoti = await notificationRepository.markAsRead(notificationId);

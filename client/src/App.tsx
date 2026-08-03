@@ -17,7 +17,6 @@ import CartPage from './pages/Customer/cart';
 import KitchenOrder from './pages/Admin/KdsPage/kitchen';
 import { useSocket } from './hooks/use-socket';
 import { useActiveRestaurantId } from './hooks/use-active-restaurant';
-import RestaurantSwitcher from './pages/Auth/RestaurantSwitcher';
 import { LoadingProvider } from './components/LoadingOverlay';
 import ReservationCustomerPage from './pages/Customer/reservation';
 import AccountLayout from './pages/Customer/account/account-layout';
@@ -44,23 +43,17 @@ import SuperAdminAudit from './pages/SuperAdmin/Audit';
 import { Toaster } from '@/components/ui/sonner';
 import { useDispatch } from 'react-redux';
 import { login, logout } from './redux/slices/authSlice';
-import { useAppSelector } from './hooks/redux-hook';
 import BillingPage from './pages/Admin/BillingPage/billing';
+import LogsPage from './pages/Admin/LogsPage/logs';
 const ProtectedRoute = ({
   isAuthenticated,
   userRole,
   allowedRoles,
-  requiresTenant,
-  isTenantSelected,
 }: {
   isAuthenticated: boolean;
   userRole: string;
   allowedRoles: string[];
-  requiresTenant: boolean;
-  isTenantSelected: boolean;
 }) => {
-  const auth = useAppSelector((s) => s.auth);
-
   if (!isAuthenticated) {
     return <Navigate to="/auth" replace />;
   }
@@ -73,17 +66,8 @@ const ProtectedRoute = ({
     return <Navigate to="/" replace />;
   }
 
-  // Owner/admin chưa có nhà hàng nào thì KHÔNG ép chọn tenant — vào thẳng /admin để dùng wizard tạo cơ sở đầu tiên
-  const hasAnyRestaurant =
-    Array.isArray(auth.user?.restaurantIds) && auth.user!.restaurantIds.length > 0
-      ? true
-      : !!auth.user?.restaurant;
-
-  // Admin/manager/staff có nhiều nhà hàng nhưng chưa chọn -> bắt chọn trước khi vào admin
-  if (requiresTenant && !isTenantSelected && hasAnyRestaurant) {
-    return <Navigate to="/select-restaurant" replace />;
-  }
-
+  // Không còn màn hình chọn nhà hàng: admin vào thẳng /admin (quản toàn chuỗi),
+  // manager/staff tự ưu tiên restaurantIds[0] ngay sau login.
   return <Outlet />;
 };
 
@@ -110,7 +94,7 @@ const CustomerRoute = ({
   return <Outlet />;
 };
 export default function App() {
-  const { isAuthenticated, user, token, currentRestaurantId } = useAuth();
+  const { isAuthenticated, user, token } = useAuth();
   const userRole = user?.role || '';
   const activeRestaurantId = useActiveRestaurantId();
   const { startListeningSocket } = useSocket(socket);
@@ -160,21 +144,6 @@ export default function App() {
         <Route path="/auth/owner" element={<OwnerRegister />} />
       </Route>
 
-      {/* ---------------- CHỌN NHÀ HÀNG (đa tenant) ---------------- */}
-      <Route
-        element={
-          <ProtectedRoute
-            isAuthenticated={isAuthenticated}
-            userRole={userRole}
-            allowedRoles={['admin', 'manager', 'staff']}
-            requiresTenant={false}
-            isTenantSelected={true}
-          />
-        }
-      >
-        <Route path="/select-restaurant" element={<RestaurantSwitcher />} />
-      </Route>
-
       {/* ---------------- PROTECTED ROUTES: SUPER-ADMIN (Nền tảng) ---------------- */}
       <Route
         element={
@@ -182,8 +151,6 @@ export default function App() {
             isAuthenticated={isAuthenticated}
             userRole={userRole}
             allowedRoles={['super-admin']}
-            requiresTenant={false}
-            isTenantSelected={true}
           />
         }
       >
@@ -203,8 +170,6 @@ export default function App() {
             isAuthenticated={isAuthenticated}
             userRole={userRole}
             allowedRoles={['admin']}
-            requiresTenant={true}
-            isTenantSelected={!!currentRestaurantId}
           />
         }
       >
@@ -217,6 +182,7 @@ export default function App() {
           <Route path="products" element={<Product />} />
           <Route path="orders" element={<Order />} />
           <Route path="reports" element={<AnalyticsPage />} />
+          <Route path="logs" element={<LogsPage />} />
         </Route>
       </Route>
 
@@ -227,8 +193,6 @@ export default function App() {
             isAuthenticated={isAuthenticated}
             userRole={userRole}
             allowedRoles={['manager']}
-            requiresTenant={true}
-            isTenantSelected={!!currentRestaurantId}
           />
         }
       >
@@ -257,8 +221,6 @@ export default function App() {
             isAuthenticated={isAuthenticated}
             userRole={userRole}
             allowedRoles={['staff']}
-            requiresTenant={true}
-            isTenantSelected={!!currentRestaurantId}
           />
         }
       >

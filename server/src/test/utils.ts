@@ -34,7 +34,7 @@ export function signToken(
 
 /** Tạo token cho một role với tenant cụ thể (dùng userId mặc định theo SEED_IDS). */
 export function tokenFor(
-  role: 'admin' | 'manager' | 'staff' | 'staffY' | 'customer' | 'super-admin' | 'kds',
+  role: 'admin' | 'manager' | 'staff' | 'staffY' | 'customer' | 'super-admin' | 'kds' | 'owner-sub',
   tenantId?: string,
 ): string {
   const idByRole: Record<string, string> = {
@@ -44,13 +44,15 @@ export function tokenFor(
     staffY: SEED_IDS.staffY.toString(),
     customer: SEED_IDS.customer.toString(),
     'super-admin': SEED_IDS.superAdmin.toString(),
+    'owner-sub': SEED_IDS.ownerSub.toString(),
   };
   const userId = idByRole[role] ?? 'test-user-id';
+  const tokenRole = role === 'staffY' ? 'staff' : role;
 
   if (role === 'kds') {
     return signToken(tenantId ?? SEED_IDS.tenantX.toString(), 'kds', undefined, 'kds');
   }
-  return signToken(userId, role, tenantId);
+  return signToken(userId, tokenRole, tenantId);
 }
 
 /** Chuyển ObjectId/string thành string — dùng trong assertion URL. */

@@ -1,6 +1,6 @@
 # Hướng Dẫn Vận Hành — Hệ Thống Quản Lý Nhà Hàng NhamNhi
 
-> Tài liệu mô tả **cách hệ thống đang vận hành thật trên production** theo mô hình **SaaS thu phí theo nhà hàng** (hoàn tất verify toàn diện T11: test suite + E2E + CI xanh, cập nhật 2026-08-02), kèm URL, vai trò, tài khoản test từng role, luồng chính và lỗi đã biết.
+> Tài liệu mô tả **cách hệ thống đang vận hành thật trên production** theo mô hình **SaaS thu phí theo nhà hàng** (hoàn tất verify toàn diện T11: test suite + E2E + build xanh, cập nhật 2026-08-02 — **bao gồm redesign vai trò admin quản toàn chuỗi**, bỏ màn hình chọn cơ sở), kèm URL, vai trò, tài khoản test từng role, luồng chính và lỗi đã biết.
 
 ---
 
@@ -13,7 +13,7 @@
 | Màn hình nhà bếp (KDS) | `https://nhamnhitidi.vercel.app/kds` | Vào bằng mã nhà bếp (không cần tài khoản) |
 | Cơ sở dữ liệu | MongoDB Atlas (cloud) | Tài khoản test đã seed + verify login trên prod |
 
-Kiến trúc: **React (Vite) + Node/Express + MongoDB + Socket.IO (real-time)**. Hệ thống **đa nhà hàng (multi-tenant)**: một tài khoản chủ (role `admin`) có thể sở hữu nhiều chi nhánh (Cơ sở), chuyển đổi qua nút **"Chọn cơ sở"**. Mô hình kinh doanh: **trả phí theo từng nhà hàng** — nhà hàng đầu được dùng thử 30 ngày, nhà hàng 2+ phải trả trước.
+Kiến trúc: **React (Vite) + Node/Express + MongoDB + Socket.IO (real-time)**. Hệ thống **đa nhà hàng (multi-tenant)**: một tài khoản chủ (role `admin`) sở hữu nhiều chi nhánh (Cơ sở). **Từ T04 trở đi: admin vào thẳng `/admin` và quản toàn chuỗi — màn hình "Chọn cơ sở" đã bị gỡ.** Mô hình kinh doanh: **trả phí theo từng nhà hàng** — nhà hàng đầu được dùng thử 30 ngày, nhà hàng 2+ phải trả trước.
 
 ---
 
@@ -22,15 +22,16 @@ Kiến trúc: **React (Vite) + Node/Express + MongoDB + Socket.IO (real-time)**.
 | Vai trò | Vào được | Nhiệm vụ chính |
 |---|---|---|
 | **super-admin** (Nền tảng) | `/super-admin` | Giám sát nền tảng SaaS: dashboard KPI, quản lý chủ thuê (tenants) + khoá/mở tài khoản chủ, chỉnh giá gói, lịch sử giao dịch, audit log. **Không** xem dữ liệu vận hành của nhà hàng người thuê |
-| **admin** (Chủ nhà hàng / người thuê) | `/admin` | Quản lý chi nhánh, thực đơn, đơn hàng, báo cáo, onboarding chi nhánh mới, tạo staff/manager, thanh toán/gia hạn gói (`/admin/billing`) |
-| **manager** (Quản lý cấp cao) | `/manager` | Thực đơn, đặt bàn, nhân viên, sơ đồ bàn, POS, quản lý đơn |
+| **admin** (Chủ nhà hàng / người thuê) | `/admin` | **Quản toàn chuỗi chi nhánh**: tổng quan gộp chuỗi, quản lý nhà hàng (+ Cài Đặt từng chi nhánh), báo cáo so sánh, quản manager, audit + thanh toán toàn chuỗi, onboarding & thanh toán/gia hạn gói |
+| **manager** (Quản lý cấp cao) | `/manager` | Thực đơn, đặt bàn, nhân viên, sơ đồ bàn, POS, quản lý đơn (một chi nhánh) |
 | **staff** (Nhân viên) | `/staff` | POS, sơ đồ bàn, đơn hàng, đặt bàn — chủ yếu làm trên POS |
 | **customer** (Khách) | `/` | Xem menu, đặt tại bàn qua QR, đặt bàn trước, xem lịch sử đơn |
 | **kds** (Màn hình bếp) | `/kds` | Không phải tài khoản — bảo mật bằng **mã nhà bếp** (6 số, hiệu lực 8 giờ) |
 
-Quyền chi tiết:
-- `admin` (chủ) không thấy quản lý thực đơn ở `/admin` (menu chi nhánh nằm ở `/manager`), nhưng có đầy đủ: tổng quan, quản lý nhà hàng (thêm chi nhánh), báo cáo kinh doanh, người dùng hệ thống, thanh toán.
-- `manager` có toàn bộ khu vực vận hành của chi nhánh.
+Quyền chi tiết (sau redesign T01–T10):
+- `admin` (chủ chuỗi) **vào thẳng `/admin`, quản toàn chuỗi** — không còn màn hình chọn cơ sở; giao diện admin gộp dữ liệu mọi chi nhánh của chuỗi (dashboard KPI chuỗi, reports so sánh chi nhánh, customers quản manager, logs audit + thanh toán toàn chuỗi). Không truy cập được `/manager/*` hoặc `/staff/*` (redirect về `/admin`).
+- `admin` không thấy quản lý thực đơn ở `/admin` (menu chi nhánh nằm ở `/manager`), nhưng có **Cài Đặt từng chi nhánh** ngay tại `/admin/restaurants`.
+- `manager` có toàn bộ khu vực vận hành của **một chi nhánh** (tự chọn `restaurantIds[0]`); không vào được `/admin/*` (redirect về `/manager`).
 - `staff` vào thẳng **POS** làm việc (redirect `/staff` → `/staff/orders/pos`).
 - `customer` không đăng nhập vẫn gọi món được ở bàn (QR scan-to-order); đăng nhập để xem lịch sử đơn.
 - `super-admin` chỉ thấy: danh sách chủ, danh sách nhà hàng **kèm trạng thái thanh toán**, giao dịch, cấu hình giá, audit log, KPI nền tảng — **không có** menu/đơn/bàn/khách hàng của người thuê.
@@ -44,7 +45,7 @@ Quyền chi tiết:
 | Role | Email | Thuộc nhà hàng | Mục đích test |
 |---|---|---|---|
 | **super-admin** | `super.admin@nhamnhi.vn` | — | Dashboard KPI, tenants, pricing, transactions, audit, khoá/mở chủ |
-| **admin** (chủ 2 cơ sở) | `admin.test@nhamnhi.vn` | `NhamNhi TEST Cơ Sở 1` + `NhamNhi TEST Cơ Sở 2` | Tenant switcher, `/admin/*`, billing, báo cáo |
+| **admin** (chủ 2 cơ sở) | `admin.test@nhamnhi.vn` | `NhamNhi TEST Cơ Sở 1` + `NhamNhi TEST Cơ Sở 2` | **Quản toàn chuỗi**: `/admin/*` (dashboard gộp, restaurants + Cài Đặt chi nhánh, reports so sánh, customers quản manager, logs audit + thanh toán, billing) |
 | **manager** | `manager.test@nhamnhi.vn` | `NhamNhi TEST Cơ Sở 1` | `/manager/*`: menu, POS, bàn, đặt bàn, nhân viên |
 | **staff** | `staff.test@nhamnhi.vn` | `NhamNhi TEST Cơ Sở 1` | POS, sơ đồ bàn, đơn hàng |
 | **customer** | `customer.test@nhamnhi.vn` | — | Đăng nhập khách, lịch sử đơn, đặt bàn |
@@ -100,15 +101,18 @@ Script sẽ:
 - **Đặt bàn trước** (`/manager/reservations`): xác nhận/hoàn tất lịch đặt.
 - **Nhân viên** (`/manager/staff`): tạo tài khoản staff/manager cho chi nhánh (mật khẩu mặc định `Test@NhamNhi2026`).
 
-### 4.4. Chủ nhà hàng (admin / người thuê)
+### 4.4. Chủ nhà hàng (admin / người thuê — quản toàn chuỗi)
 
 - **Đăng ký chủ** (`/auth/owner`): form riêng cho chủ nhà hàng (họ tên, email, SĐT, mật khẩu) — giải thích "miễn phí 30 ngày dùng thử cho nhà hàng đầu tiên, sau đó 299.000đ/nhà hàng/tháng". Sau đăng ký tự đăng nhập → vào wizard tạo nhà hàng đầu.
-- **Tổng quan** (`/admin`): dashboard chi nhánh + **banner trạng thái thuê bao** (trial xanh / sắp hết ≤7 ngày cam / bị khoá đỏ + nút thanh toán).
-- **Quản lý nhà hàng** (`/admin/restaurants`): tìm kiếm, badge trạng thái từng nhà hàng; **"Thêm nhà hàng"** → nhà hàng **đầu tiên** vào wizard (trial, không tính phí); nhà hàng **2+** mở **modal trả phí 299.000đ/tháng**.
+- **Tổng quan** (`/admin`): **dashboard gộp toàn chuỗi** — KPI doanh thu/tổng đơn của mọi chi nhánh (không lọc theo một cơ sở) + **bảng cảnh báo thuê bao** (trial / sắp hết ≤7 ngày / locked) + banner trạng thái thuê bao.
+- **Quản lý nhà hàng** (`/admin/restaurants`): danh sách chi nhánh của chuỗi, tìm kiếm, badge trạng thái từng nhà hàng; **nút Cài Đặt (bánh răng) mỗi dòng** → mở `SettingModal` cấu hình đúng chi nhánh đó (Hồ sơ / Sơ đồ & tạo bàn / Thiết lập danh mục / Cấu hình hóa đơn / Cấu hình thanh toán / Bảo mật / Tham số hệ thống) — thay đổi chỉ ảnh hưởng chi nhánh được chọn; **"Thêm nhà hàng"** → nhà hàng **đầu tiên** vào wizard (trial, không tính phí); nhà hàng **2+** mở **modal trả phí 299.000đ/tháng**.
 - **Onboarding** (`/admin/onboarding`): wizard thiết lập chi nhánh mới (thông tin, cấu hình, nhân sự, bàn & QR).
+- **Báo cáo kinh doanh** (`/admin/reports`): dữ liệu **thật theo chuỗi** (không còn mock) — bộ lọc thời gian (Hôm nay/7 ngày/Tháng/Năm), KPI tổng chuỗi + **bảng xếp hạng & so sánh doanh thu giữa các chi nhánh**, biểu đồ so sánh, hành vi gọi món.
+- **Người dùng hệ thống** (`/admin/customers`): **chỉ quản manager/admin của chuỗi** (đã bỏ tab "Khách Hàng") — lọc theo chi nhánh hoặc toàn chuỗi; form **"Thêm nhân viên"** tạo manager gán đúng chi nhánh thuộc chuỗi (admin đổi chi nhánh cho manager; manager chỉ tạo staff cho chi nhánh mình).
+- **Nhật ký hệ thống** (`/admin/logs`): 2 tab — **Hành Động** (audit của toàn chuỗi: ai làm gì, chi nhánh nào, khi nào) và **Thanh Toán** (lịch sử giao dịch mọi chi nhánh: nhà hàng, số tiền, chu kỳ, tới ngày); lọc theo chi nhánh + thời gian + từ khoá.
 - **Thanh toán & Gia hạn** (`/admin/billing`): chọn nhà hàng + chu kỳ (1/3/6/12 tháng, đọc giá từ PricingConfig), nút **"Thanh toán"** (mock) → chuyển nhà hàng sang `active`, màn thành công + **lịch sử giao dịch**.
-- **Báo cáo kinh doanh** (`/admin/reports`): doanh thu, hiệu suất chi nhánh, hành vi gọi món (lọc theo ngày/tiêu chí).
-- **Người dùng hệ thống** (`/admin/customers`): tài khoản nhân viên toàn hệ thống.
+
+> Màn hình cũ đã bị thay thế: **bỏ màn hình "Chọn cơ sở"** (admin quản toàn chuỗi trực tiếp) và **bỏ tab Khách Hàng** ở `/admin/customers`.
 
 ### 4.5. Nền tảng (super-admin)
 
@@ -162,17 +166,23 @@ Script sẽ:
 | # | Hạng mục | Kết quả |
 |---|---|---|
 | 1 | Seed tài khoản test 6 role lên Atlas + login API production | ✅ |
-| 2 | Login admin → chọn cơ sở → vào `/admin` | ✅ |
+| 2 | Login admin → **vào thẳng `/admin`** (bỏ "Chọn cơ sở") | ✅ |
 | 3 | Reload trang giữ session (refresh cookie cross-site `Secure; SameSite=None`) | ✅ |
-| 4 | `/admin/products`, `/admin/orders`, `/admin/reports`, `/admin/restaurants` | ✅ hiển thị dữ liệu thật |
-| 5 | Login manager → `/manager` (tự vào, 1 cơ sở) | ✅ |
-| 6 | POS `/manager/orders/pos` (menu + giỏ + toggle mang về) | ✅ |
-| 7 | KDS mã test → xác thực → live-monitor đơn | ✅ |
-| 8 | KDS: Chờ → Đang nấu → Hoàn thành → đơn tự ẩn | ✅ |
-| 9 | Scan-to-order tại bàn → đặt món → order `201` | ✅ |
-| 10 | KDS nhận đơn real-time (socket) | ✅ |
-| 11 | Trang chủ `/`, menu `/menu`, chi tiết món, giỏ hàng, đăng ký khách | ✅ |
-| 12 | Đặt hàng delivery | ❌ 500 (xem mục 6) |
+| 4 | `/admin` dashboard **gộp chuỗi** + cảnh báo thuê bao | ✅ |
+| 5 | `/admin/restaurants` danh sách chi nhánh + nút **Cài Đặt từng chi nhánh** | ✅ |
+| 6 | `/admin/reports` **dữ liệu thật** + bảng so sánh chi nhánh | ✅ |
+| 7 | `/admin/customers` **chỉ quản manager** (bỏ tab khách) | ✅ |
+| 8 | `/admin/logs` audit hành động + lịch sử thanh toán toàn chuỗi | ✅ |
+| 9 | `/admin/billing` thanh toán 1 chi nhánh | ✅ |
+| 10 | Login manager → `/manager` (1 cơ sở); **admin bị chặn `/manager/*` → redirect `/admin`** | ✅ |
+| 11 | Login staff → `/staff/orders/pos` | ✅ |
+| 12 | POS `/manager/orders/pos` (menu + giỏ + toggle mang về) | ✅ |
+| 13 | KDS mã test → xác thực → live-monitor đơn | ✅ |
+| 14 | KDS: Chờ → Đang nấu → Hoàn thành → đơn tự ẩn | ✅ |
+| 15 | Scan-to-order tại bàn → đặt món → order `201` | ✅ |
+| 16 | KDS nhận đơn real-time (socket) | ✅ |
+| 17 | Trang chủ `/`, menu `/menu`, chi tiết món, giỏ hàng, đăng ký khách | ✅ |
+| 18 | Đặt hàng delivery | ❌ 500 (xem mục 6) |
 
 ## 8. Verify Thuê bao / Subscription (tự động — test suite)
 
@@ -192,6 +202,25 @@ Script sẽ:
 | 10 | E2E UI: banner 3 trạng thái, badge + modal trả phí 2+, billing mock 299.000đ → màn thành công | `e2e/subscription-owner.spec.ts` |
 | 11 | E2E UI: đăng ký chủ `/auth/owner` → wizard nhà hàng đầu → banner trial trên `/admin` | `e2e/owner-register.spec.ts` |
 | 12 | E2E UI: super-admin dashboard/tenants/pricing/transactions/audit + khoá chủ | `e2e/super-admin.spec.ts` |
+
+### 8.1. Verify redesign vai trò admin quản toàn chuỗi (T01–T10) — E2E + server test
+
+> Tương ứng từng ticket redesign: **server test** 207 tests / 27 files (`npm --prefix server test`), **E2E** 39 tests / 3 skipped (`npm run test:e2e` ở root), **build** `tsc` server + `tsc -b && vite build` client đều xanh.
+
+| # | Hạng mục | Test |
+|---|---|---|
+| 1 | Admin bypass `verifyTenant` + `requireResourceTenant` theo chuỗi (backend T01) | `multi-tenant.test.ts`, `rate-limit-audit.test.ts` |
+| 2 | Analytics nhận mảng `restaurantIds` (backend T02) | `analytics.test.ts`, `analytics-branches.test.ts` |
+| 3 | Audit-logs mở admin + endpoint `/audit-logs/payments` (backend T03) | `rate-limit-audit.test.ts` |
+| 4 | Admin/manager/staff vào thẳng đúng màn hình, **admin chặn `/manager/*` → redirect `/admin`** | `e2e/auth-tenant.spec.ts` |
+| 5 | Shell admin: account modal, chuông gộp chuỗi, sidebar (frontend T05) | `e2e/admin-shell.spec.ts` |
+| 6 | Dashboard gộp chuỗi + cảnh báo thuê bao (T06) | `e2e/admin-dashboard.spec.ts` |
+| 7 | Reports bỏ mock, dữ liệu thật + so sánh chi nhánh (T07) | `e2e/admin-reports.spec.ts` |
+| 8 | Customers chỉ quản manager, tạo manager chọn chi nhánh (T08) | `e2e/admin-customers.spec.ts` |
+| 9 | `/admin/restaurants` nút Cài Đặt → SettingModal đúng chi nhánh (T09) | `e2e/admin-restaurants.spec.ts` |
+| 10 | `/admin/logs` audit + lịch sử thanh toán toàn chuỗi (T10) | `e2e/admin-logs.spec.ts` |
+
+> ⚠️ E2E chạy server test biên dịch (`node dist/test/server.js`) — **nhớ build server** (`npm --prefix server run build`) sau khi sửa seed/test server để E2E dùng dữ liệu mới.
 
 ---
 

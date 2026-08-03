@@ -1,5 +1,7 @@
 export interface IAnalyticQueryParams {
   restaurantId: string;
+  /** Admin (chủ chuỗi): danh sách nhà hàng cần gộp. Ưu tiên hơn restaurantId khi có. */
+  restaurantIds?: string[];
   startDate?: string | Date; // Có thể để dạng Date hoặc chuỗi ISO String
   endDate?: string | Date;
 }
