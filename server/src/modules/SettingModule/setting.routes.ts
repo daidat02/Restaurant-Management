@@ -35,6 +35,21 @@ router.get(
   SettingController.getOrCreateSetting,
 );
 
+// Cấu hình cổng thanh toán hệ thống (Chỉ Super Admin) — Ticket 07
+// Đặt TRƯỚC route '/:id' để 'gateway' không bị nhầm thành id
+router.get(
+  '/gateway',
+  verifyToken,
+  verifyRole(['super-admin']),
+  SettingController.getGatewayConfig,
+);
+router.put(
+  '/gateway',
+  verifyToken,
+  verifyRole(['super-admin']),
+  SettingController.upsertGatewayConfig,
+);
+
 // 3. Lấy thông tin cấu hình chi tiết theo ID bản ghi setting
 router.get(
   '/:id',

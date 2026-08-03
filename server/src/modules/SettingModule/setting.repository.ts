@@ -2,6 +2,10 @@ import DB_Connection from '../../models/DB_Connection.js'; // Giả định impo
 import type { ISetting, ISettingDocument } from '../../models/Schema/SettingSchema.js'; // Import interface hoặc loại document của bạn
 import type { ClientSession, FilterQuery } from 'mongoose';
 
+// ID cố định cho bản ghi cấu hình cổng thanh toán toàn hệ thống (scope='admin')
+// Dùng ObjectId hợp lệ để tận dụng index unique { scope, targetId }
+export const PLATFORM_GATEWAY_TARGET_ID = '000000000000000000000001';
+
 class SettingRepository {
   // ==========================================
   // I. CORE CRUD (Cơ bản cho Setting)
@@ -107,6 +111,21 @@ class SettingRepository {
     })
       .select('integrations.payOS')
       .lean();
+  }
+
+  /**
+   * Tìm bản ghi cấu hình cổng thanh toán hệ thống (scope='admin').
+   * Query kèm key nhạy cảm (select:false) để service tính cờ hasApiKey — key KHÔNG bao giờ được serialize ra response
+   */
+  async findGatewaySetting(): Promise<ISettingDocument | null> {
+    return await DB_Connection.Setting.findOne({
+      scope: 'admin',
+      targetId: PLATFORM_GATEWAY_TARGET_ID,
+    })
+      .select(
+        '+gateway.payos.apiKey +gateway.payos.checksumKey +gateway.vnpay.apiKey +gateway.vnpay.checksumKey',
+      )
+      .exec();
   }
   /**
    * Lấy nhanh hoặc Khởi tạo duy nhất một bản ghi cấu hình theo Phạm vi (scope) và Đối tượng (targetId)

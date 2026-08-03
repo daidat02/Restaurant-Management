@@ -9,9 +9,13 @@ import {
   Globe,
   Store,
   Save,
+  User,
+  LogOut,
+  Mail,
+  CreditCard,
 } from 'lucide-react';
 import { DialogCustom } from '@/components/DialogCustom';
-import { TabProfile, TabSecurity, TabSystem } from './components/SettingTabContent';
+import { TabProfile, TabSystem } from './components/SettingTabContent';
 import { useTable } from '@/hooks/use-table';
 import { useRestaurant } from '@/hooks/use-restaurant';
 import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
@@ -26,7 +30,11 @@ import { TabTables } from './components/TabTables';
 import { TabMenuConfig } from './components/TabMenuConfig';
 import { TabReceipt } from './components/TabReceipt';
 import { TabIntegrations } from './components/TabIntegrations';
-import { isValid } from 'date-fns';
+import TabGateway from './components/TabGateway';
+import { CustomInput } from '@/components/FormInput';
+import { useAuth } from '@/hooks/use-auth';
+import { useUser } from '@/hooks/use-user';
+import { toast } from 'sonner';
 
 interface SettingModalProps {
   isOpen: boolean;
@@ -39,15 +47,19 @@ interface SettingModalProps {
 }
 
 type SettingTab =
+  | 'info'
+  | 'security'
+  | 'gateway'
   | 'profile'
   | 'tables'
   | 'menu_config'
   | 'receipt'
   | 'integrations'
-  | 'security'
   | 'system';
 
 const SettingModal = ({ isOpen, onChangeOpenModal, restaurantIdOverride }: SettingModalProps) => {
+  const { user, logout } = useAuth();
+  const { editProfile, changePassword } = useUser();
   const activeRestaurantId = useActiveRestaurantId();
   const { selectedRestaurant, selectRestaurant, updateRestaurant } = useRestaurant();
   const { tables, fetchTablesByRestaurant, addTable, editTable } = useTable();
@@ -57,7 +69,56 @@ const SettingModal = ({ isOpen, onChangeOpenModal, restaurantIdOverride }: Setti
   // Nhà hàng hiệu lực: override (admin từ trang chi nhánh) ưu tiên hơn useActiveRestaurantId.
   const effectiveRestaurantId = restaurantIdOverride || activeRestaurantId;
 
-  const [activeTab, setActiveTab] = useState<SettingTab>('profile');
+  // --- 🛠️ 0. THÔNG TIN CÁ NHÂN + BẢO MẬT (mọi role; ticket 05) ---
+  // Manager thấy tab cấu hình nhà hàng; Admin chỉ thấy khi mở từ bánh răng chi nhánh (override, ticket 06).
+  const canSeeRestaurantTabs =
+    user?.role === 'manager' || (user?.role === 'admin' && Boolean(restaurantIdOverride));
+  // Tab cấu hình cổng thanh toán hệ thống — chỉ Super Admin (Ticket 07)
+  const canSeeGatewayTab = user?.role === 'super-admin';
+  const [personalName, setPersonalName] = useState(user?.name || '');
+  const [personalPhone, setPersonalPhone] = useState(user?.phone || '');
+  const [curPass, setCurPass] = useState('');
+  const [newPass, setNewPass] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
+  const [savingPass, setSavingPass] = useState(false);
+  const [savingInfo, setSavingInfo] = useState(false);
+
+  const [activeTab, setActiveTab] = useState<SettingTab>(restaurantIdOverride ? 'profile' : 'info');
+
+  const handleSavePersonal = async () => {
+    if (!personalName.trim()) {
+      toast.error('Họ và tên không được để trống', { position: 'top-right' });
+      return;
+    }
+    setSavingInfo(true);
+    await editProfile({ name: personalName.trim(), phone: personalPhone });
+    setSavingInfo(false);
+  };
+
+  const handleChangePassword = async () => {
+    if (!curPass || !newPass) {
+      toast.error('Vui lòng nhập đầy đủ mật khẩu', { position: 'top-right' });
+      return;
+    }
+    if (newPass !== confirmPass) {
+      toast.error('Mật khẩu mới không khớp', { position: 'top-right' });
+      return;
+    }
+    setSavingPass(true);
+    const ok = await changePassword(curPass, newPass);
+    setSavingPass(false);
+    if (ok) {
+      setCurPass('');
+      setNewPass('');
+      setConfirmPass('');
+    }
+  };
+
+  const handleLogout = () => {
+    onChangeOpenModal();
+    logout();
+  };
+
   const [openModalTable, setOpenModalTable] = useState(false);
   const [tableSelected, setTableSelected] = useState<ITable | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -264,6 +325,83 @@ const SettingModal = ({ isOpen, onChangeOpenModal, restaurantIdOverride }: Setti
 
   const renderSettingContent = () => {
     switch (activeTab) {
+      case 'info':
+        return (
+          <div className="space-y-4 animate-fade-in">
+            <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+              <User size={15} className="text-cerulean-blue-600" />
+              <h4 className="text-sm font-bold text-slate-900">Thông Tin Cá Nhân</h4>
+            </div>
+            <CustomInput
+              label="Họ và tên"
+              value={personalName}
+              onChange={(e) => setPersonalName(e.target.value)}
+            />
+            <CustomInput
+              label="Số điện thoại"
+              value={personalPhone}
+              onChange={(e) => setPersonalPhone(e.target.value)}
+            />
+            <div className="flex items-center gap-2 text-xs text-slate-500">
+              <Mail size={14} />
+              <span>{user?.email}</span>
+            </div>
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                disabled={savingInfo || !personalName.trim()}
+                onClick={handleSavePersonal}
+                className="px-4 py-2 rounded-lg text-xs font-semibold text-white bg-cerulean-blue-600 hover:bg-cerulean-blue-700 disabled:bg-cerulean-blue-300 transition-all"
+              >
+                {savingInfo ? 'Đang lưu...' : 'Lưu thông tin'}
+              </button>
+            </div>
+          </div>
+        );
+      case 'security':
+        return (
+          <div className="space-y-4 animate-fade-in">
+            <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+              <Lock size={15} className="text-cerulean-blue-600" />
+              <h4 className="text-sm font-bold text-slate-900">Mật khẩu & Bảo Mật</h4>
+            </div>
+            <div className="flex flex-col gap-3">
+              <CustomInput
+                type="password"
+                label="Mật khẩu hiện tại"
+                placeholder="••••••••"
+                value={curPass}
+                onChange={(e) => setCurPass(e.target.value)}
+              />
+              <CustomInput
+                type="password"
+                label="Mật khẩu mới"
+                placeholder="••••••••"
+                value={newPass}
+                onChange={(e) => setNewPass(e.target.value)}
+              />
+              <CustomInput
+                type="password"
+                label="Xác nhận mật khẩu mới"
+                placeholder="••••••••"
+                value={confirmPass}
+                onChange={(e) => setConfirmPass(e.target.value)}
+              />
+            </div>
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                disabled={savingPass || !curPass || !newPass || newPass !== confirmPass}
+                onClick={handleChangePassword}
+                className="px-4 py-2 rounded-lg text-xs font-semibold text-white bg-cerulean-blue-600 hover:bg-cerulean-blue-700 disabled:bg-cerulean-blue-300 transition-all"
+              >
+                {savingPass ? 'Đang đổi...' : 'Đổi mật khẩu'}
+              </button>
+            </div>
+          </div>
+        );
+      case 'gateway':
+        return <TabGateway />;
       case 'profile':
         return profileConfig ? (
           <TabProfile data={profileConfig} onChange={setProfileConfig} />
@@ -308,8 +446,6 @@ const SettingModal = ({ isOpen, onChangeOpenModal, restaurantIdOverride }: Setti
             onConnectVerified={(isValid) => setIsConnectionVerified(isValid)}
           />
         );
-      case 'security':
-        return <TabSecurity />;
       case 'system':
         return (
           <TabSystem
@@ -335,15 +471,31 @@ const SettingModal = ({ isOpen, onChangeOpenModal, restaurantIdOverride }: Setti
     setTableSelected(null);
   };
 
-  const settingMenu = [
+  const personalMenu = [
+    { id: 'info', title: 'Thông Tin Cá Nhân', icon: User },
+    { id: 'security', title: 'Mật Khẩu & Bảo Mật', icon: Lock },
+  ] as const;
+
+  // Chỉ Super Admin được xem tab cấu hình cổng thanh toán hệ thống (Ticket 07)
+  const gatewayMenu = [
+    { id: 'gateway', title: 'Thanh Toán Hệ Thống', icon: CreditCard },
+  ] as const;
+
+  const restaurantMenu = [
     { id: 'profile', title: 'Thông Tin Nhà Hàng', icon: Store },
     { id: 'tables', title: 'Sơ Đồ & Tạo Bàn Mới', icon: LayoutGrid },
     { id: 'menu_config', title: 'Thiết Lập Danh Mục', icon: UtensilsCrossed },
     { id: 'receipt', title: 'Cấu Hình Hóa Đơn', icon: Receipt },
     { id: 'integrations', title: 'Cấu Hình Thanh Toán', icon: Globe },
-    { id: 'security', title: 'Mật khẩu & Bảo Mật', icon: Lock },
     { id: 'system', title: 'Tham Số Hệ Thống', icon: Sliders },
-  ];
+  ] as const;
+
+  // Admin/Staff/Super-Admin mở từ Sidebar: chỉ cá nhân + bảo mật; Manager (và Admin qua override) thêm tab cấu hình nhà hàng (ticket 05).
+  const settingMenu = canSeeRestaurantTabs
+    ? [...personalMenu, ...restaurantMenu]
+    : canSeeGatewayTab
+      ? [...personalMenu, ...gatewayMenu]
+      : personalMenu;
 
   return (
     <DialogCustom
@@ -399,6 +551,18 @@ const SettingModal = ({ isOpen, onChangeOpenModal, restaurantIdOverride }: Setti
                 </button>
               );
             })}
+
+            {/* NÚT ĐĂNG XUẤT — cuối thanh bên modal, mọi role (ticket 05) */}
+            <div className="mt-auto pt-3 border-t border-slate-200/70">
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex items-center gap-3 px-3 py-2 h-9 w-full rounded-xl text-xs font-medium text-red-500 hover:bg-red-50 transition-all"
+              >
+                <LogOut size={14} />
+                <span>Đăng Xuất</span>
+              </button>
+            </div>
           </div>
 
           {/* VÙNG NỘI DUNG BÊN PHẢI CÓ THANH THÔNG BÁO LƯU ẨN HIỆN */}

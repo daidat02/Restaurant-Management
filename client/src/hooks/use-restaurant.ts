@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import {
   createRestaurant,
   deleteRestaurant,
+  getMyRestaurants,
   getRestaurantById,
   getRestaurants,
   updateRestaurant,
@@ -12,6 +13,7 @@ import { useGlobalLoading } from '@/components/LoadingOverlay';
 import { useAppDispatch } from './redux-hook';
 import { selectRestaurant } from '@/redux/slices/restaurantSlice';
 import { getRestaurantHaveTableEmpty } from '@/api/reservation.api';
+import { store } from '@/redux/store/store';
 export const useRestaurant = () => {
   const dispath = useAppDispatch();
 
@@ -27,8 +29,12 @@ export const useRestaurant = () => {
     setError(null);
 
     try {
-      // Hàm getRestaurants giờ đây sẽ ném thẳng cái mảng vào biến result
-      const result = await getRestaurants();
+      // Admin/manager: chỉ lấy nhà hàng thuộc chuỗi của mình; khách/ẩn danh: danh sách công khai.
+      // Đọc trực tiếp từ store (không phụ thuộc hook) để mọi call-site dùng chung tự động đúng scope.
+      const role = store.getState().auth.user?.role;
+      const isScoped = role === 'admin' || role === 'manager';
+      // Hàm getRestaurants/getMyRestaurants ném thẳng mảng vào biến result
+      const result = isScoped ? await getMyRestaurants() : await getRestaurants();
       // Nếu API trả về undefined thì dùng mảng rỗng để tránh lỗi kiểu
       setRestaurants(result ?? []);
     } catch (err: any) {

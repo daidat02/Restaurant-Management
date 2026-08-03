@@ -22,6 +22,7 @@ import {
   ScrollText,
   Moon,
   ShieldCheck,
+  Settings,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -29,6 +30,7 @@ type MenuItem = {
   title: string;
   icon: LucideIcon;
   path?: string;
+  onClick?: () => void;
 };
 
 const GENERAL_MENU: MenuItem[] = [
@@ -39,7 +41,11 @@ const GENERAL_MENU: MenuItem[] = [
   { title: 'Nhật Ký Hệ Thống', icon: ScrollText, path: '/super-admin/audit' },
 ];
 
-export default function SidebarSuperAdmin() {
+interface SidebarSuperAdminProps {
+  onOpenSetting?: () => void;
+}
+
+export default function SidebarSuperAdmin({ onOpenSetting }: SidebarSuperAdminProps) {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -80,7 +86,7 @@ export default function SidebarSuperAdmin() {
               {GENERAL_MENU.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
-                    onClick={() => item.path && navigate(item.path)}
+                    onClick={() => (item.path ? navigate(item.path) : item.onClick?.())}
                     className={`flex items-center justify-between rounded-lg px-3 py-2 h-10 transition mb-1
                       ${
                         isActive(item.path)
@@ -96,6 +102,19 @@ export default function SidebarSuperAdmin() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+              {onOpenSetting && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    onClick={onOpenSetting}
+                    className="flex items-center justify-between rounded-lg px-3 py-2 h-10 transition mb-1 text-gray-500 hover:bg-cerulean-blue-100 hover:text-black"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Settings className="h-4 w-4" />
+                      <span>Cài Đặt Chung</span>
+                    </div>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

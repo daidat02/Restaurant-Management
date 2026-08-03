@@ -2,12 +2,18 @@ import { encryptKey } from '../../configs/constants.js';
 import jwt from 'jsonwebtoken';
 import type {
   IBankAccountConfig,
+  IGatewaySanitized,
   IPayOSConfig,
   ISetting,
   IThirdPartyIntegration,
 } from '../../models/Schema/SettingSchema.js';
 import type { ServiceResponse } from '../../shared/type.js';
-import settingRepository from './setting.repository.js';
+import settingRepository, {
+  PLATFORM_GATEWAY_TARGET_ID,
+} from './setting.repository.js';
+
+/** Chuỗi ẩn mà frontend gửi ngược lại khi người dùng không nhập key mới */
+const MASKED_KEY = '••••••••••••••••';
 
 class SettingService {
   /**
@@ -226,6 +232,109 @@ class SettingService {
       message: 'Tạo mã nhà bếp thành công',
       data: { kitchenCode: updated?.systemConfig?.kitchenCode || kitchenCode },
     };
+  }
+
+  /**
+   * Lấy cấu hình cổng thanh toán hệ thống (PayOS + VNPay).
+   * Không bao giờ trả key thật — chỉ trả cờ hasApiKey/hasChecksumKey để UI hiển thị trạng thái.
+   */
+  async getGatewayConfigService(): Promise<ServiceResponse<IGatewaySanitized>> {
+    const setting = await settingRepository.findGatewaySetting();
+    return {
+      code: 200,
+      message: 'Lấy cấu hình cổng thanh toán hệ thống thành công',
+      data: this.sanitizeGateway(setting),
+    };
+  }
+
+  /**
+   * Lưu cấu hình cổng thanh toán hệ thống (Super Admin).
+   * Key mới được mã hóa (encryptKey); key trống/đã ẩn (••••) sẽ giữ nguyên key cũ trong DB.
+   */
+  async upsertGatewayConfigService(payload: any): Promise<ServiceResponse<IGatewaySanitized>> {
+    // 1. Đảm bảo bản ghi platform tồn tại (upsert theo scope='admin' + targetId cố định)
+    const setting = await settingRepository.getOrCreateSetting(
+      'admin',
+      'User',
+      PLATFORM_GATEWAY_TARGET_ID,
+    );
+
+    // 2. Lấy key cũ (đã mã hóa) để giữ lại khi frontend gửi giá trị ẩn
+    const existing = await settingRepository.findGatewaySetting();
+
+    const payos = payload?.payos ?? {};
+    const vnpay = payload?.vnpay ?? {};
+
+    const finalPayOSApiKey = this.resolveSecret(payos.apiKey, existing?.gateway?.payos?.apiKey);
+    const finalPayOSChecksum = this.resolveSecret(
+      payos.checksumKey,
+      existing?.gateway?.payos?.checksumKey,
+    );
+    const finalVNPayApiKey = this.resolveSecret(vnpay.apiKey, existing?.gateway?.vnpay?.apiKey);
+    const finalVNPayChecksum = this.resolveSecret(
+      vnpay.checksumKey,
+      existing?.gateway?.vnpay?.checksumKey,
+    );
+
+    const gatewayData: any = {
+      gateway: {
+        payos: {
+          clientId: payos.clientId || '',
+          apiKey: finalPayOSApiKey,
+          checksumKey: finalPayOSChecksum,
+        },
+        vnpay: {
+          merchant: vnpay.merchant || '',
+          accountName: vnpay.accountName || '',
+          accountNumber: vnpay.accountNumber || '',
+          apiKey: finalVNPayApiKey,
+          checksumKey: finalVNPayChecksum,
+        },
+      },
+    };
+
+    await settingRepository.updateSetting(setting._id.toString(), gatewayData);
+
+    // Fetch lại (kèm secret) để tính cờ hasApiKey chính xác — response chỉ lộ cờ, không lộ key
+    const fresh = await settingRepository.findGatewaySetting();
+    return {
+      code: 200,
+      message: 'Cập nhật cấu hình cổng thanh toán hệ thống thành công',
+      data: this.sanitizeGateway(fresh),
+    };
+  }
+
+  /**
+   * Chuẩn hóa cấu hình gateway để trả cho frontend — key nhạy cảm luôn bị che
+   */
+  private sanitizeGateway(setting: ISetting | null): IGatewaySanitized {
+    const g = setting?.gateway;
+    return {
+      payos: {
+        clientId: g?.payos?.clientId || '',
+        hasApiKey: !!g?.payos?.apiKey,
+        hasChecksumKey: !!g?.payos?.checksumKey,
+      },
+      vnpay: {
+        merchant: g?.vnpay?.merchant || '',
+        accountName: g?.vnpay?.accountName || '',
+        accountNumber: g?.vnpay?.accountNumber || '',
+        hasApiKey: !!g?.vnpay?.apiKey,
+        hasChecksumKey: !!g?.vnpay?.checksumKey,
+      },
+    };
+  }
+
+  /**
+   * Quyết định giá trị key sẽ lưu:
+   * - key mới hợp lệ (khác rỗng, khác chuỗi ẩn) → mã hóa rồi lưu
+   * - trống hoặc chuỗi ẩn (••••) → giữ nguyên key cũ đã mã hóa trong DB
+   */
+  private resolveSecret(incoming: string | undefined, current: string | undefined): string {
+    if (incoming && !incoming.includes(MASKED_KEY)) {
+      return encryptKey(incoming);
+    }
+    return current || '';
   }
 }
 

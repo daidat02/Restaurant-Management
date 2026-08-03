@@ -140,7 +140,9 @@ export const intersectRestaurantIds = async (req: AuthRequest, res: Response, ne
       .exec();
     const ownedIds = (user?.restaurantIds || []).map((id: any) => id.toString());
 
-    const raw = req.query.restaurantIds;
+    // Chấp nhận cả `restaurantIds` (mảng/chuỗi phân tách dấu phẩy) lẫn `restaurantId` (đơn)
+    // để tương thích client cũ dùng param số ít.
+    const raw = req.query.restaurantIds ?? req.query.restaurantId;
     let requested: string[] = [];
     if (Array.isArray(raw)) {
       requested = raw.map(String);
@@ -165,9 +167,13 @@ export const intersectRestaurantIds = async (req: AuthRequest, res: Response, ne
         .json({ message: "Bạn không có quyền truy cập các nhà hàng này!" });
     }
     if (requested.length === 0) {
-      return res
-        .status(403)
-        .json({ message: "Bạn không có quyền truy cập các nhà hàng này!" });
+      return res.status(403).json({
+        message: "Bạn không có quyền truy cập các nhà hàng này!",
+        // Admin chưa có nhà hàng nào → tín hiệu để client chuyển về onboarding.
+        ...(req.user?.role === "admin" && ownedIds.length === 0
+          ? { errorCode: "NEEDS_ONBOARDING" }
+          : {}),
+      });
     }
 
     req.user = {
@@ -220,6 +226,14 @@ export const verifyTenant = async (req: AuthRequest, res: Response, next: NextFu
         return res.status(401).json({ message: "Người dùng không tồn tại!" });
       }
       const ownedIds = (user.restaurantIds || []).map((id: any) => id.toString());
+      // Admin chưa sở hữu nhà hàng nào: chặn mọi API tenant (bắt buộc hoàn tất onboarding).
+      // Điểm tạo nhà hàng đầu tiên (POST /api/restaurants) không dùng verifyTenant nên không bị chặn.
+      if (ownedIds.length === 0) {
+        return res.status(403).json({
+          message: 'Tài khoản chưa có nhà hàng! Vui lòng hoàn tất khởi tạo cơ sở.',
+          errorCode: 'NEEDS_ONBOARDING',
+        });
+      }
       req.user = {
         userId: String(req.user?.userId),
         role: String(req.user?.role),

@@ -103,6 +103,32 @@ class SettingController {
   }
 
   /**
+   * Lấy cấu hình cổng thanh toán hệ thống (Chỉ Super Admin)
+   */
+  async getGatewayConfig(_req: Request, res: Response) {
+    try {
+      const result = await settingService.getGatewayConfigService();
+      res.status(result.code).json(result);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Lỗi server khi lấy cấu hình cổng thanh toán' });
+    }
+  }
+
+  /**
+   * Lưu cấu hình cổng thanh toán hệ thống (Chỉ Super Admin)
+   */
+  async upsertGatewayConfig(req: Request, res: Response) {
+    try {
+      const result = await settingService.upsertGatewayConfigService(req.body);
+      res.status(result.code).json(result);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Lỗi server khi lưu cấu hình cổng thanh toán' });
+    }
+  }
+
+  /**
    * Xác thực mã nhà bếp (Cổng vào màn hình KDS, không cần đăng nhập)
    */
   async verifyKitchenCode(req: Request, res: Response) {

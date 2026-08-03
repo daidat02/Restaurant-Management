@@ -101,7 +101,7 @@ export default function SidebarApp({ onOpenSetting, onOpenMessage }: SideBarProp
         { title: 'Nhân Viên', icon: Users, path: '/manager/staff' },
       ],
       tools: [
-        { title: 'Cài Đặt Nhà Hàng', icon: Settings, onClick: () => onOpenSetting() },
+        { title: 'Cài Đặt Chung', icon: Settings, onClick: () => onOpenSetting() },
         { title: 'Tin Nhắn', icon: MessageCircle, onClick: () => onOpenMessage() },
 
         { title: 'Trợ Giúp', icon: HelpCircle, path: '/manager/help' },
@@ -116,6 +116,7 @@ export default function SidebarApp({ onOpenSetting, onOpenMessage }: SideBarProp
       ],
       tools: [
         { title: 'Thông Báo', icon: Bell, path: '/staff/notifications' },
+        { title: 'Cài Đặt Chung', icon: Settings, onClick: () => onOpenSetting() },
         { title: 'Tin Nhắn', icon: MessageCircle, onClick: () => onOpenMessage() },
       ],
     },

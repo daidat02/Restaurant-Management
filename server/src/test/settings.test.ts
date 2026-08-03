@@ -82,3 +82,97 @@ describe('T11 — Settings', () => {
     expect(res.status).toBe(403);
   });
 });
+
+describe('T11 — Settings: Cổng thanh toán hệ thống (Ticket 07)', () => {
+  const superAdmin = () => tokenFor('super-admin');
+
+  it('GET /settings/gateway — super-admin → 200, chưa cấu hình trả template rỗng', async () => {
+    const res = await request
+      .get('/api/settings/gateway')
+      .set('Authorization', `Bearer ${superAdmin()}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.payos).toBeDefined();
+    expect(res.body.data.vnpay).toBeDefined();
+    expect(res.body.data.payos.hasApiKey).toBe(false);
+  });
+
+  it('PUT /settings/gateway — super-admin lưu PayOS + VNPay → 200, không trả key thật', async () => {
+    const res = await request
+      .put('/api/settings/gateway')
+      .set('Authorization', `Bearer ${superAdmin()}`)
+      .send({
+        payos: {
+          clientId: 'payos-client-1',
+          apiKey: 'payos-api-secret',
+          checksumKey: 'payos-checksum-secret',
+        },
+        vnpay: {
+          merchant: 'vnpay-merchant-1',
+          accountName: 'NHAM NHI',
+          accountNumber: '1234567890',
+          apiKey: 'vnpay-api-secret',
+          checksumKey: 'vnpay-checksum-secret',
+        },
+      });
+    expect(res.status).toBe(200);
+    expect(res.body.data.payos.clientId).toBe('payos-client-1');
+    expect(res.body.data.payos.hasApiKey).toBe(true);
+    expect(res.body.data.payos.hasChecksumKey).toBe(true);
+    expect(res.body.data.payos.apiKey).toBeUndefined();
+    expect(res.body.data.vnpay.merchant).toBe('vnpay-merchant-1');
+    expect(res.body.data.vnpay.hasApiKey).toBe(true);
+    expect(res.body.data.vnpay.apiKey).toBeUndefined();
+  });
+
+  it('GET /settings/gateway — đọc lại: key vẫn còn nhưng không lộ ra', async () => {
+    const res = await request
+      .get('/api/settings/gateway')
+      .set('Authorization', `Bearer ${superAdmin()}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.payos.hasApiKey).toBe(true);
+    expect(res.body.data.vnpay.hasApiKey).toBe(true);
+    expect(res.body.data.payos.apiKey).toBeUndefined();
+    expect(res.body.data.vnpay.apiKey).toBeUndefined();
+  });
+
+  it('admin/manager/staff không truy cập được /settings/gateway → 403', async () => {
+    const getAdmin = await request
+      .get('/api/settings/gateway')
+      .set('Authorization', `Bearer ${adminX()}`);
+    expect(getAdmin.status).toBe(403);
+
+    const putManager = await request
+      .put('/api/settings/gateway')
+      .set('Authorization', `Bearer ${managerX()}`)
+      .send({ payos: {} });
+    expect(putManager.status).toBe(403);
+
+    const getStaff = await request
+      .get('/api/settings/gateway')
+      .set('Authorization', `Bearer ${staffX()}`);
+    expect(getStaff.status).toBe(403);
+  });
+
+  it('PUT /settings/gateway — key ẩn (••••) giữ nguyên key cũ đã mã hóa', async () => {
+    const res = await request
+      .put('/api/settings/gateway')
+      .set('Authorization', `Bearer ${superAdmin()}`)
+      .send({
+        payos: {
+          clientId: 'payos-client-1',
+          apiKey: '••••••••••••••••',
+          checksumKey: '••••••••••••••••',
+        },
+        vnpay: {
+          merchant: 'vnpay-merchant-1',
+          accountName: 'NHAM NHI',
+          accountNumber: '1234567890',
+          apiKey: '••••••••••••••••',
+          checksumKey: '••••••••••••••••',
+        },
+      });
+    expect(res.status).toBe(200);
+    expect(res.body.data.payos.hasApiKey).toBe(true);
+    expect(res.body.data.vnpay.hasApiKey).toBe(true);
+  });
+});

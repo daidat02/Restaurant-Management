@@ -47,6 +47,42 @@ export interface IPayOSConfig {
 export interface IThirdPartyIntegration {
   payOS?: IPayOSConfig;
 }
+
+// --- Cấu hình cổng thanh toán hệ thống (Super Admin) — Ticket 07 ---
+export interface IGatewayPayOSConfig {
+  clientId: string;
+  apiKey: string;
+  checksumKey: string;
+}
+
+export interface IGatewayVNPayConfig {
+  merchant: string;
+  accountName: string;
+  accountNumber: string;
+  apiKey: string;
+  checksumKey: string;
+}
+
+export interface IPlatformGatewayConfig {
+  payos?: IGatewayPayOSConfig;
+  vnpay?: IGatewayVNPayConfig;
+}
+
+// Dữ liệu đã ẩn key (trả về cho frontend để hiển thị trạng thái có/không có key)
+export interface IGatewaySanitized {
+  payos: {
+    clientId: string;
+    hasApiKey: boolean;
+    hasChecksumKey: boolean;
+  };
+  vnpay: {
+    merchant: string;
+    accountName: string;
+    accountNumber: string;
+    hasApiKey: boolean;
+    hasChecksumKey: boolean;
+  };
+}
 export interface ISystemConfig {
   autoPushKDS: boolean;
   maintenanceMode: boolean;
@@ -64,6 +100,7 @@ export interface ISetting extends Document {
 
   // Các khối dữ liệu cấu hình
   integrations?: IThirdPartyIntegration;
+  gateway?: IPlatformGatewayConfig;
   bankAccount?: IBankAccountConfig;
   tableConfig: ITableConfig;
   menuConfig: IMenuConfig;
@@ -118,6 +155,20 @@ const SettingSchema = new Schema<ISetting>(
       accountName: { type: String, trim: true, default: '' },
       bin: { type: String, trim: true, default: '' },
       fixedQrUrl: { type: String, trim: true, default: '' },
+    },
+    gateway: {
+      payos: {
+        clientId: { type: String, trim: true, default: '' },
+        apiKey: { type: String, trim: true, select: false },
+        checksumKey: { type: String, trim: true, select: false },
+      },
+      vnpay: {
+        merchant: { type: String, trim: true, default: '' },
+        accountName: { type: String, trim: true, default: '' },
+        accountNumber: { type: String, trim: true, default: '' },
+        apiKey: { type: String, trim: true, select: false },
+        checksumKey: { type: String, trim: true, select: false },
+      },
     },
     tableConfig: {
       autoCleanAfterCheckout: { type: Boolean, default: true },

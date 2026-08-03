@@ -72,6 +72,16 @@ class RestaurantController {
     }
   }
 
+  /** Chỉ trả các nhà hàng thuộc chuỗi của admin/manager đang đăng nhập (theo restaurantIds). */
+  async getMyRestaurants(req: AuthRequest, res: Response) {
+    try {
+      const result = await restaurantService.findMyRestaurantsService(req.user?.userId);
+      res.status(result.code).json(result);
+    } catch (error) {
+      res.status(500).json({ message: 'Lỗi server khi lấy danh sách nhà hàng của bạn' });
+    }
+  }
+
   async updateRestaurant(req: Request, res: Response) {
     const { id } = req.params;
     const restaurantData = req.body;

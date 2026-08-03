@@ -15,7 +15,9 @@ async function registerOwner(page: Page, email: string) {
   await page.getByRole('button', { name: 'Tạo Tài Khoản' }).click();
 
   // Chuyển thẳng vào wizard tạo nhà hàng đầu tiên (không tính phí, bắt đầu trial)
-  await expect(page).toHaveURL(/\/admin\/onboarding/, { timeout: 15_000 });
+  // Route /onboarding cấp cao nhất — blank layout (không Sidebar/Header).
+  await expect(page).toHaveURL(/\/onboarding/, { timeout: 15_000 });
+  await expect(page.getByText('Khởi tạo cơ sở mới')).toBeVisible();
 }
 
 test.describe('T9 — Đăng ký chủ + wizard nhà hàng đầu', () => {

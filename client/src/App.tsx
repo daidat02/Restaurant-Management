@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import LayoutAdmin from './layouts/LayoutAdmin';
+import LayoutBlank from './layouts/LayoutBlank';
 import LayoutSuperAdmin from './layouts/LayoutSuperAdmin';
 import LayoutCustomer from './layouts/LayoutCustomer';
 import Payment from './pages/Customer/payment';
@@ -45,17 +46,37 @@ import { useDispatch } from 'react-redux';
 import { login, logout } from './redux/slices/authSlice';
 import BillingPage from './pages/Admin/BillingPage/billing';
 import LogsPage from './pages/Admin/LogsPage/logs';
+import type { IUser } from '@/types/user.type';
+
+/**
+ * Kiểm tra admin có nhà hàng chưa (theo restaurantIds — nguồn chính thức của scope).
+ * Dùng chung cho cả ProtectedRoute (chặn /admin/*) và OnboardingRoute.
+ */
+const adminHasNoRestaurant = (user: IUser | null | undefined): boolean => {
+  if (user?.role !== 'admin') return false;
+  return Array.isArray(user.restaurantIds) && user.restaurantIds.length === 0;
+};
+
 const ProtectedRoute = ({
   isAuthenticated,
   userRole,
   allowedRoles,
+  user,
+  requireRestaurant = false,
 }: {
   isAuthenticated: boolean;
   userRole: string;
   allowedRoles: string[];
+  user: IUser | null;
+  /** Với admin: chặn vào trang admin khi chưa có nhà hàng → buộc về /onboarding. */
+  requireRestaurant?: boolean;
 }) => {
   if (!isAuthenticated) {
     return <Navigate to="/auth" replace />;
+  }
+
+  if (requireRestaurant && adminHasNoRestaurant(user)) {
+    return <Navigate to="/onboarding" replace />;
   }
 
   if (!allowedRoles.includes(userRole)) {
@@ -68,6 +89,31 @@ const ProtectedRoute = ({
 
   // Không còn màn hình chọn nhà hàng: admin vào thẳng /admin (quản toàn chuỗi),
   // manager/staff tự ưu tiên restaurantIds[0] ngay sau login.
+  return <Outlet />;
+};
+
+/** Route /onboarding: chỉ admin CHƯA có nhà hàng được vào; đã có → đưa về /admin. */
+const OnboardingRoute = ({
+  isAuthenticated,
+  user,
+  userRole,
+}: {
+  isAuthenticated: boolean;
+  user: IUser | null;
+  userRole: string;
+}) => {
+  if (!isAuthenticated) {
+    return <Navigate to="/auth" replace />;
+  }
+  if (userRole !== 'admin') {
+    if (userRole === 'manager') return <Navigate to="/manager" replace />;
+    if (userRole === 'staff') return <Navigate to="/staff" replace />;
+    if (userRole === 'super-admin') return <Navigate to="/super-admin" replace />;
+    return <Navigate to="/" replace />;
+  }
+  if (!adminHasNoRestaurant(user)) {
+    return <Navigate to="/admin" replace />;
+  }
   return <Outlet />;
 };
 
@@ -151,6 +197,7 @@ export default function App() {
             isAuthenticated={isAuthenticated}
             userRole={userRole}
             allowedRoles={['super-admin']}
+            user={user}
           />
         }
       >
@@ -164,25 +211,42 @@ export default function App() {
       </Route>
 
       {/* ---------------- PROTECTED ROUTES: ADMIN ---------------- */}
+      {/* Admin chưa có nhà hàng (restaurantIds rỗng) → không vào được /admin/*, buộc /onboarding */}
       <Route
         element={
           <ProtectedRoute
             isAuthenticated={isAuthenticated}
             userRole={userRole}
             allowedRoles={['admin']}
+            user={user}
+            requireRestaurant
           />
         }
       >
         <Route path="/admin" element={<LayoutAdmin />}>
           <Route index element={<HomePage />} />
           <Route path="restaurants" element={<RestaurantsPage />} />
-          <Route path="onboarding" element={<OnboardingWizard />} />
           <Route path="billing" element={<BillingPage />} />
           <Route path="customers" element={<Users />} />
           <Route path="products" element={<Product />} />
           <Route path="orders" element={<Order />} />
           <Route path="reports" element={<AnalyticsPage />} />
           <Route path="logs" element={<LogsPage />} />
+        </Route>
+      </Route>
+
+      {/* ---------------- ONBOARDING (BLANK LAYOUT, dùng chung với landing tương lai) ---------------- */}
+      <Route
+        element={
+          <OnboardingRoute
+            isAuthenticated={isAuthenticated}
+            user={user}
+            userRole={userRole}
+          />
+        }
+      >
+        <Route path="/onboarding" element={<LayoutBlank />}>
+          <Route index element={<OnboardingWizard />} />
         </Route>
       </Route>
 
@@ -193,6 +257,7 @@ export default function App() {
             isAuthenticated={isAuthenticated}
             userRole={userRole}
             allowedRoles={['manager']}
+            user={user}
           />
         }
       >
@@ -221,6 +286,7 @@ export default function App() {
             isAuthenticated={isAuthenticated}
             userRole={userRole}
             allowedRoles={['staff']}
+            user={user}
           />
         }
       >

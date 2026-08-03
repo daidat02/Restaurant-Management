@@ -1,7 +1,13 @@
 import { type ApiResponse } from './../types/api.type';
 import axiosClient from '@/utils/configClient';
 import { API_ENDPOINTS, API_BASE_URL } from '@/constants/index';
-import type { IBankAccountConfig, ISetting, IThirdPartyIntegration } from '@/types/setting.type';
+import type {
+  IBankAccountConfig,
+  IGatewayInput,
+  IGatewaySanitized,
+  ISetting,
+  IThirdPartyIntegration,
+} from '@/types/setting.type';
 
 // Destruct nhánh API Quản lý Setting
 const { SETTING } = API_ENDPOINTS;
@@ -97,5 +103,21 @@ export const generateKitchenCode = async (id: string): Promise<{ kitchenCode: st
   const res = await axiosClient.post<any, ApiResponse<{ kitchenCode: string }>>(
     SETTING.KDS_CODE(id),
   );
+  return res.data;
+};
+
+/**
+ * 9. Lấy cấu hình cổng thanh toán hệ thống (Chỉ Super Admin)
+ */
+export const getGatewayConfig = async (): Promise<IGatewaySanitized> => {
+  const res = await axiosClient.get<any, ApiResponse<IGatewaySanitized>>(SETTING.GATEWAY);
+  return res.data;
+};
+
+/**
+ * 10. Lưu cấu hình cổng thanh toán hệ thống (Chỉ Super Admin)
+ */
+export const saveGatewayConfig = async (data: IGatewayInput): Promise<IGatewaySanitized> => {
+  const res = await axiosClient.put<any, ApiResponse<IGatewaySanitized>>(SETTING.GATEWAY, data);
   return res.data;
 };

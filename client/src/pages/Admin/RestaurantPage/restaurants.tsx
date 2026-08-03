@@ -233,7 +233,7 @@ export default function RestaurantsPage() {
                   if (subscriptionsLoading) return;
                   // Chưa có nhà hàng nào → wizard tạo cơ sở đầu tiên (miễn phí trial 30 ngày)
                   if (subscriptions.length === 0) {
-                    navigate('/admin/onboarding');
+                    navigate('/onboarding');
                   } else {
                     // Đã có nhà hàng → modal trả phí mở cơ sở mới
                     setIsPayModalOpen(true);

@@ -121,6 +121,16 @@ axiosClient.interceptors.response.use(
       const data = error.response?.data;
       errorMessage = data?.message || error.message;
 
+      // Admin chưa có nhà hàng gọi API admin → server trả NEEDS_ONBOARDING → đưa về /onboarding
+      // (lớp phòng vệ; guard client ở route đã chặn trước đó).
+      if (
+        data?.errorCode === 'NEEDS_ONBOARDING' &&
+        store.getState().auth.user?.role === 'admin' &&
+        window.location.pathname !== '/onboarding'
+      ) {
+        window.location.href = '/onboarding';
+      }
+
       // Nhà hàng bị khoá do hết hạn thanh toán → mở modal upsell (chỉ chủ admin) để trả phí mở lại
       if (
         (data?.errorCode === 'RESTAURANT_LOCKED' || data?.code === 'RESTAURANT_LOCKED') &&

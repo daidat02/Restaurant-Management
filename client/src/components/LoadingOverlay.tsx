@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useCallback, useContext, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 
 // 1. Định nghĩa các hàm bạn muốn gọi (giống như loading(true) của bạn)
@@ -20,16 +20,17 @@ export const LoadingProvider: React.FC<{
   const [isLoading, setIsLoading] = useState(false);
   const [loadingText, setLoadingText] = useState('Đang xử lý...');
 
-  // Hàm bật loading (bạn có thể truyền chữ tùy ý)
-  const showLoading = (text = 'Đang xử lý...') => {
+  // Ổn định ref (useCallback, deps rỗng) để ngăn vòng lặp refetch: nếu showLoading/hideLoading
+  // được tạo lại mỗi render, hook useAnalytic sẽ recreate fetchDashboardData → effect chạy lại → gọi API liên tục.
+  const showLoading = useCallback((text = 'Đang xử lý...') => {
     setLoadingText(text);
     setIsLoading(true);
-  };
+  }, []);
 
   // Hàm tắt loading
-  const hideLoading = () => {
+  const hideLoading = useCallback(() => {
     setIsLoading(false);
-  };
+  }, []);
 
   return (
     <LoadingContext.Provider value={{ showLoading, hideLoading, spinner, spinnerColor }}>

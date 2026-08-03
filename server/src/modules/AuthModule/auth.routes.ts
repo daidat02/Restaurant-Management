@@ -4,6 +4,7 @@ import {
   verifyRole,
   verifyTenant,
   verifyToken,
+  intersectRestaurantIds,
   requireResourceTenant,
   userTenantResolver,
 } from '../../middlewares/auth.middleware.js';
@@ -33,7 +34,7 @@ router.get(
   '/',
   verifyToken,
   verifyRole(['manager', 'admin']),
-  verifyTenant,
+  intersectRestaurantIds,
   authController.getUsersWithFilter,
 );
 router.delete(

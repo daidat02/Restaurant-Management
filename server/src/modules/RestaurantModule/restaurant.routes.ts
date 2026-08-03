@@ -11,6 +11,14 @@ const router = Router();
 
 router.post('/', verifyToken, verifyRole(['admin']), restaurantController.createRestaurant);
 router.get('/', restaurantController.findAllRestaurants);
+// Danh sách nhà hàng của chính admin/manager đăng nhập — lọc theo restaurantIds (server tự đọc DB).
+// Đặt trước route '/:id' để không bị nuốt mất.
+router.get(
+  '/my',
+  verifyToken,
+  verifyRole(['admin', 'manager']),
+  restaurantController.getMyRestaurants,
+);
 router.get('/:id', verifyToken, restaurantController.getRestaurantById);
 router.put(
   '/update/:id',

@@ -34,7 +34,7 @@ export const OwnerSignUpForm: React.FC<OwnerSignUpFormProps> = ({ onSwitchToSign
     setLoading(false);
     if (result.success) {
       // Đã tự động đăng nhập trong registerOwner → vào wizard tạo nhà hàng đầu tiên
-      navigate('/admin/onboarding');
+      navigate('/onboarding');
     } else {
       setErrorMsg(result.message || 'Có lỗi xảy ra');
     }

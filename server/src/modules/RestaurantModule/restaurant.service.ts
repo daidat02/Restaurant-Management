@@ -102,6 +102,20 @@ class RestaurantSerice {
     return { message: 'Lấy danh sách nhà hàng thành công!!!', data: restaurants, code: 200 };
   }
 
+  /**
+   * Danh sách nhà hàng thuộc sở hữu của user (admin/manager) — dựa trên restaurantIds trong DB,
+   * KHÔNG tin bất kỳ param nào từ client. Admin chưa có nhà hàng → trả mảng rỗng (không lỗi).
+   */
+  async findMyRestaurantsService(userId?: string): Promise<any> {
+    if (!userId) {
+      return { message: 'Chưa xác thực người dùng!', code: 401 };
+    }
+    const user = await DB_Connection.User.findById(userId).select('restaurantIds').exec();
+    const ownedIds = (user?.restaurantIds || []).map((id: any) => id.toString());
+    const restaurants = await restaurantRepository.findRestaurants({ _id: { $in: ownedIds } });
+    return { message: 'Lấy danh sách nhà hàng thành công!!!', data: restaurants, code: 200 };
+  }
+
   async updateRestaurantService(id: string, restaurantData: any): Promise<any> {
     const exitRestaurant = await restaurantRepository.findRestaurantById(id);
     if (!exitRestaurant) {

@@ -8,11 +8,7 @@ import { MailBoxPopover } from '@/pages/Admin/components/MailBoxPopover';
 import { NotificationPopover } from '@/pages/Admin/components/NotificationPopover';
 import { extractId } from '@/utils/helpers';
 
-interface HeaderProps {
-  onOpenAccount?: () => void;
-}
-
-export default function Header({ onOpenAccount }: HeaderProps) {
+export default function Header() {
   const { user } = useAuth();
   const activeRestaurantId = useActiveRestaurantId();
   const { notifications, startLiseningNotification, markReadNoti, markReadAllNoti } =
@@ -85,12 +81,8 @@ export default function Header({ onOpenAccount }: HeaderProps) {
 
         <div className="h-8 w-[1px] bg-gray-300 mx-1 hidden sm:block" />
 
-        {/* Profile User: click mở thẳng modal tài khoản cá nhân (Q15) */}
-        <button
-          type="button"
-          onClick={onOpenAccount}
-          className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 rounded-xl px-1 py-1 transition-all"
-        >
+        {/* Profile User: Avatar chỉ HIỂN THỊ (tĩnh) — không mở modal nào (ticket 05) */}
+        <div className="flex items-center gap-3 rounded-xl px-1 py-1 select-none">
           <div className="relative">
             <img
               src={user?.avatar || 'https://github.com/shadcn.png'}
@@ -107,7 +99,7 @@ export default function Header({ onOpenAccount }: HeaderProps) {
               {user?.role || 'Nhân viên'}
             </span>
           </div>
-        </button>
+        </div>
       </div>
     </header>
   );

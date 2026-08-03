@@ -40,6 +40,12 @@ export const registerOwner = async (credentials: RegisterCredentials & { phone?:
   }
 };
 
+// Lấy profile mới nhất (kèm restaurantIds sau khi tạo nhà hàng) — dùng sau onboarding.
+export const getProfileMe = async (): Promise<{ restaurantIds?: string[] } | null> => {
+  const res = await axiosClient.get<any, ApiResponse<any>>(AUTH.PROFILE_ME);
+  return res.data;
+};
+
 // Tạo user nội bộ (staff/manager) thuộc tenant đang xác thực — dùng trong wizard onboarding
 export const createStaffUser = async (userData: {
   name: string;

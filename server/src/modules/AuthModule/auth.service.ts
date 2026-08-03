@@ -354,19 +354,25 @@ class AuthService {
   }
 
   /**
-   * Lấy danh sách toàn bộ Nhân viên (Staff & Manager)
+   * Lấy danh sách toàn bộ Nhân viên (Staff & Manager) thuộc một/nhiều nhà hàng.
+   * @param restaurantIds - đơn id hoặc mảng id đã được intersectRestaurantIds xác thực;
+   *   admin không truyền → mọi id sở hữu (union toàn chuỗi).
    */
   async getUsersByRolesService(
     roles: string[],
-    restaurantId?: string,
+    restaurantIds?: string | string[],
   ): Promise<ServiceResponse<any>> {
     const filterQuery: any = {
       role: { $in: roles },
     };
 
-    if (restaurantId) {
+    const ids = Array.isArray(restaurantIds) ? restaurantIds : restaurantIds ? [restaurantIds] : [];
+    if (ids.length > 0) {
       // Ưu tiên restaurantIds (mới); fallback `restaurant` cho dữ liệu legacy chưa backfill (sẽ dọn ở ticket 03)
-      filterQuery.$or = [{ restaurantIds: restaurantId }, { restaurant: restaurantId }];
+      filterQuery.$or = [
+        { restaurantIds: { $in: ids } },
+        { restaurant: { $in: ids } },
+      ];
     }
     const users = await authRepository.findUsers(filterQuery);
 

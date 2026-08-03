@@ -15,11 +15,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { createRestaurant } from '@/api/restaurants.api';
-import { switchTenant } from '@/api/auth.api';
+import { getProfileMe, switchTenant } from '@/api/auth.api';
 import { createStaffUser } from '@/api/auth.api';
 import { getOrCreateSetting, generateKitchenCode } from '@/api/setting.api';
 import { createTable } from '@/api/table.api';
 import { useAppDispatch } from '@/hooks/redux-hook';
+import { updateUserInfo } from '@/redux/slices/authSlice';
 import type { IRestaurant } from '@/types/restaurant.type';
 import type { ITable } from '@/types/table.type';
 
@@ -81,6 +82,8 @@ export default function OnboardingWizard() {
       const newRestaurant = result as unknown as IRestaurant;
       if (!newRestaurant?._id) throw new Error('Không nhận được dữ liệu nhà hàng mới');
       setRestaurant(newRestaurant);
+      // KHÔNG refresh restaurantIds ngay đây: guard OnboardingRoute (live) thấy admin đã có
+      // nhà hàng sẽ đá về /admin giữa chừng wizard. Chỉ refresh khi handleFinish.
       // Chuyển sang cơ sở mới để token hoạt động trên tenant vừa tạo
       await switchTenant(newRestaurant._id, dispatch);
       toast.success('Tạo nhà hàng thành công', { position: 'top-right' });
@@ -178,7 +181,16 @@ export default function OnboardingWizard() {
     }
   };
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
+    // Làm mới restaurantIds từ server trước khi sang /admin để guard không quay lại /onboarding
+    try {
+      const profile = await getProfileMe();
+      if (profile && Array.isArray(profile.restaurantIds)) {
+        dispatch(updateUserInfo({ restaurantIds: profile.restaurantIds }));
+      }
+    } catch {
+      // Vẫn cho đi tiếp; nếu cần, interceptor NEEDS_ONBOARDING sẽ phòng vệ.
+    }
     toast.success('Hoàn tất khởi tạo cơ sở mới', { position: 'top-right' });
     navigate('/admin');
   };

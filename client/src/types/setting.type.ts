@@ -52,6 +52,53 @@ export interface IThirdPartyIntegration {
   googleMapsApiKey?: string;
   viberOrSmsApiKey?: string;
 }
+
+// --- Cấu hình cổng thanh toán hệ thống (Super Admin) — Ticket 07 ---
+export interface IGatewayPayOSConfig {
+  clientId: string;
+  apiKey: string;
+  checksumKey: string;
+}
+
+export interface IGatewayVNPayConfig {
+  merchant: string;
+  accountName: string;
+  accountNumber: string;
+  apiKey: string;
+  checksumKey: string;
+}
+
+// Dữ liệu server trả về: key luôn bị ẩn, chỉ có cờ + các trường không nhạy cảm
+export interface IGatewaySanitized {
+  payos: {
+    clientId: string;
+    hasApiKey: boolean;
+    hasChecksumKey: boolean;
+  };
+  vnpay: {
+    merchant: string;
+    accountName: string;
+    accountNumber: string;
+    hasApiKey: boolean;
+    hasChecksumKey: boolean;
+  };
+}
+
+// Payload khi lưu: key rỗng/chuỗi ẩn (••••) để server giữ nguyên key cũ
+export interface IGatewayInput {
+  payos: {
+    clientId: string;
+    apiKey: string;
+    checksumKey: string;
+  };
+  vnpay: {
+    merchant: string;
+    accountName: string;
+    accountNumber: string;
+    apiKey: string;
+    checksumKey: string;
+  };
+}
 export interface ISystemConfig {
   autoPushKDS: boolean;
   maintenanceMode: boolean;

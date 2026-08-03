@@ -13,14 +13,9 @@ test.describe('T07 — Wizard onboarding 4 bước', () => {
     });
     expect(reg.status()).toBe(201);
 
-    // Login UI → vào thẳng /admin (owner 0 nhà hàng không bị ép chọn tenant)
+    // Login UI → guard đưa owner chưa có nhà hàng vào thẳng /onboarding (blank layout — ticket 04)
     await login(page, ownerEmail);
-    await expect(page).toHaveURL(/\/admin/, { timeout: 15_000 });
-
-    // Trang nhà hàng trống → nút "Thêm nhà hàng" đưa vào wizard
-    await page.goto('/admin/restaurants');
-    await page.getByRole('button', { name: /Thêm nhà hàng/ }).click();
-    await page.waitForURL(/\/admin\/onboarding/);
+    await expect(page).toHaveURL(/\/onboarding/, { timeout: 15_000 });
     await expect(page.getByRole('heading', { name: 'Khởi tạo cơ sở mới' })).toBeVisible();
 
     // B1 — thông tin nhà hàng

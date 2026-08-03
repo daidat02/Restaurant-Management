@@ -297,8 +297,10 @@ class AuthController {
           ? [queryRoles as string]
           : [];
 
-      // Nhà hàng lấy từ ngữ cảnh tenant đã xác thực (không tin query)
-      const result = await authService.getUsersByRolesService(roles, req.tenantId);
+      // Nhà hàng lấy từ danh sách đã được intersectRestaurantIds xác thực (không tin query)
+      // - Admin bỏ param → toàn chuỗi (union); gửi restaurantIds/restaurantId → đúng các chi nhánh đã chọn.
+      // - Manager/staff → tenant hiện tại.
+      const result = await authService.getUsersByRolesService(roles, req.user?.restaurantIds);
       return res.status(result.code).json(result);
     } catch (error) {
       console.error('Error fetching users:', error);

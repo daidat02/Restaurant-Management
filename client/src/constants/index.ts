@@ -105,6 +105,8 @@ export const API_ENDPOINTS = {
   // --- PHÂN HỆ NHÀ HÀNG (RESTAURANTS) ---
   RESTAURANTS: {
     BASE: `${API_BASE_URL}/restaurants`,
+    /** Chỉ các nhà hàng thuộc chuỗi của admin/manager đang đăng nhập (ticket 01). */
+    MY: `${API_BASE_URL}/restaurants/my`,
     GET_BY_ID: (id: string) => `${API_BASE_URL}/restaurants/${id}`,
     UPDATE: (id: string) => `${API_BASE_URL}/restaurants/update/${id}`,
   },
@@ -162,5 +164,6 @@ export const API_ENDPOINTS = {
     UPDATE_PAYMENT: (id: string) => `/settings/${id}/payment-method`,
     KDS_VERIFY: '/settings/kds/verify',
     KDS_CODE: (id: string) => `/settings/${id}/kds-code`,
+    GATEWAY: '/settings/gateway',
   },
 };

@@ -13,6 +13,12 @@ export const getRestaurants = async () => {
   return res.data;
 };
 
+/** Danh sách nhà hàng thuộc chuỗi của admin/manager (endpoint /restaurants/my). */
+export const getMyRestaurants = async () => {
+  const res = await axiosClient.get<any, ApiResponse<IRestaurant[]>>(RESTAURANTS.MY);
+  return res.data;
+};
+
 export const getRestaurantById = async (id: string) => {
   const res = await axiosClient.get<any, ApiResponse<IRestaurant>>(RESTAURANTS.GET_BY_ID(id));
   return res.data;
