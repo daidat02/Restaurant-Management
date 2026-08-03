@@ -67,12 +67,11 @@ class PaymentService {
         };
       }
 
+      const resId = order.restaurant.toString();
       const newPayment = await paymentRepository.createPayment(
         {
           order: new ObjectId(orderId),
-          // Fix T-không-tìm-thấy-tài-nguyên: gắn restaurant (tenant của đơn) vào payment
-          // để middleware paymentTenantResolver xác định được chủ thể tài nguyên, tránh 404.
-          restaurant: order.restaurant,
+          restaurant: new ObjectId(resId),
           amount: order.totalAmount,
           status: 'initiated',
         },
