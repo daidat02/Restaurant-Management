@@ -5,12 +5,11 @@ import type {
   IGatewaySanitized,
   IPayOSConfig,
   ISetting,
+  ISettingDocument,
   IThirdPartyIntegration,
 } from '../../models/Schema/SettingSchema.js';
 import type { ServiceResponse } from '../../shared/type.js';
-import settingRepository, {
-  PLATFORM_GATEWAY_TARGET_ID,
-} from './setting.repository.js';
+import settingRepository, { PLATFORM_GATEWAY_TARGET_ID } from './setting.repository.js';
 
 /** Chuỗi ẩn mà frontend gửi ngược lại khi người dùng không nhập key mới */
 const MASKED_KEY = '••••••••••••••••';
@@ -182,7 +181,9 @@ class SettingService {
     const populatedTarget = setting.targetId as any;
     // Sau khi populate, targetId là document có _id; nếu không populate thì là ObjectId/string
     const restaurantId = (
-      populatedTarget?._id?.toString?.() || populatedTarget?.toString?.() || String(populatedTarget)
+      populatedTarget?._id?.toString?.() ||
+      populatedTarget?.toString?.() ||
+      String(populatedTarget)
     ).toString();
     const restaurantName = populatedTarget?.name || 'Nhà hàng';
 
@@ -293,7 +294,9 @@ class SettingService {
       },
     };
 
-    await settingRepository.updateSetting(setting._id.toString(), gatewayData);
+    const settingId = (setting as ISettingDocument)._id.toString();
+
+    await settingRepository.updateSetting(settingId, gatewayData);
 
     // Fetch lại (kèm secret) để tính cờ hasApiKey chính xác — response chỉ lộ cờ, không lộ key
     const fresh = await settingRepository.findGatewaySetting();

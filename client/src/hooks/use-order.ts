@@ -248,7 +248,6 @@ export const useOrder = () => {
           if (currentOrder?._id === updatedOrder._id) {
             setCurrentOrder({ ...currentOrder, ...updatedOrder });
           }
-          toast.success('Thêm món thành công', { position: 'top-right' });
           return updatedOrder;
         }
       } catch (err: any) {

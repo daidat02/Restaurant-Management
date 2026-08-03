@@ -90,7 +90,8 @@ export default function Table() {
                 if (table.currentOrder) {
                   const orderId =
                     typeof table.currentOrder == 'object' ? table.currentOrder?._id : '';
-                  const result = await fetchOrderById(orderId || '');
+                  if (!orderId) return;
+                  const result = await fetchOrderById(orderId);
                   setOrder(result || null);
                   // Mở ngăn kéo xem bill trên mobile khi chọn bàn đang phục vụ
                   setIsMobileBillOpen(true);

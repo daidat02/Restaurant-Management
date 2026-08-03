@@ -495,7 +495,13 @@ export const restaurantTenantResolver: ResourceTenantResolver = async (req) => {
 
 export const paymentTenantResolver: ResourceTenantResolver = async (req) => {
   const doc = await DB_Connection.Payment.findById(req.params.paymentId)
-    .select("restaurant")
+    .select("restaurant order")
     .exec();
-  return doc?.restaurant?.toString?.() ?? null;
+  if (doc?.restaurant) return doc.restaurant.toString();
+  // Fallback: payment cũ tạo thiếu restaurant → lấy tenant từ đơn tương ứng
+  if (doc?.order) {
+    const orderDoc = await DB_Connection.Order.findById(doc.order).select("restaurant").exec();
+    return orderDoc?.restaurant?.toString?.() ?? null;
+  }
+  return null;
 };

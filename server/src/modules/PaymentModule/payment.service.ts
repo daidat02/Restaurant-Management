@@ -70,6 +70,9 @@ class PaymentService {
       const newPayment = await paymentRepository.createPayment(
         {
           order: new ObjectId(orderId),
+          // Fix T-không-tìm-thấy-tài-nguyên: gắn restaurant (tenant của đơn) vào payment
+          // để middleware paymentTenantResolver xác định được chủ thể tài nguyên, tránh 404.
+          restaurant: order.restaurant,
           amount: order.totalAmount,
           status: 'initiated',
         },

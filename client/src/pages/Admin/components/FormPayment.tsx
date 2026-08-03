@@ -164,7 +164,7 @@ export default function PaymentForm({ paymentId, onCancel, onConfirm }: PaymentF
   useEffect(() => {
     if (paymentId) fetchPaymentById(paymentId);
     fetchSettingById(activeRestaurantId);
-  }, [fetchPaymentById, paymentId, activeRestaurantId]);
+  }, [paymentId, activeRestaurantId]);
 
   return (
     <div className="flex flex-col md:flex-row h-[90vh] w-full overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-sm relative">

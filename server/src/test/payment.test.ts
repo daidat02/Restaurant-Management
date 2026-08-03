@@ -44,6 +44,27 @@ describe('T9 — Payment', () => {
       expect(res.status).toBe(201);
     });
 
+    it('initiate rồi GET /payments/:id → 200 (payment có restaurant, không bị 404)', async () => {
+      const init = await request
+        .post('/api/payments/initiate')
+        .set('Authorization', `Bearer ${staffX()}`)
+        .send({ orderId: idOf(SEED_IDS.orderYActive) });
+      // 201 nếu mới tạo, 200 nếu payment đã tồn tại từ test trước
+      expect([200, 201]).toContain(init.status);
+      const paymentId = init.body?.data?._id;
+      expect(paymentId).toBeTruthy();
+      // Payment giờ có restaurant = tenantY → staff Y đọc được, staff X bị chặn (trước fix: 404)
+      const staffY = () => tokenFor('staffY', SEED_IDS.tenantY.toString());
+      const ok = await request
+        .get(`/api/payments/${paymentId}`)
+        .set('Authorization', `Bearer ${staffY()}`);
+      expect(ok.status).toBe(200);
+      const blocked = await request
+        .get(`/api/payments/${paymentId}`)
+        .set('Authorization', `Bearer ${staffX()}`);
+      expect(blocked.status).toBe(403);
+    });
+
     it('initiate cho đơn đã paid → 400', async () => {
       const res = await request
         .post('/api/payments/initiate')

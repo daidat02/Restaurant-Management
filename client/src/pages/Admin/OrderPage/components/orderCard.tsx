@@ -71,7 +71,7 @@ export const OrderCard = ({ order, isSelected, onClick,onOpenPayment, isPayment 
           <div className='flex justify-between items-center h-8 mt-1 pt-3 border-t border-gray-50'>
               {isPayment && (  <div className='flex gap-2'>
               <button 
-                onClick={()=>{onOpenPayment?.(order?._id || null)}}
+                onClick={() => { if (!order?._id) return; onOpenPayment?.(order._id); }}
               className='bg-cerulean-blue-600 hover:bg-cerulean-blue-700 text-white px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-colors'>
                 Thanh toán
               </button>

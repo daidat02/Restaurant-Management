@@ -337,7 +337,8 @@ export default function POS() {
                 : selectedTable || undefined
             }
             pos={true}
-            onTriggerPayment={async (orderId) => {
+              onTriggerPayment={async (orderId) => {
+              if (!orderId) return;
               const params = new URLSearchParams(searchParams);
               params.set('orderId', orderId as string);
               setSearchParams(params, { replace: true });
