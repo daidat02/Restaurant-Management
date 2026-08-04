@@ -120,15 +120,26 @@ describe('Chat — Conversation + Message REST', () => {
     expect(idOf(second.body.data._id)).toBe(firstId);
   });
 
-  it('POST /api/conversations — staff X không được tạo group → 403', async () => {
-    const res = await request
-      .post('/api/conversations')
-      .set('Authorization', `Bearer ${staffX()}`)
-      .send({ type: 'group', name: 'Nhóm bếp', memberIds: [SEED_IDS.managerX] });
-    expect(res.status).toBe(403);
-  });
+   it('POST /api/conversations — staff X không được tạo group → 403', async () => {
+     const res = await request
+       .post('/api/conversations')
+       .set('Authorization', `Bearer ${staffX()}`)
+       .send({ type: 'group', name: 'Nhóm bếp', memberIds: [SEED_IDS.managerX] });
+     expect(res.status).toBe(403);
+   });
 
-  it('POST /api/conversations — member thuộc nhà hàng khác bị từ chối → 403', async () => {
+   it('POST /api/conversations — admin tạo group chỉ cần tên (không member) → 201', async () => {
+     const res = await request
+       .post('/api/conversations')
+       .set('Authorization', `Bearer ${adminX()}`)
+       .send({ type: 'group', name: 'Nhóm không member' });
+     expect(res.status).toBe(201);
+     expect(res.body.data.type).toBe('group');
+     expect(res.body.data.name).toBe('Nhóm không member');
+     expect(res.body.data.members.length).toBe(1);
+   });
+
+   it('POST /api/conversations — member thuộc nhà hàng khác bị từ chối → 403', async () => {
     const res = await request
       .post('/api/conversations')
       .set('Authorization', `Bearer ${adminX()}`)
