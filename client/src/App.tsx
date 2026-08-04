@@ -4,14 +4,17 @@ import LayoutBlank from './layouts/LayoutBlank';
 import LayoutSuperAdmin from './layouts/LayoutSuperAdmin';
 import LayoutCustomer from './layouts/LayoutCustomer';
 import Payment from './pages/Customer/payment';
-import Auth from './pages/Auth/Auth';
-import OwnerRegister from './pages/Auth/OwnerRegister';
 import { useAuth } from './hooks/use-auth';
 import { useEffect } from 'react';
 import { socket } from './configs/socket.io';
 import OrderManagerment from './pages/Admin/OrderPage/management-order';
 import OrderDetail from './pages/Admin/OrderPage/order-detail';
-import CustomerHomePage from './pages/Customer/home';
+import LandingPage from './pages/Landing';
+import LandingLayout from './pages/Landing/LandingLayout';
+import PricingPage from './pages/Landing/Pricing';
+import GuidePage from './pages/Landing/Guide';
+import FaqPage from './pages/Landing/Faq';
+import ContactPage from './pages/Landing/Contact';
 import MenuPage from './pages/Customer/menu';
 import ProductDetailPage from './pages/Customer/product-detail';
 import CartPage from './pages/Customer/cart';
@@ -72,7 +75,7 @@ const ProtectedRoute = ({
   requireRestaurant?: boolean;
 }) => {
   if (!isAuthenticated) {
-    return <Navigate to="/auth" replace />;
+    return <Navigate to="/" replace />;
   }
 
   if (requireRestaurant && adminHasNoRestaurant(user)) {
@@ -103,7 +106,7 @@ const OnboardingRoute = ({
   userRole: string;
 }) => {
   if (!isAuthenticated) {
-    return <Navigate to="/auth" replace />;
+    return <Navigate to="/" replace />;
   }
   if (userRole !== 'admin') {
     if (userRole === 'manager') return <Navigate to="/manager" replace />;
@@ -112,13 +115,6 @@ const OnboardingRoute = ({
     return <Navigate to="/" replace />;
   }
   if (!adminHasNoRestaurant(user)) {
-    return <Navigate to="/admin" replace />;
-  }
-  return <Outlet />;
-};
-
-const PublicRoute = ({ isAuthenticated }: { isAuthenticated: boolean }) => {
-  if (isAuthenticated) {
     return <Navigate to="/admin" replace />;
   }
   return <Outlet />;
@@ -157,21 +153,27 @@ export default function App() {
 
   return (
     <Routes>
-      {/* ---------------- PUBLIC ROUTES ---------------- */}
+      {/* ---------------- PUBLIC ROUTES (Landing nền tảng) ---------------- */}
+      <Route element={<LandingLayout />}>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/pricing" element={<PricingPage />} />
+        <Route path="/guide" element={<GuidePage />} />
+        <Route path="/faq" element={<FaqPage />} />
+        <Route path="/contact" element={<ContactPage />} />
+      </Route>
 
       <Route element={<CustomerRoute isAuthenticated={isAuthenticated} userRole={userRole} />}>
-        <Route path="/" element={<LayoutCustomer />}>
-          <Route index element={<CustomerHomePage />} />
-          <Route path="menu" element={<MenuPage />} />
-          <Route path="product/:id" element={<ProductDetailPage />} />
-          <Route path="cart" element={<CartPage />} />
-          <Route path="payment" element={<Payment />} />
-          <Route path="reservation" element={<ReservationCustomerPage />} />
+        <Route element={<LayoutCustomer />}>
+          <Route path="/menu" element={<MenuPage />} />
+          <Route path="/product/:id" element={<ProductDetailPage />} />
+          <Route path="/cart" element={<CartPage />} />
+          <Route path="/payment" element={<Payment />} />
+          <Route path="/reservation" element={<ReservationCustomerPage />} />
           <Route path="/scan-to-order" element={<CartPage />} />
 
           {/* KHU VỰC TÀI KHOẢN KHÁCH HÀNG */}
-          <Route path="account" element={<AccountLayout />}>
-            <Route index element={<Navigate to="profile" replace />} />
+          <Route path="/account" element={<AccountLayout />}>
+            <Route index element={<Navigate to="/account/profile" replace />} />
             <Route path="profile" element={<AccountProfile />} />
             <Route path="orders" element={<AccountOrders />} />
             <Route path="settings" element={<AccountSettings />} />
@@ -181,13 +183,6 @@ export default function App() {
           <Route path="/orders-history" element={<Navigate to="/account/orders" replace />} />
           <Route path="/settings" element={<Navigate to="/account/settings" replace />} />
         </Route>
-      </Route>
-
-      {/* ---------------- GUEST ROUTES ---------------- */}
-      {/* Nên bọc PublicRoute để người đã đăng nhập không vào được trang Login */}
-      <Route element={<PublicRoute isAuthenticated={isAuthenticated} />}>
-        <Route path="/auth" element={<Auth />} />
-        <Route path="/auth/owner" element={<OwnerRegister />} />
       </Route>
 
       {/* ---------------- PROTECTED ROUTES: SUPER-ADMIN (Nền tảng) ---------------- */}

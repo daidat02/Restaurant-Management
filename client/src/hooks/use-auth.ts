@@ -40,7 +40,7 @@ export const useAuth = () => {
   const handleLogout = () => {
     dispatch(logout());
     // Nếu bạn có dùng cookie hoặc cần xóa gì thêm thì viết ở đây
-    navigate('/auth');
+    navigate('/');
   };
 
   // Trả ra những dữ liệu và hàm cần thiết để các Component khác dùng

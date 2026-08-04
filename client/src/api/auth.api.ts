@@ -15,7 +15,7 @@ export const loginUser = async (credentials: UserCredentials, dispatch: any) => 
     const user = res.data.user; // Gợi ý mượt mà
     const token = res.data.accessToken!;
     dispatch(login({ user, token }));
-    return { success: true, message: res.message };
+    return { success: true, message: res.message, user };
   } catch (error: any) {
     return error;
   }

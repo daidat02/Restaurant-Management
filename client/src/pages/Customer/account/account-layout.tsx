@@ -27,9 +27,9 @@ const ACCOUNT_NAV = [
 export default function AccountLayout() {
   const { user } = useAuth();
 
-  // Chưa đăng nhập thì chuyển hướng về trang đăng nhập
+  // Chưa đăng nhập thì chuyển hướng về trang chủ (landing)
   if (!user) {
-    return <Navigate to="/auth" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return (
