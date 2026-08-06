@@ -26,14 +26,21 @@ server/vitest.config.d.ts.map
 opencode.json
 .opencode/
 graphify-out/
-.scratch/*
+.scratch/
 !.scratch/multi-tenant-refactor/
 !.scratch/multi-tenant-refactor/**
 !.scratch/saas-mvp/
 !.scratch/saas-mvp/**
 !.scratch/admin-role-redesign/
 !.scratch/admin-role-redesign/**
+!.scratch/messaging/
+!.scratch/messaging/**
 .playwright-mcp/
+learning-records/
 # Planning
 ROADMAP.VI.md
 .zcode/
+
+MISSION.md
+NOTES.md
+OPS.md

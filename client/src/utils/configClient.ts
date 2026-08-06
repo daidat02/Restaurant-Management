@@ -105,7 +105,7 @@ axiosClient.interceptors.response.use(
         console.log('Refresh token thất bại', refreshError);
         processQueue(refreshError, null);
         store.dispatch(logout());
-        window.location.href = '/auth';
+        window.location.href = '/';
         return Promise.reject(refreshError);
       } finally {
         // Mở khoá cờ refresh

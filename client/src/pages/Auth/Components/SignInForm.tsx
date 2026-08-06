@@ -147,7 +147,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
         Bạn là chủ nhà hàng?{' '}
         <button
           type="button"
-          onClick={() => navigate('/auth/owner')}
+          onClick={() => navigate('/')}
           className={`font-semibold hover:underline ${textColorClass}`}
         >
           Đăng ký tại đây

@@ -121,9 +121,13 @@ class AuthService {
     email: string;
     password: string;
   }): Promise<ServiceResponse<any>> {
-    const exitUser = await authRepository.findOneUser({ email: userData.email });
+    // Hỗ trợ đăng nhập bằng email HOẶC số điện thoại (field `email` có thể chứa SĐT).
+    const identifier = (userData.email || '').trim();
+    const exitUser = await authRepository.findOneUser({
+      $or: [{ email: identifier }, { phone: identifier }],
+    });
     if (!exitUser) {
-      return { message: 'Email không được tìm thấy!', code: 400 };
+      return { message: 'Email hoặc số điện thoại không được tìm thấy!', code: 400 };
     }
 
     const isPasswordValid = await bcrypt.compare(userData.password, exitUser.password);

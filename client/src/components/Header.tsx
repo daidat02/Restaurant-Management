@@ -8,7 +8,12 @@ import { MailBoxPopover } from '@/pages/Admin/components/MailBoxPopover';
 import { NotificationPopover } from '@/pages/Admin/components/NotificationPopover';
 import { extractId } from '@/utils/helpers';
 
-export default function Header() {
+interface HeaderProps {
+  /** Mở MessageModal tại đúng hội thoại khi bấm item trong MailBoxPopover. */
+  onOpenConversation?: (conversationId: string) => void;
+}
+
+export default function Header({ onOpenConversation }: HeaderProps) {
   const { user } = useAuth();
   const activeRestaurantId = useActiveRestaurantId();
   const { notifications, startLiseningNotification, markReadNoti, markReadAllNoti } =
@@ -29,27 +34,7 @@ export default function Header() {
     startLiseningNotification(notificationScope);
   }, [startLiseningNotification, notificationScope]);
 
-  // DATA MOCK: Tạm thời giữ lại Data Tin Nhắn MailBox
-  const mockMessages = [
-    {
-      id: 1,
-      sender: 'Bếp Trưởng (Chef)',
-      avatar: 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?w=100&h=100&fit=crop',
-      excerpt: 'Món cá hồi sốt chanh leo vừa hết nguyên liệu nhé!',
-      time: '5 phút trước',
-      isUnread: true,
-    },
-    {
-      id: 2,
-      sender: 'Quản lý (Manager)',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop',
-      excerpt: 'Nhớ kiểm tra bàn số 5 lát nữa có khách VIP đến.',
-      time: '15 phút trước',
-      isUnread: true,
-    },
-  ];
-
-  const unreadMessagesCount = mockMessages.filter((m) => m.isUnread).length;
+  // DATA MOCK: Đã bỏ — dùng realtime qua use-messaging (MessagingProvider) cho MailBoxPopover.
   const unreadNotificationsCount = notifications.filter((n) => n.isRead === false).length;
 
   return (
@@ -63,7 +48,7 @@ export default function Header() {
       <div className="flex items-center gap-1 sm:gap-5">
         <div className="flex items-center gap-2 sm:gap-3">
           {/* 1. Nhóm Hộp Thư */}
-          <MailBoxPopover messages={mockMessages} unreadCount={unreadMessagesCount} />
+          <MailBoxPopover onOpenConversation={onOpenConversation} />
 
           {/* 2. Nhóm Thông Báo (Chuyển đổi sang Realtime Component) */}
           <NotificationPopover
