@@ -17,9 +17,15 @@ export const getConversations = async (): Promise<IConversationView[]> => {
   return res.data;
 };
 
-// Tạo hội thoại direct/group. Group chỉ manager/admin. Body: { type, name?, memberIds[] }
+// Tạo hội thoại direct/group. Group chỉ manager/admin. Body: { type, name?, memberIds[], restaurantId? }
 export const createConversation = async (
-  payload: { type: 'direct' | 'group'; name?: string; memberIds?: string[] },
+  payload: {
+    type: 'direct' | 'group';
+    name?: string;
+    memberIds?: string[];
+    /** Tenant hiện tại (để nhóm nội bộ rơi đúng nhà hàng đang chọn). */
+    restaurantId?: string;
+  },
 ): Promise<IConversation> => {
   const res = await axiosClient.post<unknown, ApiResponse<IConversation>>(
     CONVERSATIONS.BASE,
@@ -57,6 +63,29 @@ export const sendMessage = async (
 export const markConversationRead = async (conversationId: string): Promise<IConversation> => {
   const res = await axiosClient.post<unknown, ApiResponse<IConversation>>(
     CONVERSATIONS.READ(conversationId),
+  );
+  return res.data;
+};
+
+// Thêm thành viên vào nhóm
+export const addConversationMembers = async (
+  conversationId: string,
+  memberIds: string[],
+): Promise<IConversation> => {
+  const res = await axiosClient.post<unknown, ApiResponse<IConversation>>(
+    CONVERSATIONS.MEMBERS(conversationId),
+    { memberIds },
+  );
+  return res.data;
+};
+
+// Gỡ thành viên khỏi nhóm
+export const removeConversationMember = async (
+  conversationId: string,
+  userId: string,
+): Promise<IConversation> => {
+  const res = await axiosClient.delete<unknown, ApiResponse<IConversation>>(
+    CONVERSATIONS.MEMBER(conversationId, userId),
   );
   return res.data;
 };

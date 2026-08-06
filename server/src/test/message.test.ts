@@ -104,6 +104,17 @@ describe('Chat — Conversation + Message REST', () => {
     expect(res.body.data.members.length).toBe(2);
   });
 
+  it('POST /api/conversations — staff X tự tạo direct cùng nhà hàng → 201', async () => {
+    const res = await request
+      .post('/api/conversations')
+      .set('Authorization', `Bearer ${staffX()}`)
+      .send({ type: 'direct', memberIds: [SEED_IDS.managerX] });
+    expect(res.status).toBe(201);
+    expect(res.body.data.type).toBe('direct');
+    expect(idOf(res.body.data.restaurantId)).toBe(X);
+    expect(res.body.data.members.length).toBe(2);
+  });
+
   it('POST /api/conversations — tạo lại direct cùng cặp → 200 (idempotent)', async () => {
     const first = await request
       .post('/api/conversations')
@@ -139,10 +150,10 @@ describe('Chat — Conversation + Message REST', () => {
      expect(res.body.data.members.length).toBe(1);
    });
 
-   it('POST /api/conversations — member thuộc nhà hàng khác bị từ chối → 403', async () => {
+   it('POST /api/conversations — manager tạo direct với member nhà hàng khác bị từ chối → 403 (chỉ admin được cross-chain)', async () => {
     const res = await request
       .post('/api/conversations')
-      .set('Authorization', `Bearer ${adminX()}`)
+      .set('Authorization', `Bearer ${managerX()}`)
       .send({ type: 'direct', memberIds: [SEED_IDS.staffY] });
     expect(res.status).toBe(403);
   });
@@ -260,19 +271,174 @@ describe('Chat — Conversation + Message REST', () => {
     expect(res.status).toBe(403);
   });
 
-  it('Bảo mật: staff Y không thấy conv của nhà hàng X trong GET /api/conversations', async () => {
+   it('Bảo mật: staff Y không thấy conv của nhà hàng X trong GET /api/conversations', async () => {
+     const conv = await request
+       .post('/api/conversations')
+       .set('Authorization', `Bearer ${adminX()}`)
+       .send({ type: 'direct', memberIds: [SEED_IDS.staffX] });
+     const convId = idOf(conv.body.data._id);
+
+     const res = await request
+       .get('/api/conversations')
+       .set('Authorization', `Bearer ${staffY()}`);
+     const list = res.body.data as any[];
+     const found = list.find((c) => idOf(c._id) === convId);
+     expect(found).toBeUndefined();
+   });
+
+   it('POST /api/conversations/:id/members — admin thêm member vào group → 200', async () => {
+     const conv = await request
+       .post('/api/conversations')
+       .set('Authorization', `Bearer ${adminX()}`)
+       .send({ type: 'group', name: 'Nhóm test member' });
+     const convId = idOf(conv.body.data._id);
+
+    const res = await request
+      .post(`/api/conversations/${convId}/members`)
+      .set('Authorization', `Bearer ${adminX()}`)
+      .send({ memberIds: [SEED_IDS.staffX] });
+    expect(res.status).toBe(200);
+     expect(res.body.data.members.length).toBe(2);
+   });
+
+   it('POST /api/conversations/:id/members — staff không phải creator → 403', async () => {
+     const conv = await request
+       .post('/api/conversations')
+       .set('Authorization', `Bearer ${adminX()}`)
+       .send({ type: 'group', name: 'Nhóm test permission' });
+     const convId = idOf(conv.body.data._id);
+
+     const res = await request
+       .post(`/api/conversations/${convId}/members`)
+       .set('Authorization', `Bearer ${staffX()}`)
+       .send({ memberIds: [SEED_IDS.managerX] });
+     expect(res.status).toBe(403);
+   });
+
+   it('DELETE /api/conversations/:id/members/:userId — admin gỡ member → 200', async () => {
+     const conv = await request
+       .post('/api/conversations')
+       .set('Authorization', `Bearer ${adminX()}`)
+       .send({ type: 'group', name: 'Nhóm test remove', memberIds: [SEED_IDS.staffX] });
+     const convId = idOf(conv.body.data._id);
+
+    const res = await request
+      .delete(`/api/conversations/${convId}/members/${SEED_IDS.staffX}`)
+      .set('Authorization', `Bearer ${adminX()}`);
+    expect(res.status).toBe(200);
+     expect(res.body.data.members.length).toBe(1);
+   });
+
+   it('DELETE /api/conversations/:id/members/:userId — staff không phải creator → 403', async () => {
+     const conv = await request
+       .post('/api/conversations')
+       .set('Authorization', `Bearer ${adminX()}`)
+       .send({ type: 'group', name: 'Nhóm test remove permission', memberIds: [SEED_IDS.staffX] });
+     const convId = idOf(conv.body.data._id);
+
+    const res = await request
+      .delete(`/api/conversations/${convId}/members/${SEED_IDS.staffX}`)
+      .set('Authorization', `Bearer ${staffX()}`);
+    expect(res.status).toBe(403);
+  });
+
+  it('POST /api/conversations — admin tạo direct cross-chain với staff nhà hàng khác → 201 + restaurantId = nhà hàng đối phương', async () => {
+    const res = await request
+      .post('/api/conversations')
+      .set('Authorization', `Bearer ${adminX()}`)
+      .send({ type: 'direct', memberIds: [SEED_IDS.staffY] });
+    expect(res.status).toBe(201);
+    expect(res.body.data.type).toBe('direct');
+    // Cross-chain 1-1: restaurantId gắn theo nhà hàng của đối phương (tenantY), không phải tenant đang chọn (tenantX).
+    expect(idOf(res.body.data.restaurantId)).toBe(Y);
+    expect(res.body.data.members.length).toBe(2);
+  });
+
+  it('POST /api/conversations — tạo lại direct cross-chain cùng cặp → 200 (idempotent theo cặp user)', async () => {
+    const first = await request
+      .post('/api/conversations')
+      .set('Authorization', `Bearer ${adminX()}`)
+      .send({ type: 'direct', memberIds: [SEED_IDS.staffY] });
+    expect(first.status).toBe(201);
+    const firstId = idOf(first.body.data._id);
+
+    // Admin đang chọn tenant X nhưng vẫn dedupe theo cặp (adminX, staffY) → trả về conv cũ.
+    const second = await request
+      .post('/api/conversations')
+      .set('Authorization', `Bearer ${adminX()}`)
+      .send({ type: 'direct', memberIds: [SEED_IDS.staffY] });
+    expect(second.status).toBe(200);
+    expect(idOf(second.body.data._id)).toBe(firstId);
+  });
+
+  it('GET /api/conversations — admin thấy cross-chain 1-1 + có restaurantName (badge)', async () => {
     const conv = await request
       .post('/api/conversations')
       .set('Authorization', `Bearer ${adminX()}`)
-      .send({ type: 'direct', memberIds: [SEED_IDS.staffX] });
+      .send({ type: 'direct', memberIds: [SEED_IDS.staffY] });
     const convId = idOf(conv.body.data._id);
 
+    // Admin token đang chọn tenant X → vẫn thấy conv cross-chain (danh sách toàn chuỗi).
     const res = await request
       .get('/api/conversations')
-      .set('Authorization', `Bearer ${staffY()}`);
+      .set('Authorization', `Bearer ${adminX()}`);
     const list = res.body.data as any[];
     const found = list.find((c) => idOf(c._id) === convId);
-    expect(found).toBeUndefined();
+    expect(found).toBeDefined();
+    expect(idOf(found.restaurantId)).toBe(Y);
+    expect(found.restaurantName).toBe('NhamNhi Cơ Sở 2');
+  });
+
+  it('GET /api/conversations — cross-chain 1-1 nằm đúng tenant đối phương: staffY thấy, staffX không thấy', async () => {
+    const conv = await request
+      .post('/api/conversations')
+      .set('Authorization', `Bearer ${adminX()}`)
+      .send({ type: 'direct', memberIds: [SEED_IDS.staffY] });
+    const convId = idOf(conv.body.data._id);
+
+    const resStaffY = await request
+      .get('/api/conversations')
+      .set('Authorization', `Bearer ${staffY()}`);
+    expect(resStaffY.body.data.some((c: any) => idOf(c._id) === convId)).toBe(true);
+
+    const resStaffX = await request
+      .get('/api/conversations')
+      .set('Authorization', `Bearer ${staffX()}`);
+    expect(resStaffX.body.data.some((c: any) => idOf(c._id) === convId)).toBe(false);
+  });
+
+  it('GET /api/conversations — admin switch sang tenant của đối phương vẫn thấy conv (Nội bộ mới)', async () => {
+    const conv = await request
+      .post('/api/conversations')
+      .set('Authorization', `Bearer ${adminX()}`)
+      .send({ type: 'direct', memberIds: [SEED_IDS.staffY] });
+    const convId = idOf(conv.body.data._id);
+
+    // Token admin với restaurantId = tenantY (mô phỏng switch-tenant).
+    const adminInY = () => tokenFor('admin', Y);
+    const res = await request
+      .get('/api/conversations')
+      .set('Authorization', `Bearer ${adminInY()}`);
+    const list = res.body.data as any[];
+    const found = list.find((c) => idOf(c._id) === convId);
+    expect(found).toBeDefined();
+    expect(idOf(found.restaurantId)).toBe(Y);
+  });
+
+  it('GET /api/conversations — members[].userId là _id string (không phải chuỗi inspect từ populated doc)', async () => {
+    await request
+      .post('/api/conversations')
+      .set('Authorization', `Bearer ${adminX()}`)
+      .send({ type: 'group', name: 'Nhóm check member id' });
+    const res = await request
+      .get('/api/conversations')
+      .set('Authorization', `Bearer ${adminX()}`);
+    const group = (res.body.data as any[]).find((c) => c.type === 'group');
+    expect(group).toBeDefined();
+    expect(group.members.length).toBe(1);
+    expect(typeof group.members[0].userId).toBe('string');
+    // userId phải đúng là _id của admin, không chứa dấu ngoặc { } của chuỗi inspect
+    expect(idOf(group.members[0].userId)).toBe(idOf(SEED_IDS.adminX));
   });
 });
 

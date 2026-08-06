@@ -9,6 +9,7 @@ import type { IConversationView, IMessage } from '@/types/message.type';
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   createContext,
@@ -20,6 +21,10 @@ import messageSound from '@/assets/message_sound.mp3';
 
 interface MessagingContextValue {
   conversations: IConversationView[];
+  /** Hội thoại sau khi lọc theo tab (Tất cả / Nhóm). */
+  visibleConversations: IConversationView[];
+  activeTab: 'tat-ca' | 'nhom';
+  setActiveTab: (tab: 'tat-ca' | 'nhom') => void;
   activeConversationId: string | null;
   messagesMap: Record<string, IMessage[]>;
   unreadMap: Record<string, number>;
@@ -46,6 +51,7 @@ export const MessagingProvider = ({ children }: { children: ReactNode }) => {
   const currentUserId = useAppSelector((state) => state.auth.user?._id ?? '');
 
   const [conversations, setConversations] = useState<IConversationView[]>([]);
+  const [activeTab, setActiveTab] = useState<'tat-ca' | 'nhom'>('tat-ca');
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [messagesMap, setMessagesMap] = useState<Record<string, IMessage[]>>({});
   const [unreadMap, setUnreadMap] = useState<Record<string, number>>({});
@@ -265,11 +271,19 @@ export const MessagingProvider = ({ children }: { children: ReactNode }) => {
     }) => {
       const conv = payload?.conversation;
       if (!conv) return;
+      // Chỉ merge các field an toàn, KHÔNG ghi đè members/restaurantId bằng dữ liệu
+      // thô từ socket (ObjectId/populated doc) — danh sách member luôn lấy lại qua loadConversations.
       setConversations((prev) => {
         const idx = prev.findIndex((c) => c._id === conv._id);
         if (idx === -1) return [conv, ...prev];
         const next = [...prev];
-        next[idx] = { ...next[idx], ...conv };
+        next[idx] = {
+          ...next[idx],
+          name: conv.name ?? next[idx].name,
+          lastMessage: conv.lastMessage ?? next[idx].lastMessage,
+          memberCount: conv.memberCount ?? next[idx].memberCount,
+          updatedAt: conv.updatedAt ?? next[idx].updatedAt,
+        };
         return next;
       });
       if (typeof payload.unreadCount === 'number') {
@@ -356,8 +370,17 @@ export const MessagingProvider = ({ children }: { children: ReactNode }) => {
 
   const totalUnread = Object.values(unreadMap).reduce((sum, n) => sum + n, 0);
 
+  // Hội thoại theo tab: "Tất cả" giữ nguyên, "Nhóm" chỉ hiện group.
+  const visibleConversations = useMemo(() => {
+    if (activeTab === 'nhom') return conversations.filter((c) => c.type === 'group');
+    return conversations;
+  }, [activeTab, conversations]);
+
   const value: MessagingContextValue = {
     conversations,
+    visibleConversations,
+    activeTab,
+    setActiveTab,
     activeConversationId,
     messagesMap,
     unreadMap,

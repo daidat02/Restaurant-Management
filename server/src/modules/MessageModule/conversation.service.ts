@@ -16,8 +16,16 @@ interface ConversationView {
   _id: string;
   type: "direct" | "group";
   restaurantId: string;
+  /** Tên nhà hàng của hội thoại (badge cho admin ở tab "Tất cả"). */
+  restaurantName?: string;
   name: string | undefined;
   createdBy: string;
+  members?: {
+    userId: string;
+    role: "admin" | "member";
+    joinedAt: string;
+    lastReadAt?: string;
+  }[];
   lastMessage: IConversation["lastMessage"];
   memberCount: number;
   otherMember:
@@ -40,6 +48,28 @@ const userIdOf = (m: IConversationMember): string => {
 const memberOf = (conv: IConversation, userId: string): IConversationMember | undefined =>
   conv.members.find((m) => userIdOf(m) === String(userId));
 
+// Reshape conversation (đã populate) về payload chuẩn cho socket `conversation_updated`.
+// Tránh gửi ObjectId/populated doc thô làm hỏng state phía client.
+const toSocketPayload = (conv: IConversation) => {
+  const restaurantId = (conv.restaurantId as any)?._id ?? conv.restaurantId;
+  return {
+    ...conv.toObject(),
+    _id: String(conv._id),
+    createdBy: String(conv.createdBy),
+    restaurantId: String(restaurantId),
+    restaurantName: (conv.restaurantId as any)?.name ?? "",
+    members: conv.members.map((m) => {
+      const member: Record<string, unknown> = {
+        userId: userIdOf(m),
+        role: m.role,
+        joinedAt: m.joinedAt,
+      };
+      if (m.lastReadAt) member.lastReadAt = m.lastReadAt;
+      return member;
+    }),
+  };
+};
+
 const isEmployeeUser = (user: any): boolean =>
   user && user.isActive !== false && ALLOWED_ROLES.includes(user?.role);
 
@@ -49,6 +79,15 @@ const belongsToRestaurant = (user: any, restaurantId: string): boolean => {
     ...(user?.restaurant ? [String(user.restaurant)] : []),
   ]);
   return ids.has(String(restaurantId));
+};
+
+// Nhà hàng chính của 1 user: phần tử đầu tiên của restaurantIds, fallback field legacy `restaurant`.
+const primaryRestaurantOf = (user: any): string | null => {
+  const ids = [
+    ...(user?.restaurantIds ?? []).map((id: any) => String(id)),
+    ...(user?.restaurant ? [String(user.restaurant)] : []),
+  ];
+  return ids.length ? ids[0] : null;
 };
 
 class ConversationService {
@@ -74,13 +113,29 @@ class ConversationService {
 
       const other = conv.members.find((m) => userIdOf(m) !== String(userId));
       const otherUser = (other?.userId as any) as { _id: string; name: string; avatar?: string; role?: string };
+      const restaurantId = (conv.restaurantId as any)?._id ?? conv.restaurantId;
 
       views.push({
         _id: String(conv._id),
         type: conv.type,
-        restaurantId: String(conv.restaurantId),
+        restaurantId: String(restaurantId),
+        restaurantName: (conv.restaurantId as any)?.name ?? "",
         name: conv.name,
         createdBy: String(conv.createdBy),
+        members: conv.members.map((m) => {
+          const member: {
+            userId: string;
+            role: "admin" | "member";
+            joinedAt: string;
+            lastReadAt?: string;
+          } = {
+            userId: userIdOf(m),
+            role: m.role,
+            joinedAt: m.joinedAt.toISOString(),
+          };
+          if (m.lastReadAt) member.lastReadAt = m.lastReadAt.toISOString();
+          return member;
+        }),
         lastMessage: conv.lastMessage,
         memberCount: conv.members.length,
         otherMember:
@@ -128,30 +183,60 @@ class ConversationService {
       }
     }
 
-    // Validate người tham gia (nếu có): tồn tại, là nhân viên, cùng nhà hàng
+    // Validate người tham gia (nếu có): tồn tại, là nhân viên.
+    // - Manager/Staff: phải cùng nhà hàng với tenant đang chọn.
+    // - Admin (chủ chuỗi): được phép 1-1 chéo nhà hàng → bỏ check belongsToRestaurant.
+    let directTargetUser: any = null;
     if (memberIds.length > 0) {
       const targetUsers = await DB_Connection.User.find({ _id: { $in: memberIds } })
         .select("name avatar role restaurantIds restaurant isActive")
         .exec();
 
-      const foundIds = new Set(targetUsers.map((u: any) => String(u._id)));
       for (const id of memberIds) {
         const user = targetUsers.find((u: any) => String(u._id) === id);
         if (!user) {
           return { code: 400, message: "Có thành viên không tồn tại trong hệ thống" };
         }
-        if (!isEmployeeUser(user) || !belongsToRestaurant(user, restaurantId)) {
-          return { code: 403, message: "Thành viên không thuộc nhà hàng này hoặc không hợp lệ" };
+        if (!isEmployeeUser(user)) {
+          return { code: 403, message: "Thành viên không hợp lệ" };
         }
+        if (actorRole !== "admin" && !belongsToRestaurant(user, restaurantId)) {
+          return { code: 403, message: "Thành viên không thuộc nhà hàng này" };
+        }
+        if (type === "direct") directTargetUser = user;
       }
     }
 
     if (type === "direct") {
-      // Idempotent: conv direct đã tồn tại giữa 2 người → trả về conv cũ
+      const targetUserId = memberIds[0] as string;
+      // Admin: dedupe theo cặp user (bất kể nhà hàng) + restaurantId = nhà hàng chính của đối phương
+      // để hội thoại cross-chain 1-1 xuất hiện đúng tenant của đối phương.
+      if (actorRole === "admin") {
+        const existing = await conversationRepository.findDirectByPair(
+          actorUserId,
+          targetUserId,
+        );
+        if (existing) {
+          return { code: 200, data: existing, message: "Hội thoại đã tồn tại" };
+        }
+        const targetRestaurantId = primaryRestaurantOf(directTargetUser) ?? restaurantId;
+        const conversation = await conversationRepository.create({
+          type: "direct",
+          restaurantId: targetRestaurantId as unknown as Types.ObjectId,
+          createdBy: actorUserId as unknown as Types.ObjectId,
+          members: [
+            { userId: actorUserId as unknown as Types.ObjectId, role: "admin", joinedAt: new Date() },
+            { userId: targetUserId as unknown as Types.ObjectId, role: "member", joinedAt: new Date() },
+          ],
+        });
+        return { code: 201, data: conversation, message: "Tạo hội thoại thành công" };
+      }
+
+      // Manager/Staff: giữ nguyên — cùng nhà hàng, dedupe theo restaurantId.
       const existing = await conversationRepository.findDirect(
         restaurantId,
         actorUserId,
-        memberIds[0] as string,
+        targetUserId,
       );
       if (existing) {
         return { code: 200, data: existing, message: "Hội thoại đã tồn tại" };
@@ -163,7 +248,7 @@ class ConversationService {
         createdBy: actorUserId as unknown as Types.ObjectId,
         members: [
           { userId: actorUserId as unknown as Types.ObjectId, role: "admin", joinedAt: new Date() },
-          { userId: memberIds[0] as unknown as Types.ObjectId, role: "member", joinedAt: new Date() },
+          { userId: targetUserId as unknown as Types.ObjectId, role: "member", joinedAt: new Date() },
         ],
       });
       return { code: 201, data: conversation, message: "Tạo hội thoại thành công" };
@@ -254,12 +339,133 @@ class ConversationService {
     // Đồng bộ multi-tab: báo tới user_<id> để các tab khác reset unread
     if (updated) {
       getIO().to(`user_${userId}`).emit("conversation_updated", {
-        conversation: updated.toObject(),
+        conversation: toSocketPayload(updated),
         unreadCount: 0,
       });
     }
 
     return { code: 200, data: updated, message: "Đã đánh dấu đã đọc" };
+  }
+
+  // [POST] /api/conversations/:id/members — thêm member vào group (chỉ creator)
+  async addMember(
+    conversationId: string,
+    actorUserId: string,
+    body: { memberIds: string[] },
+  ): Promise<ServiceResponse<IConversation>> {
+    const { conv, ok } = await this.loadAndCheckMember(conversationId, actorUserId);
+    if (!conv) return { code: 404, message: "Không tìm thấy hội thoại" };
+    if (!ok) return { code: 403, message: "Bạn không phải thành viên hội thoại này" };
+
+    const actorMember = memberOf(conv, actorUserId);
+    if (!actorMember || actorMember.role !== "admin") {
+      return { code: 403, message: "Chỉ người tạo nhóm mới được thêm thành viên" };
+    }
+    if (conv.type !== "group") {
+      return { code: 400, message: "Chỉ hội thoại nhóm mới được thêm thành viên" };
+    }
+
+    const newMemberIds = (body.memberIds ?? [])
+      .map((id) => String(id))
+      .filter((id) => id && id !== String(actorUserId));
+
+    if (newMemberIds.length === 0) {
+      return { code: 400, message: "Cần chọn ít nhất 1 thành viên để thêm" };
+    }
+
+    // Validate: tồn tại, là nhân viên, cùng nhà hàng với group
+    const targetUsers = await DB_Connection.User.find({ _id: { $in: newMemberIds } })
+      .select("name avatar role restaurantIds restaurant isActive")
+      .exec();
+
+    for (const id of newMemberIds) {
+      const user = targetUsers.find((u: any) => String(u._id) === id);
+      if (!user) {
+        return { code: 400, message: "Có thành viên không tồn tại trong hệ thống" };
+      }
+      if (!isEmployeeUser(user) || !belongsToRestaurant(user, String(conv.restaurantId))) {
+        return { code: 403, message: "Thành viên không thuộc nhà hàng của nhóm này" };
+      }
+    }
+
+    // Kiểm tra trùng
+    const existingMemberIds = new Set(conv.members.map((m) => userIdOf(m)));
+    const duplicateIds = newMemberIds.filter((id) => existingMemberIds.has(id));
+    if (duplicateIds.length > 0) {
+      return { code: 400, message: "Một số thành viên đã có trong nhóm" };
+    }
+
+    const newMembers = newMemberIds.map((id) => ({
+      userId: id as unknown as Types.ObjectId,
+      role: "member" as const,
+      joinedAt: new Date(),
+    }));
+
+    const updated = await conversationRepository.addMembers(conversationId, newMembers);
+    if (!updated) return { code: 500, message: "Lỗi khi thêm thành viên" };
+
+    // Realtime: thông báo tới tất cả member (kể cả người thêm)
+    const io = getIO();
+    const convPlain = toSocketPayload(updated);
+    for (const member of updated.members) {
+      const memberId = userIdOf(member);
+      const baseline = member.lastReadAt ?? member.joinedAt ?? new Date();
+      const unreadCount = await messageRepository.countUnread(
+        conversationId,
+        memberId,
+        baseline,
+      );
+      io.to(`user_${memberId}`).emit("conversation_updated", {
+        conversation: convPlain,
+        unreadCount,
+      });
+    }
+
+    return { code: 200, data: updated, message: "Đã thêm thành viên" };
+  }
+
+  // [DELETE] /api/conversations/:id/members/:userId — gỡ member khỏi group (chỉ creator)
+  async removeMember(
+    conversationId: string,
+    actorUserId: string,
+    targetUserId: string,
+  ): Promise<ServiceResponse<IConversation>> {
+    const { conv, ok } = await this.loadAndCheckMember(conversationId, actorUserId);
+    if (!conv) return { code: 404, message: "Không tìm thấy hội thoại" };
+    if (!ok) return { code: 403, message: "Bạn không phải thành viên hội thoại này" };
+
+    const actorMember = memberOf(conv, actorUserId);
+    if (!actorMember || actorMember.role !== "admin") {
+      return { code: 403, message: "Chỉ người tạo nhóm mới được gỡ thành viên" };
+    }
+    if (conv.type !== "group") {
+      return { code: 400, message: "Chỉ hội thoại nhóm mới được gỡ thành viên" };
+    }
+    if (String(targetUserId) === String(actorUserId)) {
+      return { code: 400, message: "Không thể gỡ chính mình khỏi nhóm" };
+    }
+
+    const updated = await conversationRepository.removeMember(conversationId, targetUserId);
+    if (!updated) return { code: 500, message: "Lỗi khi gỡ thành viên" };
+
+    // Realtime: thông báo tới remaining members
+    const io = getIO();
+    const convPlain = toSocketPayload(updated);
+    for (const member of updated.members) {
+      const memberId = userIdOf(member);
+      const baseline = member.lastReadAt ?? member.joinedAt ?? new Date();
+      const unreadCount = await messageRepository.countUnread(
+        conversationId,
+        memberId,
+        baseline,
+      );
+      io.to(`user_${memberId}`).emit("conversation_updated", {
+        conversation: convPlain,
+        unreadCount,
+      });
+    }
+
+    return { code: 200, data: updated, message: "Đã gỡ thành viên" };
   }
 }
 

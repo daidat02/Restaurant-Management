@@ -57,6 +57,17 @@ export const API_ENDPOINTS = {
       `${API_BASE_URL}/notifications/read-all/${restaurantId}`,
   },
 
+  // --- PHÂN HỆ NHẮN TIN NỘI BỘ (CONVERSATIONS) ---
+  CONVERSATIONS: {
+    BASE: `${API_BASE_URL}/conversations`,
+    MESSAGES: (conversationId: string) =>
+      `${API_BASE_URL}/conversations/${conversationId}/messages`,
+    READ: (conversationId: string) => `${API_BASE_URL}/conversations/${conversationId}/read`,
+    MEMBERS: (conversationId: string) => `${API_BASE_URL}/conversations/${conversationId}/members`,
+    MEMBER: (conversationId: string, userId: string) =>
+      `${API_BASE_URL}/conversations/${conversationId}/members/${userId}`,
+  },
+
   // --- PHÂN HỆ ĐƠN HÀNG (ORDERS) ---
   ORDERS: {
     BASE: `${API_BASE_URL}/orders`,
