@@ -1,9 +1,10 @@
 import { test, expect, type Page } from '@playwright/test';
 import { PASSWORD } from './helpers';
 
-/** Đăng ký chủ mới qua form /auth/owner → tự đăng nhập → vào wizard. */
+/** Đăng ký chủ mới qua auth modal trên landing → tự đăng nhập → vào wizard. */
 async function registerOwner(page: Page, email: string) {
-  await page.goto('/auth/owner');
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Tạo tài khoản', exact: true }).click();
   // Giải thích giá rõ ràng cho người thuê
   await expect(page.getByText(/Miễn phí 30 ngày dùng thử/)).toBeVisible();
 
@@ -11,8 +12,7 @@ async function registerOwner(page: Page, email: string) {
   await page.getByPlaceholder('example@gmail.com').fill(email);
   await page.getByPlaceholder('0123456789').fill('0912345678');
   await page.getByPlaceholder('Tạo mật khẩu').fill(PASSWORD);
-  await page.getByRole('checkbox').check();
-  await page.getByRole('button', { name: 'Tạo Tài Khoản' }).click();
+  await page.getByRole('button', { name: 'Tạo tài khoản chủ nhà hàng' }).click();
 
   // Chuyển thẳng vào wizard tạo nhà hàng đầu tiên (không tính phí, bắt đầu trial)
   // Route /onboarding cấp cao nhất — blank layout (không Sidebar/Header).
@@ -50,10 +50,13 @@ test.describe('T9 — Đăng ký chủ + wizard nhà hàng đầu', () => {
   });
 
   test('link từ trang đăng nhập tới đăng ký chủ nhà hàng', async ({ page }) => {
-    await page.goto('/auth');
-    // LoginForm và SignUpForm cùng nằm trong DOM → cần .first() để chọn button của form đang hiển thị
-    await page.getByRole('button', { name: 'Đăng ký tại đây' }).first().click();
-    await expect(page).toHaveURL(/\/auth\/owner/);
-    await expect(page.getByRole('heading', { name: 'Đăng Ký Chủ Nhà Hàng' })).toBeVisible();
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Đăng nhập' }).first().click();
+    // Trong modal login, "Đăng ký tại đây" chuyển sang tab Chủ nhà hàng
+    await page.getByRole('button', { name: 'Đăng ký tại đây' }).click();
+    await expect(page.getByText(/Miễn phí 30 ngày dùng thử/)).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Tạo tài khoản chủ nhà hàng' }),
+    ).toBeVisible();
   });
 });

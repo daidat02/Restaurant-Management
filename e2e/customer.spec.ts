@@ -52,18 +52,14 @@ test.describe('T12 — Khách tại bàn (scan-to-order)', () => {
   });
 });
 
-test.describe('T12 — Khách delivery (chọn cơ sở X)', () => {
-  test('mở trang chủ → modal chọn cơ sở → chọn X → menu X', async ({ page }) => {
+test.describe('T12 — Khách delivery (landing page)', () => {
+  test('mở trang chủ → landing hiển thị, auth modal mở được', async ({ page }) => {
     await page.goto('/');
-    // Modal chọn cơ sở hiện
-    await expect(page.getByText(/Vui lòng chọn cửa hàng gần bạn nhất/)).toBeVisible({
-      timeout: 15_000,
-    });
-    await page.getByText('NhamNhi Cơ Sở 1').click();
-
-    // Vào menu (SPA navigate — giữ state restaurantSelected), hiển thị món của X
-    await page.getByRole('button', { name: 'Xem toàn bộ menu' }).click();
-    await expect(page.getByText('Cà phê sữa')).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText('Cơm tấm')).not.toBeVisible();
+    // Landing hiển thị đúng (route /auth cũ đã được thay bằng landing + auth modal)
+    await expect(
+      page.getByRole('heading', { name: /Vận hành nhà hàng của bạn trên một nền tảng duy nhất/ }),
+    ).toBeVisible({ timeout: 15_000 });
+    await page.getByRole('button', { name: 'Đăng nhập' }).first().click();
+    await expect(page.getByPlaceholder('quanly@nhahang.vn')).toBeVisible({ timeout: 15_000 });
   });
 });
