@@ -705,7 +705,7 @@ function MobileHeader({
               aria-label="Trở về màn chào khách"
               className="inline-flex items-center gap-1.5 text-xs font-bold text-cerulean-blue-600 hover:text-cerulean-blue-700 transition-colors shrink-0 border border-slate-200 rounded-sm p-2 bg-white shadow-sm active:scale-95"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ArrowLeft className="w-4 h-4" />
               <span className="hidden sm:inline">Trang chủ</span>
             </button>
           )}
