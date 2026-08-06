@@ -14,6 +14,7 @@ import auditLogRoute from '../modules/AuditLogModule/auditLog.routes.js';
 import pricingRoutes from '../modules/SubscriptionModule/pricing.routes.js';
 import subscriptionRoutes from '../modules/SubscriptionModule/subscription.routes.js';
 import superAdminRoutes from '../modules/SuperAdminModule/superAdmin.routes.js';
+import conversationRoutes from '../modules/MessageModule/conversation.routes.js';
 const router = Router();
 
 router.use('/auth', authRoutes);
@@ -31,5 +32,6 @@ router.use('/notifications', notificationRoute);
 router.use('/analytics', analyticsRoute);
 router.use('/settings', settingsRoute);
 router.use('/audit-logs', auditLogRoute);
+router.use('/conversations', conversationRoutes);
 
 export default router;

@@ -342,6 +342,8 @@ export const authenticateToken = async (socket: SocketCustom, next: any) => {
       for (const restaurantId of restaurantIds) {
         socket.join(`restaurant_${restaurantId}`);
       }
+      // Mọi role không phải customer cũng join user_<id> để nhận presence + tin nhắn riêng
+      socket.join(`user_${user._id}`);
     }
 
     return next();
@@ -491,6 +493,13 @@ export const userTenantResolver: ResourceTenantResolver = async (req) => {
 export const restaurantTenantResolver: ResourceTenantResolver = async (req) => {
   const doc = await DB_Connection.Restaurant.findById(req.params.id).select("_id").exec();
   return doc ? String(doc._id) : null;
+};
+
+export const conversationTenantResolver: ResourceTenantResolver = async (req) => {
+  const doc = await DB_Connection.Conversation.findById(req.params.id)
+    .select("restaurantId")
+    .exec();
+  return doc?.restaurantId?.toString?.() ?? null;
 };
 
 export const paymentTenantResolver: ResourceTenantResolver = async (req) => {

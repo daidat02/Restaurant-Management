@@ -85,9 +85,9 @@ export default function SidebarApp({ onOpenSetting, onOpenMessage }: SideBarProp
         { title: 'Thanh Toán & Gói', icon: CreditCard, path: '/admin/billing' },
       ],
       tools: [
+        { title: 'Tin Nhắn', icon: MessageCircle, onClick: () => onOpenMessage() },
         { title: 'Audit Logs', icon: History, path: '/admin/logs' },
         { title: 'Cài Đặt Chung', icon: Settings, onClick: () => onOpenSetting() },
-        { title: 'Tin Nhắn', icon: MessageCircle, onClick: () => onOpenMessage() },
       ],
     },
     manager: {
@@ -101,9 +101,8 @@ export default function SidebarApp({ onOpenSetting, onOpenMessage }: SideBarProp
         { title: 'Nhân Viên', icon: Users, path: '/manager/staff' },
       ],
       tools: [
-        { title: 'Cài Đặt Chung', icon: Settings, onClick: () => onOpenSetting() },
         { title: 'Tin Nhắn', icon: MessageCircle, onClick: () => onOpenMessage() },
-
+        { title: 'Cài Đặt Chung', icon: Settings, onClick: () => onOpenSetting() },
         { title: 'Trợ Giúp', icon: HelpCircle, path: '/manager/help' },
       ],
     },
@@ -115,9 +114,8 @@ export default function SidebarApp({ onOpenSetting, onOpenMessage }: SideBarProp
         { title: 'Lịch Đặt Bàn', icon: CalendarDays, path: '/staff/reservations' },
       ],
       tools: [
-        { title: 'Thông Báo', icon: Bell, path: '/staff/notifications' },
-        { title: 'Cài Đặt Chung', icon: Settings, onClick: () => onOpenSetting() },
         { title: 'Tin Nhắn', icon: MessageCircle, onClick: () => onOpenMessage() },
+        { title: 'Cài Đặt Chung', icon: Settings, onClick: () => onOpenSetting() },
       ],
     },
   };
