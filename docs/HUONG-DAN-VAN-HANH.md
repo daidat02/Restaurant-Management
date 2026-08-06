@@ -123,6 +123,14 @@ Script sẽ:
 - **Audit log** (`/super-admin/audit`): nhật ký sự kiện subscription/thanh toán/khoá.
 - Không còn màn hình vận hành nhà hàng (menu/đơn/bàn, đổi gói Free/Pro, nút Crown) — đã loại bỏ khi chuyển sang mô hình SaaS.
 
+### 4.6b. Chat nội bộ (Messaging — staff/manager/admin)
+
+- **Hộp thư:** icon thư trên Header (mọi layout admin/manager/staff) mở `MailBoxPopover` — danh sách hội thoại, badge tin chưa đọc, trạng thái online của member.
+- **Hội thoại:** chat **1-1** (giữa staff/manager/admin cùng chuỗi) và **nhóm** (chỉ manager/admin tạo; manager/admin thêm/gỡ thành viên — nút "Thêm thành viên" ở header group).
+- **Realtime:** tin nhắn gửi qua socket (`send_message`) hiện ngay lập tức (optimistic + ack thay tin thật), kèm typing indicator; thay đổi hội thoại (tên, lastMessage, memberCount, đã đọc) tự đồng bộ qua `conversation_updated`.
+- **Phân quyền dữ liệu:** user chỉ thấy hội thoại thuộc chuỗi nhà hàng mình thuộc (`restaurantIds`); chat group gắn đúng `restaurantId`.
+- Test: `server/src/test/message.test.ts` (27 tests) + `e2e/messaging.spec.ts`.
+
 ### 4.6. Khách hàng (Website)
 
 - **Trang chủ** (`/`): hero, danh mục món, menu nổi bật, footer (địa chỉ, hotline, giờ mở cửa). Nút **"Chọn cơ sở"** để đổi chi nhánh.
@@ -205,7 +213,7 @@ Script sẽ:
 
 ### 8.1. Verify redesign vai trò admin quản toàn chuỗi (T01–T10) — E2E + server test
 
-> Tương ứng từng ticket redesign: **server test** 207 tests / 27 files (`npm --prefix server test`), **E2E** 39 tests / 3 skipped (`npm run test:e2e` ở root), **build** `tsc` server + `tsc -b && vite build` client đều xanh.
+> Tương ứng từng ticket redesign: **server test** 257 tests / 30 files (`npm --prefix server test`), **E2E** 39 tests / 3 skipped (`npm run test:e2e` ở root), **build** `tsc` server + `tsc -b && vite build` client đều xanh.
 
 | # | Hạng mục | Test |
 |---|---|---|
