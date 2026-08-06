@@ -27,14 +27,6 @@ opencode.json
 .opencode/
 graphify-out/
 .scratch/
-!.scratch/multi-tenant-refactor/
-!.scratch/multi-tenant-refactor/**
-!.scratch/saas-mvp/
-!.scratch/saas-mvp/**
-!.scratch/admin-role-redesign/
-!.scratch/admin-role-redesign/**
-!.scratch/messaging/
-!.scratch/messaging/**
 .playwright-mcp/
 learning-records/
 # Planning
