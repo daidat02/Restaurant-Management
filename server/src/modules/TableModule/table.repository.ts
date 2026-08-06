@@ -26,6 +26,17 @@ class TableRepository {
   }
 
   /**
+   * Tìm Table bằng ID + populate thông tin nhà hàng (name, address, phone, logoUrl).
+   * CHỈ dùng cho luồng công khai GET /tables/:id (màn chào khách scan-to-order),
+   * không dùng chung với logic order/update vì sẽ biến restaurant thành object.
+   */
+  async findTableByIdWithRestaurant(id: string): Promise<ITableDocument | null> {
+    return await DB_Connection.Table.findById(id)
+      .populate('restaurant', 'name address phone logoUrl')
+      .exec();
+  }
+
+  /**
    * Cập nhật thông tin chi tiết hoặc trạng thái bàn ăn
    * FIX: Loại bỏ việc gọi .save() sau findByIdAndUpdate gây lỗi và chậm hệ thống
    */

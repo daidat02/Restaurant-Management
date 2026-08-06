@@ -2,10 +2,15 @@ import { test, expect } from '@playwright/test';
 import { apiLogin, SEED_IDS, API_BASE, USERS } from './helpers';
 
 test.describe('T12 — Khách tại bàn (scan-to-order)', () => {
-  test('mở QR scan-to-order cơ sở X → hiển thị bàn + menu X', async ({ page }) => {
+  test('mở QR scan-to-order cơ sở X → màn chào khách → menu X', async ({ page }) => {
     await page.goto(
       `/scan-to-order?restaurantId=${SEED_IDS.tenantX}&tableId=${SEED_IDS.tableX2}`,
     );
+    // Màn chào khách hiển thị (nút chính Xem Menu - Gọi món)
+    await expect(page.getByRole('button', { name: /Xem Menu - Gọi món/ })).toBeVisible({
+      timeout: 15_000,
+    });
+    await page.getByRole('button', { name: /Xem Menu - Gọi món/ }).click();
     // Bàn số hiển thị
     await expect(page.getByText(/Bàn số:/)).toBeVisible({ timeout: 15_000 });
     // Menu cơ sở X
@@ -36,11 +41,14 @@ test.describe('T12 — Khách tại bàn (scan-to-order)', () => {
     await page.goto(
       `/scan-to-order?restaurantId=${SEED_IDS.tenantX}&tableId=${table._id}`,
     );
+    await expect(page.getByRole('button', { name: /Xem Menu - Gọi món/ })).toBeVisible({
+      timeout: 15_000,
+    });
+    await page.getByRole('button', { name: /Xem Menu - Gọi món/ }).click();
     await expect(page.getByText('Cà phê sữa')).toBeVisible({ timeout: 15_000 });
 
-    // Thêm 1 món vào giỏ
-    const row = page.getByText('Cà phê sữa').locator('xpath=ancestor::div[contains(@class,"p-3")]').first();
-    await row.getByRole('button', { name: 'Add +' }).click();
+    // Thêm 1 món vào giỏ (nút add tròn có aria-label "Thêm món <tên>")
+    await page.getByRole('button', { name: 'Thêm món Cà phê sữa' }).click();
 
     // Chốt đơn bàn
     await page.getByRole('button', { name: /Xác nhận gửi đơn/ }).click();
