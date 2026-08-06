@@ -18,6 +18,9 @@ import {
   Star,
   UtensilsCrossed,
   Store,
+  X,
+  ChevronDown,
+  ChevronLeft,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useMenu } from '@/hooks/use-menu';
@@ -70,6 +73,20 @@ export default function CartPage() {
   const [isCartDrawerOpen, setIsCartDrawerOpen] = useState<boolean>(false);
   const [isStatusDrawerOpen, setIsStatusDrawerOpen] = useState<boolean>(false);
 
+  // Drawer chi tiết món ăn (mở khi click vào card)
+  const [selectedFood, setSelectedFood] = useState<IMenuItem | null>(null);
+  const [isItemDetailOpen, setIsItemDetailOpen] = useState<boolean>(false);
+
+  const openItemDetail = (food: IMenuItem) => {
+    setSelectedFood(food);
+    setIsItemDetailOpen(true);
+  };
+
+  const closeItemDetail = () => {
+    setIsItemDetailOpen(false);
+    setSelectedFood(null);
+  };
+
   // Đơn hàng thực tế đã gửi xuống nhà bếp thành công
   const [activeOrder, setActiveOrder] = useState<any>(currentOrder || null);
 
@@ -109,7 +126,8 @@ export default function CartPage() {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return items || [];
     return (items || []).filter(
-      (food) => food.name.toLowerCase().includes(q) || (food.description || '').toLowerCase().includes(q),
+      (food) =>
+        food.name.toLowerCase().includes(q) || (food.description || '').toLowerCase().includes(q),
     );
   }, [items, searchQuery]);
 
@@ -266,6 +284,7 @@ export default function CartPage() {
           activeTab={activeTab}
           setActiveTab={setActiveTab}
           onBack={() => navigate(-1)}
+          onBackToWelcome={() => setShowWelcome(true)}
           tableNumber={currentTable?.tableNumber || null}
           activeOrder={activeOrder}
           restaurantName={restaurantInfo?.name || ''}
@@ -309,6 +328,7 @@ export default function CartPage() {
                     cartItem={cartItems?.find((i) => i.food._id === food._id)}
                     onAddToCart={handleAddToCart}
                     onQuantityChange={handleQuantityChange}
+                    onOpenDetail={() => openItemDetail(food)}
                   />
                 ))}
               </div>
@@ -366,9 +386,9 @@ export default function CartPage() {
             onClick={() => {
               setIsStatusDrawerOpen(true);
             }}
-            className="flex-1 flex items-center justify-center gap-1.5 bg-gray-950 text-white rounded-xl p-4 shadow-xl font-bold text-xs uppercase active:scale-95 transition-all"
+            className="flex-1 flex items-center justify-center gap-1.5 bg-white border border-slate-200 text-slate-700 rounded-xl p-4 shadow-xl font-bold text-xs uppercase active:scale-95 transition-all"
           >
-            <Clock className="w-4 h-4 text-cerulean-blue-400" />
+            <Clock className="w-4 h-4 text-cerulean-blue-500" />
             <span>Món Đã Gọi</span>
           </button>
         )}
@@ -402,40 +422,100 @@ export default function CartPage() {
         )}
       </div>
 
-      {/* SIDE DRAWER 1: GIỎ HÀNG THÊM MÓN TRÊN MOBILE */}
+      {/* SIDE DRAWER 1: GIỎ HÀNG THÊM MÓN — BOTTOM SHEET FULL MÀN HÌNH MOBILE */}
       <SideDrawer
         isOpen={isCartDrawerOpen}
         onClose={() => setIsCartDrawerOpen(false)}
-        className="!w-[85vw] !max-w-[440px] overflow-hidden"
+        side="bottom"
         isHeaderless={true}
+        className="!w-full !max-w-full !h-[100dvh] overflow-hidden !rounded-none lg:!max-w-lg lg:!h-[85vh] lg:mx-auto lg:!rounded-t-3xl overscroll-contain touch-manipulation"
       >
-        <div className="h-full mt-[10%] p-3 flex flex-col justify-between overflow-hidden">
-          <OrderSummary
-            cartItems={cartItems}
-            subtotal={subtotal}
-            onQuantityChange={handleQuantityChange}
-            onCheckout={handleCheckoutSubmit}
-            tableNumber={currentTable?.tableNumber || null}
-            isInsideDrawer={true}
-            activeOrder={activeOrder}
-          />
+        <div className="flex flex-col h-full">
+          {/* Header drawer: nút back + tiêu đề */}
+          <div className="flex items-center gap-3 px-4 py-3.5 border-b border-slate-100 shrink-0">
+            <button
+              onClick={() => setIsCartDrawerOpen(false)}
+              aria-label="Đóng giỏ hàng"
+              className="flex items-center justify-center w-8 h-8 rounded-sm bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 active:scale-90 transition-all"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <span className="text-xs font-black text-gray-900">
+              {activeOrder ? 'Giỏ món thêm' : 'Giỏ hàng'}
+            </span>
+            <span className="ml-auto text-[10px] font-bold text-slate-400 bg-slate-50 border border-slate-100 px-2 py-1 rounded-md">
+              {totalItemsCount} món
+            </span>
+          </div>
+
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <OrderSummary
+              cartItems={cartItems}
+              subtotal={subtotal}
+              onQuantityChange={handleQuantityChange}
+              onCheckout={handleCheckoutSubmit}
+              tableNumber={currentTable?.tableNumber || null}
+              isInsideDrawer={true}
+              activeOrder={activeOrder}
+            />
+          </div>
         </div>
       </SideDrawer>
 
-      {/* SIDE DRAWER 2: TRẠNG THÁI ĐƠN HÀNG/MÓN ĂN & THANH TOÁN TRÊN MOBILE */}
+      {/* SIDE DRAWER 2: TRẠNG THÁI ĐƠN HÀNG/MÓN ĂN — BOTTOM SHEET FULL MÀN HÌNH MOBILE */}
       <SideDrawer
         isOpen={isStatusDrawerOpen}
         onClose={() => setIsStatusDrawerOpen(false)}
-        className="!w-[85vw] !max-w-[440px] overflow-hidden"
+        side="bottom"
         isHeaderless={true}
+        className="!w-full !max-w-full !h-[100dvh] overflow-hidden !rounded-none lg:!max-w-lg lg:!h-[85vh] lg:mx-auto lg:!rounded-t-3xl overscroll-contain touch-manipulation"
       >
-        <div className="h-[95vh] mt-[10%] p-3 flex flex-col justify-between overflow-hidden">
-          <ActiveOrderStatus
-            activeOrder={currentOrder}
-            tableNumber={currentTable?.tableNumber || tableId}
-            onPaymentRequest={handlePaymentRequest}
-          />
+        <div className="flex flex-col h-full">
+          {/* Header drawer: nút back + tiêu đề */}
+          <div className="flex items-center gap-3 px-4 py-3.5 border-b border-slate-100 shrink-0">
+            <button
+              onClick={() => setIsStatusDrawerOpen(false)}
+              aria-label="Đóng danh sách món đã gọi"
+              className="flex items-center justify-center w-8 h-8 rounded-sm bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 active:scale-90 transition-all"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <span className="text-xs font-black text-gray-900">Món Đã Gọi</span>
+
+            {activeOrder && (
+              <span className="ml-auto text-[10px] bg-emerald-50 text-emerald-600 border border-emerald-100 px-2 py-0.5 font-bold rounded">
+                ● Đang phục vụ - Bàn {currentTable?.tableNumber || tableId}
+              </span>
+            )}
+          </div>
+
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <ActiveOrderStatus
+              activeOrder={currentOrder}
+              tableNumber={currentTable?.tableNumber || tableId}
+              onPaymentRequest={handlePaymentRequest}
+            />
+          </div>
         </div>
+      </SideDrawer>
+
+      {/* DRAWER CHI TIẾT MÓN ĂN — BOTTOM SHEET FULL MÀN HÌNH MOBILE */}
+      <SideDrawer
+        isOpen={isItemDetailOpen}
+        onClose={closeItemDetail}
+        side="bottom"
+        isHeaderless={true}
+        className="!w-full !max-w-full !h-[100dvh] overflow-hidden !rounded-none lg:!max-w-lg lg:!h-[85vh] lg:mx-auto lg:!rounded-t-3xl overscroll-contain touch-manipulation"
+      >
+        {selectedFood && (
+          <ItemDetailSheet
+            food={selectedFood}
+            cartItem={cartItems?.find((i) => i.food._id === selectedFood._id)}
+            onClose={closeItemDetail}
+            onAddToCart={handleAddToCart}
+            onQuantityChange={handleQuantityChange}
+          />
+        )}
       </SideDrawer>
     </div>
   );
@@ -562,7 +642,9 @@ function WelcomeScreen({
                 className="flex items-center justify-center sm:flex-col gap-2.5 sm:gap-1.5 rounded-2xl border border-slate-200 bg-white px-4 py-3 sm:py-3.5 transition-all hover:border-amber-200 hover:bg-amber-50 active:scale-95"
               >
                 <Star className="w-5 h-5 shrink-0 text-amber-500" />
-                <span className="text-[10px] sm:text-[11px] font-bold text-slate-600">Đánh giá</span>
+                <span className="text-[10px] sm:text-[11px] font-bold text-slate-600">
+                  Đánh giá
+                </span>
               </button>
             </div>
 
@@ -595,6 +677,7 @@ interface MobileHeaderProps {
   activeTab: string;
   setActiveTab: (id: string) => void;
   onBack: () => void;
+  onBackToWelcome: () => void;
   tableNumber: number | null;
   activeOrder: any;
   restaurantName?: string;
@@ -606,6 +689,7 @@ function MobileHeader({
   activeTab,
   setActiveTab,
   onBack,
+  onBackToWelcome,
   tableNumber,
   activeOrder,
   restaurantName,
@@ -613,17 +697,16 @@ function MobileHeader({
 }: MobileHeaderProps) {
   return (
     <div className="flex flex-col gap-4 mb-6 sticky top-0 bg-white/95 backdrop-blur-md z-40 py-2 border-b border-slate-100 lg:border-none lg:static lg:bg-transparent lg:py-0">
-      <div
-        className={`flex items-center  ${tableNumber ? 'justify-between' : 'justify-between'}`}
-      >
+      <div className={`flex items-center  ${tableNumber ? 'justify-between' : 'justify-between'}`}>
         <div className="flex items-center gap-2 min-w-0">
-          {!tableNumber && (
+          {tableNumber && (
             <button
-              onClick={onBack}
-              className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-gray-900 transition-colors group"
+              onClick={onBackToWelcome}
+              aria-label="Trở về màn chào khách"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-cerulean-blue-600 hover:text-cerulean-blue-700 transition-colors shrink-0 border border-slate-200 rounded-sm p-2 bg-white shadow-sm active:scale-95"
             >
-              <ArrowLeft className="w-4 h-4 transform group-hover:-translate-x-0.5 transition-transform" />
-              <span>Thực đơn chính</span>
+              <ChevronLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Trang chủ</span>
             </button>
           )}
           {tableNumber && restaurantName && (
@@ -638,6 +721,15 @@ function MobileHeader({
               )}
             </div>
           )}
+          {!tableNumber && (
+            <button
+              onClick={onBack}
+              className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-gray-900 transition-colors group"
+            >
+              <ArrowLeft className="w-4 h-4 transform group-hover:-translate-x-0.5 transition-transform" />
+              <span>Thực đơn chính</span>
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {activeOrder && (
@@ -647,7 +739,8 @@ function MobileHeader({
           )}
           {tableNumber !== null && (
             <div className="text-xs font-black text-gray-900">
-              Bàn số: <span className="text-cerulean-blue-600 font-mono text-sm">{tableNumber}</span>
+              Bàn số:{' '}
+              <span className="text-cerulean-blue-600 font-mono text-sm">{tableNumber}</span>
             </div>
           )}
         </div>
@@ -695,26 +788,15 @@ function SidebarMenu({ menuTabs, activeTab, setActiveTab }: any) {
   );
 }
 
-function FoodRow({ food, cartItem, onAddToCart, onQuantityChange }: any) {
+function FoodRow({ food, cartItem, onAddToCart, onQuantityChange, onOpenDetail }: any) {
   const soldOut = food?.isAvailable === false;
 
   return (
-    <div className="bg-white rounded-xl border border-slate-100 p-3.5 shadow-[0_4px_20px_rgba(0,0,0,0.01)] hover:border-slate-200 transition-all flex gap-4 items-start">
-      <div className="flex-1 space-y-1 min-w-0">
-        <div className="space-y-0.5">
-          <span className="text-[8px] font-extrabold text-cerulean-blue-600 uppercase tracking-wider bg-cerulean-blue-50 px-1 py-0.5 rounded">
-            {extractId(food.category, 'name')}
-          </span>
-          <h3 className="font-extrabold text-xs lg:text-sm text-gray-900 tracking-tight leading-snug truncate pt-0.5">
-            {food.name}
-          </h3>
-        </div>
-        <p className="text-xs font-black text-gray-950">{food.price.toLocaleString('vi-VN')} đ</p>
-        <p className="text-[10px] text-slate-400 font-light leading-relaxed line-clamp-2 pr-2">
-          {food.description}
-        </p>
-      </div>
-
+    <div
+      onClick={onOpenDetail}
+      className="bg-white rounded-xl border border-slate-100 p-3 shadow-[0_4px_20px_rgba(0,0,0,0.01)] hover:border-slate-200 transition-all flex gap-3.5 cursor-pointer active:bg-slate-50/60 relative"
+    >
+      {/* Ảnh món nằm bên TRÁI */}
       <div className="relative flex-shrink-0 w-20 h-20 lg:w-24 lg:h-24 rounded-lg overflow-hidden bg-gray-50 border border-slate-100 self-center">
         <img
           src={
@@ -725,38 +807,66 @@ function FoodRow({ food, cartItem, onAddToCart, onQuantityChange }: any) {
           alt={food.name}
           className={`w-full h-full text-[10px] object-cover ${soldOut ? 'grayscale opacity-60' : ''}`}
         />
-
-        {/* Nút add tròn nhỏ gọn trên ảnh (theo iPOS) */}
-        {soldOut ? (
+        {soldOut && (
           <div className="absolute inset-x-0 bottom-0 bg-gray-950/80 text-white text-[9px] font-bold text-center py-1">
             Đã bán hết
           </div>
-        ) : !cartItem ? (
+        )}
+      </div>
+
+      {/* Thông tin món nằm bên PHẢI */}
+      <div className="flex-1 min-w-0 space-y-1 pt-0.5 pr-10">
+        <div className="space-y-0.5">
+          <span className="text-[8px] font-extrabold text-cerulean-blue-600 uppercase tracking-wider bg-cerulean-blue-50 px-1 py-0.5 rounded">
+            {extractId(food.category, 'name')}
+          </span>
+          <h3 className="font-extrabold text-xs lg:text-sm text-gray-900 tracking-tight leading-snug truncate pt-0.5">
+            {food.name}
+          </h3>
+        </div>
+        <p className="text-xs font-black text-gray-950">{food.price.toLocaleString('vi-VN')} đ</p>
+        <p className="text-[10px] text-slate-400 font-light leading-relaxed line-clamp-2">
+          {food.description}
+        </p>
+      </div>
+
+      {/* Nút add/stepper nằm ở góc dưới bên PHẢI của card (không nằm trên ảnh) */}
+      <div className="absolute bottom-3 right-3 flex-shrink-0">
+        {soldOut ? null : !cartItem ? (
           <button
-            onClick={() => onAddToCart(food)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddToCart(food);
+            }}
             aria-label={`Thêm món ${food.name}`}
-            className="absolute bottom-1.5 right-1.5 flex items-center justify-center w-8 h-8 rounded-full bg-white text-cerulean-blue-600 shadow-lg border border-slate-100 transition-all hover:bg-cerulean-blue-600 hover:text-white hover:border-cerulean-blue-600 active:scale-90"
+            className="flex items-center justify-center w-6 h-6 rounded-full bg-cerulean-blue-600 text-white shadow-lg shadow-cerulean-blue-200 transition-all hover:bg-cerulean-blue-700 active:scale-90"
           >
             <Plus className="w-4 h-4" />
           </button>
         ) : (
-          <div className="absolute bottom-1.5 right-1.5 bg-white border border-slate-200 text-gray-800 font-bold text-xs py-1 rounded-full shadow-lg flex items-center justify-between px-1 gap-1">
+          <div className="bg-white border border-slate-200 text-gray-800 font-bold text-xs rounded-full shadow-lg flex items-center justify-between p-0.5 gap-0.5">
             <button
-              onClick={() => onQuantityChange(food._id, -1)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onQuantityChange(food._id, -1);
+              }}
               aria-label={`Giảm số lượng ${food.name}`}
-              className="p-0.5 hover:bg-slate-50 rounded-full text-slate-400"
+              className="flex items-center justify-center w-6 h-6 rounded-lg text-slate-400 hover:bg-slate-100 active:scale-90 transition-all"
             >
-              <Minus className="w-2.5 h-2.5" />
+              <Minus className="w-3.5 h-3.5" />
             </button>
-            <span className="font-black text-[9px] text-cerulean-blue-600 w-3 text-center select-none">
+            <span className="font-black text-[10px] text-cerulean-blue-600 w-4 text-center select-none">
               {cartItem.quantity}
             </span>
             <button
-              onClick={() => onQuantityChange(food._id, 1)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onQuantityChange(food._id, 1);
+              }}
               aria-label={`Tăng số lượng ${food.name}`}
-              className="p-0.5 hover:bg-slate-50 rounded-full text-slate-400"
+              className="flex items-center justify-center w-6 h-6 rounded-lg text-slate-400 hover:bg-slate-100 active:scale-90 transition-all"
             >
-              <Plus className="w-2.5 h-2.5" />
+              <Plus className="w-3.5 h-3.5" />
             </button>
           </div>
         )}
@@ -786,24 +896,26 @@ function OrderSummary({
 }: OrderSummaryProps) {
   return (
     <aside
-      className={`bg-white flex flex-col h-[95%] ${isInsideDrawer ? 'p-0 shadow-none border-none' : 'p-5 border border-slate-100 shadow-[0_8px_30px_rgba(0,0,0,0.02)] rounded-2xl'}`}
+      className={`bg-white flex flex-col h-full ${isInsideDrawer ? 'p-3 shadow-none border-none' : 'p-5 border border-slate-100 shadow-[0_8px_30px_rgba(0,0,0,0.02)] rounded-2xl'}`}
     >
-      {/* HEADER GIỎ HÀNG */}
-      <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100 flex-shrink-0">
-        <div className="flex items-center gap-2 text-sm font-black tracking-tight text-gray-900">
-          <ShoppingBag className="w-4 h-4 text-gray-900" />
-          <span>
-            {activeOrder
-              ? 'Gọi thêm món mới'
-              : tableNumber
-                ? `Giỏ hàng Bàn ${tableNumber}`
-                : 'Giỏ hàng giao tận nơi'}
+      {/* HEADER GIỎ HÀNG — ẩn khi ở trong drawer để drawer tự có header với nút back */}
+      {!isInsideDrawer && (
+        <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100 flex-shrink-0">
+          <div className="flex items-center gap-2 text-sm font-black tracking-tight text-gray-900">
+            <ShoppingBag className="w-4 h-4 text-gray-900" />
+            <span>
+              {activeOrder
+                ? 'Gọi thêm món mới'
+                : tableNumber
+                  ? `Giỏ hàng Bàn ${tableNumber}`
+                  : 'Giỏ hàng giao tận nơi'}
+            </span>
+          </div>
+          <span className="text-[11px] font-bold text-cerulean-blue-700 bg-cerulean-blue-50 px-2.5 py-1 rounded-md">
+            {cartItems?.reduce((acc, item) => acc + (item?.quantity || 0), 0)} món chọn thêm
           </span>
         </div>
-        <span className="text-[11px] font-bold text-cerulean-blue-700 bg-cerulean-blue-50 px-2.5 py-1 rounded-md">
-          {cartItems?.reduce((acc, item) => acc + (item?.quantity || 0), 0)} món chọn thêm
-        </span>
-      </div>
+      )}
 
       {/* DANH SÁCH MÓN ĂN - CHỈ CHO PHÉP SCROLL Ở ĐÂY */}
       <div className="flex-1 overflow-y-auto pr-1 no-scrollbar space-y-3 min-h-0">
@@ -829,21 +941,23 @@ function OrderSummary({
 
               <div className="flex items-center justify-between pt-1 border-t border-slate-100/40">
                 <span className="text-[10px] text-slate-400 font-medium">Số lượng đặt:</span>
-                <div className="flex items-center gap-1.5 bg-white border border-slate-200/80 rounded-md p-0.5 shadow-sm">
+                <div className="flex items-center gap-1.5 bg-white border border-slate-200/80 rounded-lg p-1 shadow-sm">
                   <button
                     onClick={() => onQuantityChange(item.food._id, -1)}
-                    className="p-1 text-slate-400"
+                    aria-label={`Giảm số lượng ${item.food.name}`}
+                    className="flex items-center justify-center w-5 h-5 rounded-full text-slate-400 hover:bg-slate-100 active:scale-90 transition-all"
                   >
-                    <Minus className="w-2.5 h-2.5" />
+                    <Minus className="w-3.5 h-3.5" />
                   </button>
                   <span className="font-bold text-xs text-gray-800 w-5 text-center">
                     {item.quantity || 0}
                   </span>
                   <button
                     onClick={() => onQuantityChange(item.food._id, 1)}
-                    className="p-1 text-slate-400"
+                    aria-label={`Tăng số lượng ${item.food.name}`}
+                    className="flex items-center justify-center w-5 h-5 rounded-full text-slate-400 hover:bg-slate-100 active:scale-90 transition-all"
                   >
-                    <Plus className="w-2.5 h-2.5" />
+                    <Plus className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
@@ -927,17 +1041,11 @@ function ActiveOrderStatus({ activeOrder, tableNumber, onPaymentRequest }: Activ
   };
 
   return (
-    <div className="bg-white flex flex-col h-full">
+    <div className="bg-white flex flex-col h-full p-3">
       {/* Header trạng thái */}
-      <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100 flex-shrink-0">
-        <div className="flex items-center gap-2 text-sm font-black tracking-tight text-gray-900">
-          <Clock className="w-4 h-4 text-cerulean-blue-600" />
-          <span>Danh sách món đã gọi - Bàn {tableNumber}</span>
-        </div>
-      </div>
 
       {/* Danh sách các món ăn đã order trong bếp - Chỉ scroll ở đây */}
-      <div className="flex-1 overflow-y-auto pr-1 no-scrollbar space-y-3 min-h-0">
+      <div className="flex-1 overflow-y-auto pr-1 no-scrollbar space-y-3 min-h-0 pb-2">
         {activeOrder.items?.map((item: any, index: number) => {
           // Lấy cấu hình trạng thái hiện tại dựa vào item.status từ backend gửi về
           // Nếu không khớp trạng thái nào, mặc định hiển thị theo 'pending'
@@ -951,7 +1059,7 @@ function ActiveOrderStatus({ activeOrder, tableNumber, onPaymentRequest }: Activ
               <div className="min-w-0 flex-1">
                 <h4 className="text-xs font-bold text-gray-900 truncate">{item?.nameSnapshot}</h4>
                 <p className="text-[10px] text-slate-400 font-medium mt-0.5">
-                  Số lượng đặt:{' '}
+                  Số lượng đặt:{item.quantity}
                   <span className="text-gray-900 font-mono font-bold">{item.quantity}</span>
                 </p>
               </div>
@@ -988,6 +1096,129 @@ function ActiveOrderStatus({ activeOrder, tableNumber, onPaymentRequest }: Activ
           <Receipt className="w-4 h-4" />
           <span>Yêu cầu thanh toán tại bàn</span>
         </button>
+      </div>
+    </div>
+  );
+}
+
+// COMPONENT DRAWER CHI TIẾT MÓN ĂN — BOTTOM SHEET
+interface ItemDetailSheetProps {
+  food: IMenuItem;
+  cartItem?: any;
+  onClose: () => void;
+  onAddToCart: (food: IMenuItem) => void;
+  onQuantityChange: (id: string, delta: number) => void;
+}
+
+function ItemDetailSheet({
+  food,
+  cartItem,
+  onClose,
+  onAddToCart,
+  onQuantityChange,
+}: ItemDetailSheetProps) {
+  const soldOut = food?.isAvailable === false;
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header drawer: nút back + tiêu đề */}
+      <div className="flex items-center gap-3 px-4 py-3.5 border-b border-slate-100 shrink-0">
+        <button
+          onClick={onClose}
+          aria-label="Đóng chi tiết món"
+          className="flex items-center justify-center w-8 h-8 rounded-sm bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 active:scale-90 transition-all"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <span className="text-xs font-black text-gray-900">Chi tiết món</span>
+      </div>
+
+      {/* Nội dung chi tiết */}
+      <div className="flex-1 overflow-y-auto min-h-0 no-scrollbar">
+        {/* Ảnh lớn */}
+        <div className="relative w-full aspect-[16/9] bg-slate-50">
+          <img
+            src={
+              food?.imageUrl && food.imageUrl.length > 0
+                ? food.imageUrl[0].url
+                : 'https://placehold.co/800x450/f8f9fc/a3a8bf?text=No+Image'
+            }
+            alt={food.name}
+            className={`w-full h-full object-cover ${soldOut ? 'grayscale opacity-60' : ''}`}
+          />
+          {soldOut && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-950/40">
+              <span className="bg-gray-950/80 text-white text-xs font-black px-3 py-1.5 rounded-full">
+                Đã bán hết
+              </span>
+            </div>
+          )}
+        </div>
+
+        <div className="px-5 py-5 space-y-4">
+          <div className="space-y-1.5">
+            <span className="text-[9px] font-extrabold text-cerulean-blue-600 uppercase tracking-wider bg-cerulean-blue-50 px-1.5 py-0.5 rounded">
+              {extractId(food.category, 'name')}
+            </span>
+            <h2 className="text-lg font-black text-gray-900 tracking-tight leading-snug">
+              {food.name}
+            </h2>
+            <p className="text-2xl font-black text-cerulean-blue-700 tracking-tighter">
+              {food.price.toLocaleString('vi-VN')} đ
+            </p>
+          </div>
+
+          {food.description && (
+            <div className="space-y-1">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                Mô tả
+              </p>
+              <p className="text-sm text-slate-500 font-medium leading-relaxed">
+                {food.description}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Nút thêm vào giỏ cố định dưới cùng */}
+      <div className="px-4 py-4 border-t border-slate-100 flex-shrink-0 bg-white space-y-2">
+        {soldOut ? (
+          <div className="w-full text-center text-xs font-black text-slate-400 py-3.5 bg-slate-50 rounded-xl uppercase tracking-wider">
+            Món này hiện đã bán hết
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4  p-3">
+                <button
+                  onClick={() => onQuantityChange(food._id, -1)}
+                  disabled={!cartItem}
+                  className="flex items-center justify-center w-11 h-11 rounded-lg border border-slate-500 text-slate-500 disabled:opacity-40 active:scale-90 transition-all"
+                  aria-label={`Giảm số lượng ${food.name}`}
+                >
+                  <Minus className="w-3.5 h-3.5" />
+                </button>
+                <span className=" text-gray-900 w-6 text-center select-none">
+                  {cartItem?.quantity || 0}
+                </span>
+                <button
+                  onClick={() => onQuantityChange(food._id, 1)}
+                  className="flex items-center justify-center w-11 h-11 rounded-lg bg-cerulean-blue-100  border border-cerulean-600 text-slate-500 active:scale-90 transition-all"
+                  aria-label={`Tăng số lượng ${food.name}`}
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <button
+                onClick={() => onAddToCart(food)}
+                className="w-full flex items-center justify-center gap-2 rounded-lg bg-cerulean-blue-600 hover:bg-cerulean-blue-700 text-white font-black text-sm py-3.5 tracking-wide uppercase transition-all shadow-md active:scale-[0.99]"
+              >
+                Thêm vào giỏ
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
