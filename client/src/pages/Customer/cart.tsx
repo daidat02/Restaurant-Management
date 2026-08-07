@@ -705,7 +705,7 @@ function MobileHeader({
               aria-label="Trở về màn chào khách"
               className="inline-flex items-center gap-1.5 text-xs font-bold text-cerulean-blue-600 hover:text-cerulean-blue-700 transition-colors shrink-0 border border-slate-200 rounded-sm p-2 bg-white shadow-sm active:scale-95"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ChevronLeft className="w-4 h-4" />
               <span className="hidden sm:inline">Trang chủ</span>
             </button>
           )}
@@ -1059,7 +1059,7 @@ function ActiveOrderStatus({ activeOrder, tableNumber, onPaymentRequest }: Activ
               <div className="min-w-0 flex-1">
                 <h4 className="text-xs font-bold text-gray-900 truncate">{item?.nameSnapshot}</h4>
                 <p className="text-[10px] text-slate-400 font-medium mt-0.5">
-                  Số lượng đặt:{item.quantity}
+                  Số lượng đặt:{''}
                   <span className="text-gray-900 font-mono font-bold">{item.quantity}</span>
                 </p>
               </div>
