@@ -15,6 +15,11 @@ server/build/
 # Screenshot kiểm chứng redesign
 *-redesign-full.png
 
+# Preview tham khảo (không phải mã nguồn)
+admin-preview/
+dashboard-preview.html
+order-detail-orders.png
+
 # Playwright
 test-results/
 playwright-report/

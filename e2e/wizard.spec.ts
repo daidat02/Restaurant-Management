@@ -16,7 +16,7 @@ test.describe('T07 — Wizard onboarding 4 bước', () => {
     // Login UI → guard đưa owner chưa có nhà hàng vào thẳng /onboarding (blank layout — ticket 04)
     await login(page, ownerEmail);
     await expect(page).toHaveURL(/\/onboarding/, { timeout: 15_000 });
-    await expect(page.getByRole('heading', { name: 'Khởi tạo cơ sở mới' })).toBeVisible();
+    await expect(page.getByText('Khởi tạo cơ sở mới')).toBeVisible();
 
     // B1 — thông tin nhà hàng
     await page.getByPlaceholder(/VD: NhamNhi/).fill(tenantName);
@@ -26,13 +26,13 @@ test.describe('T07 — Wizard onboarding 4 bước', () => {
     await page.getByRole('button', { name: /Tạo nhà hàng & tiếp tục/ }).click();
 
     // B2 — cấu hình cơ sở (mã bếp 6 số hiển thị)
-    await expect(page.getByText('Cấu hình cơ sở')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('heading', { name: 'Cấu hình cơ sở' })).toBeVisible({ timeout: 15_000 });
     await page.getByRole('button', { name: /Khởi tạo cấu hình & sinh mã bếp/ }).click();
     await expect(page.getByText(/^\d{6}$/)).toBeVisible({ timeout: 15_000 });
     await page.getByRole('button', { name: /Tiếp tục tạo nhân sự/ }).click();
 
     // B3 — tạo 1 manager
-    await expect(page.getByText('Tạo nhân sự')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Tạo nhân sự' })).toBeVisible();
     await page.getByPlaceholder('Tên nhân sự').fill('Manager Wizard');
     await page.getByPlaceholder('nhanvien@gmail.com').fill(`manager.w${unique}@nhamnhi.vn`);
     await page.getByPlaceholder('Ít nhất 6 ký tự').fill('Test@NhamNhi2026');

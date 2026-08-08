@@ -19,7 +19,7 @@ test.describe('T05 — Admin frontend shell: sidebar mới + Settings Modal', ()
     }
 
     // Menu tools: Audit Logs, Cài Đặt Chung, Tin Nhắn
-    for (const title of ['Audit Logs', 'Cài Đặt Chung', 'Tin Nhắn']) {
+    for (const title of ['Nhật Ký Hệ Thống', 'Cài Đặt Chung', 'Tin Nhắn']) {
       await expect(page.getByRole('button', { name: new RegExp(title) })).toBeVisible();
     }
 

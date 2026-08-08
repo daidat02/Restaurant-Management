@@ -5,6 +5,7 @@ import {
   Sidebar,
   SidebarHeader,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupLabel,
   SidebarGroupContent,
@@ -13,33 +14,9 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 
-import Logo from '@/assets/logo_app.svg';
-import {
-  LayoutDashboard,
-  Users,
-  CreditCard,
-  Receipt,
-  ScrollText,
-  Moon,
-  ShieldCheck,
-  Settings,
-  type LucideIcon,
-} from 'lucide-react';
-
-type MenuItem = {
-  title: string;
-  icon: LucideIcon;
-  path?: string;
-  onClick?: () => void;
-};
-
-const GENERAL_MENU: MenuItem[] = [
-  { title: 'Tổng Quan Hệ Thống', icon: LayoutDashboard, path: '/super-admin' },
-  { title: 'Tài Khoản Người Thuê', icon: Users, path: '/super-admin/tenants' },
-  { title: 'Gói Cước & Giá', icon: CreditCard, path: '/super-admin/pricing' },
-  { title: 'Lịch Sử Giao Dịch', icon: Receipt, path: '/super-admin/transactions' },
-  { title: 'Nhật Ký Hệ Thống', icon: ScrollText, path: '/super-admin/audit' },
-];
+import { Moon, LogOut, ChevronDown } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
+import { getMenuForRole, getRoleLabel, type MenuItem } from '@/configs/adminMenu';
 
 interface SidebarSuperAdminProps {
   onOpenSetting?: () => void;
@@ -49,79 +26,85 @@ export default function SidebarSuperAdmin({ onOpenSetting }: SidebarSuperAdminPr
   const [isDarkMode, setIsDarkMode] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
+  const menuGroups = getMenuForRole('super-admin');
 
   const isActive = (path?: string) => location.pathname === path;
+
+  const handleItemClick = (item: MenuItem) => {
+    if (item.path) {
+      navigate(item.path);
+    } else if (item.action === 'setting') {
+      onOpenSetting?.();
+    }
+  };
 
   return (
     <Sidebar>
       {/* --- HEADER --- */}
       <SidebarHeader className="flex flex-col gap-4 p-5 bg-white">
-        <div className="flex items-center justify-between">
-          <img src={Logo} className="h-6 w-auto" alt="Logo" />
+        {/* Logo: box icon cerulean + tên + tagline (giống preview) */}
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-cerulean-blue-600 text-white shadow-lg shadow-cerulean-blue-200">
+            <span className="text-sm font-extrabold">OS</span>
+          </span>
+          <div className="leading-tight">
+            <p className="text-base font-extrabold tracking-tight text-gray-900">NhàHàng OS</p>
+            <p className="text-[11px] font-medium text-slate-400">Quản lý nhà hàng Việt</p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3 p-1 border border-gray-200 rounded-lg mt-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-cerulean-blue-50 text-cerulean-blue-600">
-            <ShieldCheck className="h-5 w-5" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">
-              Nền tảng
-            </span>
-            <span className="text-sm font-semibold text-gray-900 line-clamp-1">
-              Quản Trị Toàn Hệ Thống
-            </span>
+        {/* Box scope: Hệ Thống OS — quản trị nền tảng (giống preview) */}
+        <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-2.5">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-cerulean-blue-100 text-cerulean-blue-600">
+            <span className="text-sm font-bold">OS</span>
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-semibold text-gray-900">Hệ Thống OS</p>
+            <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+              Quản trị nền tảng
+            </p>
           </div>
         </div>
       </SidebarHeader>
 
       {/* --- CONTENT --- */}
       <SidebarContent className="px-2 bg-white">
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-xs text-gray-400 font-light tracking-wider mb-2">
-            QUẢN TRỊ
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {GENERAL_MENU.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    onClick={() => (item.path ? navigate(item.path) : item.onClick?.())}
-                    className={`flex items-center justify-between rounded-lg px-3 py-2 h-10 transition mb-1
+        {menuGroups.map((group, idx) => (
+          <SidebarGroup key={group.label} className={idx > 0 ? 'mt-2' : ''}>
+            <SidebarGroupLabel className="text-xs text-gray-400 font-light tracking-wider mb-2">
+              {group.label}
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {group.items.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      onClick={() => handleItemClick(item)}
+                      className={`flex items-center justify-between rounded-lg px-3 py-2 h-10 transition mb-1
                       ${
                         isActive(item.path)
-                          ? 'bg-cerulean-blue-100 text-black font-medium'
+                          ? 'bg-cerulean-blue-600 text-white shadow-md shadow-cerulean-blue-200 hover:bg-cerulean-blue-600 hover:text-white'
                           : 'text-gray-500 hover:bg-cerulean-blue-100 hover:text-black'
                       }
-                    `}
-                  >
-                    <div className="flex items-center gap-3">
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </div>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-              {onOpenSetting && (
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    onClick={onOpenSetting}
-                    className="flex items-center justify-between rounded-lg px-3 py-2 h-10 transition mb-1 text-gray-500 hover:bg-cerulean-blue-100 hover:text-black"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Settings className="h-4 w-4" />
-                      <span>Cài Đặt Chung</span>
-                    </div>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+                      `}
+                    >
+                      <div className="flex items-center gap-3">
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </div>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
 
         <SidebarGroup className="mt-2">
           <SidebarGroupLabel className="text-xs text-gray-400 font-light tracking-wider mb-2">
-            TOOLS
+            Giao diện
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -151,6 +134,41 @@ export default function SidebarSuperAdmin({ onOpenSetting }: SidebarSuperAdminPr
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+
+      {/* --- FOOTER: thông tin user + nút đăng xuất (giống preview) --- */}
+      <SidebarFooter className="border-t border-slate-100 p-4 bg-white">
+        <div className="flex items-center gap-3 rounded-xl bg-slate-50/70 p-2.5">
+          <div className="relative">
+            {user?.avatar ? (
+              <img
+                src={user.avatar}
+                alt="Avatar"
+                className="h-9 w-9 rounded-xl object-cover border border-slate-200"
+              />
+            ) : (
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-cerulean-blue-600 text-sm font-bold text-white">
+                OS
+              </span>
+            )}
+            <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-semibold text-gray-900">Hệ Thống OS</p>
+            <p className="text-[10px] font-medium text-slate-400">
+              {user?.name || 'Người dùng'} · {getRoleLabel(user?.role)}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={logout}
+            className="rounded-md p-1 text-slate-400 transition hover:bg-white hover:text-cerulean-blue-600"
+            title="Đăng xuất"
+            aria-label="Đăng xuất"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
+        </div>
+      </SidebarFooter>
     </Sidebar>
   );
 }

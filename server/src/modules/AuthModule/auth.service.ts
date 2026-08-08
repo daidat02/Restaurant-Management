@@ -7,13 +7,9 @@ import jwt from 'jsonwebtoken';
 import DB_Connection from '../../models/DB_Connection.js';
 
 const generateAccessToken = (userId: string, role: string, restaurantId?: string): string => {
-  return jwt.sign(
-    { _id: userId, role: role, restaurantId },
-    process.env.JWT_ACCESS_SECRET || '',
-    {
-      expiresIn: '30m',
-    },
-  );
+  return jwt.sign({ _id: userId, role: role, restaurantId }, process.env.JWT_ACCESS_SECRET || '', {
+    expiresIn: '30m',
+  });
 };
 
 const generateRefreshToken = (userId: string, role: string): string => {
@@ -111,7 +107,11 @@ class AuthService {
       restaurantIds: [],
     };
     const user = await authRepository.createUser(createData);
-    return { message: 'Đăng ký chủ nhà hàng thành công!', data: this.serializeUser(user), code: 201 };
+    return {
+      message: 'Đăng ký chủ nhà hàng thành công!',
+      data: this.serializeUser(user),
+      code: 201,
+    };
   }
 
   /**
@@ -138,7 +138,8 @@ class AuthService {
     if (!exitUser.isActive) {
       return { message: 'Tài khoản đã bị khóa!', code: 400 };
     }
-
+    // Token cần restaurantId dạng id string thuần — lấy TRƯỚC khi populate,
+    // vì sau populate restaurantIds[0] là document (toString() cho chuỗi không dùng được).
     const accessToken = generateAccessToken(
       exitUser._id.toString(),
       exitUser.role,
@@ -146,8 +147,11 @@ class AuthService {
     );
     const refreshToken = generateRefreshToken(exitUser._id.toString(), exitUser.role);
 
-    const userWithoutPassword = this.serializeUser(exitUser);
+    const exitUserPopulate = await exitUser.populate('restaurantIds', 'name');
 
+    const userWithoutPassword = this.serializeUser(exitUserPopulate);
+
+    console.log('User logged in:', userWithoutPassword);
     return {
       message: 'Đăng nhập thành công!',
       data: {
@@ -373,10 +377,7 @@ class AuthService {
     const ids = Array.isArray(restaurantIds) ? restaurantIds : restaurantIds ? [restaurantIds] : [];
     if (ids.length > 0) {
       // Ưu tiên restaurantIds (mới); fallback `restaurant` cho dữ liệu legacy chưa backfill (sẽ dọn ở ticket 03)
-      filterQuery.$or = [
-        { restaurantIds: { $in: ids } },
-        { restaurant: { $in: ids } },
-      ];
+      filterQuery.$or = [{ restaurantIds: { $in: ids } }, { restaurant: { $in: ids } }];
     }
     const users = await authRepository.findUsers(filterQuery);
 

@@ -1,111 +1,159 @@
-import { useAuth } from "@/hooks/use-auth";
-import type { IOrder } from "@/types/order.type";
-import { getTimeAgo } from "@/utils/helpers";
-import { Printer, SquarePen } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import type { IOrder } from '@/types/order.type';
+import { getTimeAgo } from '@/utils/helpers';
+import { useAuth } from '@/hooks/use-auth';
+import {
+  Clock,
+  CircleCheck,
+  ChefHat,
+  Utensils,
+  Ban,
+  CheckCheck,
+  Printer,
+  SquarePen,
+} from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface OrderCardProps {
   order: IOrder;
   isSelected: boolean;
   onClick?: () => void;
-  onOpenPayment?: (orderId: string| null) => void; 
+  onOpenPayment?: (orderId: string | null) => void;
   isPayment?: boolean; // Thêm prop để xác
 }
 
-export const OrderCard = ({ order, isSelected, onClick,onOpenPayment, isPayment = true }: OrderCardProps) => {
+// Tone màu + icon theo preview orders.html
+const STATUS_CONFIG: Record<string, { label: string; cls: string; icon: typeof Clock }> = {
+  pending: { label: 'Chờ xử lý', cls: 'bg-slate-100 text-slate-500', icon: Clock },
+  confirmed: { label: 'Đã xác nhận', cls: 'bg-sky-50 text-sky-700', icon: CheckCheck },
+  preparing: { label: 'Đang chế biến', cls: 'bg-violet-50 text-violet-700', icon: ChefHat },
+  served: { label: 'Đã phục vụ', cls: 'bg-emerald-50 text-emerald-700', icon: Utensils },
+  delivered: { label: 'Đã giao hàng', cls: 'bg-teal-50 text-teal-700', icon: Utensils },
+  paid: { label: 'Đã thanh toán', cls: 'bg-emerald-50 text-emerald-700', icon: CircleCheck },
+  cancelled: { label: 'Đã hủy', cls: 'bg-red-50 text-red-600', icon: Ban },
+};
+
+const TYPE_LABELS: Record<string, string> = {
+  'dine-in': 'Tại quán',
+  delivery: 'Giao hàng',
+  'to-go': 'Mua về',
+};
+
+const money = (n: number) => `${Math.round(n || 0).toLocaleString('vi-VN')}₫`;
+
+export const OrderCard = ({
+  order,
+  isSelected,
+  onClick,
+  onOpenPayment,
+  isPayment = true,
+}: OrderCardProps) => {
   const { user } = useAuth();
   const currentRole = user?.role || 'staff';
-  const navigate = useNavigate()
-  // Cấu hình màu sắc theo trạng thái Đơn Hàng
-  const orderStyleConfig = {
-    'pending': { bg: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-200', label: 'Chờ xử lý' },
-    'confirmed': { bg: 'bg-sky-50', text: 'text-sky-600', border: 'border-sky-200', label: 'Đã xác nhận' },
-    'preparing': { bg: 'bg-violet-50', text: 'text-violet-600', border: 'border-violet-200', label: 'Đang chế biến' },
-    'served': { bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-200', label: 'Đã lên món' },
-    'delivered': { bg: 'bg-teal-50', text: 'text-teal-600', border: 'border-teal-200', label: 'Đã giao hàng' },
-    'paid': { bg: 'bg-cerulean-blue-50', text: 'text-cerulean-blue-600', border: 'border-cerulean-blue-200', label: 'Đã thanh toán' },
-    'cancelled': { bg: 'bg-rose-50', text: 'text-rose-600', border: 'border-rose-200', label: 'Đã hủy' }
-  };
+  const navigate = useNavigate();
 
-  const typeLabels = {
-    'dine-in': 'Tại quán',
-    'delivery': 'Giao hàng',
-    'to-go': 'Mua về'
-  };
+  const currentStyle = STATUS_CONFIG[order?.status as string] || STATUS_CONFIG['pending'];
+  const StatusIcon = currentStyle.icon;
 
-  const currentStyle = orderStyleConfig[order?.status as "pending" | "confirmed" | "preparing" | "served" | "delivered" | "paid" | "cancelled"] || orderStyleConfig['pending'];
-  const customerName = order.deliveryInfo?.name || (typeof order?.customer === 'object' ? order?.customer?.name : null) || "Khách lẻ";
+  const customerName =
+    order.deliveryInfo?.name ||
+    (typeof order?.customer === 'object' ? order?.customer?.name : null) ||
+    'Khách lẻ';
+  const itemsCount = order?.itemsCount || order?.items?.length || 0;
+  const total = order?.totalAmount || 0;
+
   return (
-    <div 
+    <div
       onClick={onClick}
-      className={`bg-white rounded-2xl shadow-sm flex flex-col hover:shadow-md transition-all cursor-pointer min-h-[140px] ${
-        isSelected ? 'ring-2 ring-cerulean-blue-500 border-transparent' : 'border border-gray-200'
+      className={`cursor-pointer rounded-2xl border bg-white p-5 shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover ${
+        isSelected
+          ? 'border-cerulean-blue-300 ring-2 ring-cerulean-blue-500'
+          : 'border-slate-200 hover:border-cerulean-blue-200'
       }`}
     >
-      <div className='p-4 flex flex-col flex-1 gap-3'>
-        {/* Hàng 1: Mã Đơn & Loại đơn */}
-        <div className='flex justify-between items-start'>
-          <div className='flex flex-col'>
-            <span className='text-cerulean-blue-600 text-xs'>#{order.orderId}</span>
-            <span className='text-[10px] font-bold text-gray-400 uppercase mt-0.5'>{typeLabels[order.orderType as "dine-in" | "delivery" | "to-go" ]}</span>
-          </div>
-          {/* Thông tin Bàn (Chỉ hiện nếu ăn tại quán) */}
+      {/* Hàng 1: Mã đơn + loại + bàn | thời gian */}
+      <div className="flex items-start justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="font-bold text-xs text-cerulean-blue-700">
+            #{order.orderId || order._id?.slice(-6).toUpperCase()}
+          </p>
+          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[8px] font-bold uppercase text-slate-500">
+            {TYPE_LABELS[order?.orderType as string] || 'Tại quán'}
+          </span>
           {order.orderType === 'dine-in' && order.table && (
-            <span className='bg-gray-100 text-gray-600 font-bold px-2 py-1 rounded text-xs'>
-              Bàn {order.table.tableNumber}
+            <span className="rounded-full bg-cerulean-blue-50 px-2 py-0.5 text-[8px] font-semibold text-cerulean-blue-700">
+              Bàn {typeof order.table === 'object' ? order.table.tableNumber : ''}
             </span>
           )}
         </div>
-        
-        {/* Hàng 2: Thông tin Khách & Tổng tiền */}
-        <div className='flex justify-between items-center mt-auto'>
-          <div className='flex flex-col'>
-            <span className='font-medium text-gray-500 text-xs line-clamp-1 max-w-[120px]'>{customerName}</span>
-            <span className='text-[10px] text-gray-400'>{order.itemsCount} món</span>
-          </div>
-          <span className='text-[12px]'>{order?.totalAmount?.toLocaleString()}đ</span>
-        </div>
+        <span className="text-[8px] text-slate-400">
+          {order.createdAt ? getTimeAgo(order.createdAt) : '-'}
+        </span>
+      </div>
 
-        {/* Hàng 3: Cụm Nút Action (Chỉ hiện nếu chưa thanh toán/hủy) */}
-        {order.status !== 'paid' && order.status !== 'cancelled' && (
-          <div className='flex justify-between items-center h-8 mt-1 pt-3 border-t border-gray-50'>
-              {isPayment && (  <div className='flex gap-2'>
-              <button 
-                onClick={() => { if (!order?._id) return; onOpenPayment?.(order._id); }}
-              className='bg-cerulean-blue-600 hover:bg-cerulean-blue-700 text-white px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-colors'>
+      {/* Hàng 2: Khách · số món | tổng tiền */}
+      <div className="mt-3 flex items-center justify-between">
+        <p className="truncate text-sm font-medium text-slate-600">
+          {customerName} · {itemsCount} món
+        </p>
+        <p className="text-lg font-extrabold text-gray-900">{money(total)}</p>
+      </div>
+
+      {/* Hàng 3: Trạng thái + nút action */}
+      {order.status !== 'paid' && order.status !== 'cancelled' && (
+        <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
+          <span
+            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${currentStyle.cls}`}
+          >
+            <StatusIcon className="h-3 w-3" />
+            {currentStyle.label}
+          </span>
+          <div className="flex gap-1.5">
+            {isPayment && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!order?._id) return;
+                  onOpenPayment?.(order._id);
+                }}
+                className="rounded-lg bg-cerulean-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-cerulean-blue-700"
+              >
                 Thanh toán
               </button>
-            </div>)}
-
-            <div className='flex gap-1.5'>
-              <button 
-              onClick={()=>{
-                navigate(`/${currentRole}/orders/edit/${order._id}`, { 
-                    state: { orderData: order } 
+            )}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/${currentRole}/orders/edit/${order._id}`, {
+                  state: { orderData: order },
                 });
               }}
-              className='bg-[#f4f6fa] hover:bg-gray-200 p-1.5 rounded-lg text-gray-400 transition-colors' title="Chỉnh sửa đơn">
-                <SquarePen size={16} />
-              </button>
-             
-                  <button className='bg-[#f4f6fa] hover:bg-gray-200 p-1.5 rounded-lg text-gray-400 transition-colors' title="In bếp/Hóa đơn">
-                    <Printer size={16} />
-                  </button>
-                
-            </div>
+              className="rounded-lg border border-slate-200 p-1.5 text-slate-500 transition hover:border-cerulean-blue-200 hover:text-cerulean-blue-600"
+              title="Chỉnh sửa đơn"
+            >
+              <SquarePen className="h-4 w-4" />
+            </button>
+            <button
+              onClick={(e) => e.stopPropagation()}
+              className="rounded-lg border border-slate-200 p-1.5 text-slate-500 transition hover:border-cerulean-blue-200 hover:text-cerulean-blue-600"
+              title="In hóa đơn"
+            >
+              <Printer className="h-4 w-4" />
+            </button>
           </div>
-        )}
-      </div>
-
-      {/* Footer trạng thái */}
-      <div className={`px-4 py-2 border-t flex justify-between items-center text-[11px] font-bold rounded-b-2xl ${currentStyle.bg} ${currentStyle.border} ${currentStyle.text}`}>
-        <span>{currentStyle.label}</span>
-        <div className='flex items-center gap-1 opacity-80'>
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          {/* Có thể thay bằng format(order.createdAt, 'HH:mm') */}
-          <span>{order.createdAt ? getTimeAgo(order.createdAt) : '-'}</span>
         </div>
-      </div>
+      )}
+
+      {/* Footer trạng thái khi đã thanh toán/hủy */}
+      {order.status === 'paid' || order.status === 'cancelled' ? (
+        <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
+          <span
+            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${currentStyle.cls}`}
+          >
+            <StatusIcon className="h-3 w-3" />
+            {currentStyle.label}
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 };
