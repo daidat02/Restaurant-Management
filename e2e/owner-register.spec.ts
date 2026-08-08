@@ -26,7 +26,9 @@ test.describe('T9 — Đăng ký chủ + wizard nhà hàng đầu', () => {
     await registerOwner(page, email);
 
     // Bước 1: thông tin nhà hàng
-    await expect(page.getByText('Thông tin nhà hàng')).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Thông tin nhà hàng' }),
+    ).toBeVisible();
     await page.getByPlaceholder('VD: NhamNhi Cơ Sở 3').fill('Nhà Hàng Mới E2E');
     await page.getByPlaceholder('Số nhà, đường, phường/xã...').fill('123 Nguyễn Trãi, Q1');
     await page.getByRole('button', { name: /Tạo nhà hàng & tiếp tục/ }).click();

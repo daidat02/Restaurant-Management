@@ -12,7 +12,11 @@ describe('Smoke test — hạ tầng test', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.user.email).toBe('admin.test@nhamnhi.vn');
     expect(res.body.data.user.role).toBe('admin');
-    expect(res.body.data.user.restaurantIds).toContain(SEED_IDS.tenantX.toString());
+    // restaurantIds được server populate ('name') → mỗi phần tử là {_id, name}; trích id để so sánh
+    const ids = res.body.data.user.restaurantIds.map((r: any) =>
+      typeof r === 'string' ? r : String(r?._id ?? r?.id ?? ''),
+    );
+    expect(ids).toContain(SEED_IDS.tenantX.toString());
     expect(res.body.data.accessToken).toBeTruthy();
   });
 

@@ -138,14 +138,16 @@ class AuthService {
     if (!exitUser.isActive) {
       return { message: 'Tài khoản đã bị khóa!', code: 400 };
     }
-    const exitUserPopulate = await exitUser.populate('restaurantIds', 'name');
-
+    // Token cần restaurantId dạng id string thuần — lấy TRƯỚC khi populate,
+    // vì sau populate restaurantIds[0] là document (toString() cho chuỗi không dùng được).
     const accessToken = generateAccessToken(
       exitUser._id.toString(),
       exitUser.role,
       this.getActiveRestaurantId(exitUser),
     );
     const refreshToken = generateRefreshToken(exitUser._id.toString(), exitUser.role);
+
+    const exitUserPopulate = await exitUser.populate('restaurantIds', 'name');
 
     const userWithoutPassword = this.serializeUser(exitUserPopulate);
 
