@@ -112,7 +112,6 @@ const STAFF_MENU: MenuGroup[] = [
   {
     label: 'Bán Hàng',
     items: [
-      { title: 'Gọi Món (POS)', icon: Utensils, path: '/staff/orders/pos' },
       { title: 'Sơ Đồ Bàn (Live)', icon: LayoutGrid, path: '/staff/tables' },
       { title: 'Đơn Hiện Tại', icon: MonitorCheck, path: '/staff/orders' },
       { title: 'Lịch Đặt Bàn', icon: CalendarDays, path: '/staff/reservations' },

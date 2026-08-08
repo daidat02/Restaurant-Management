@@ -269,9 +269,13 @@ export default function App() {
           {/* KHU VỰC DÙNG CHUNG VỚI STAFF (Manager vẫn có quyền thao tác) */}
           <Route path="tables" element={<Table />} />
           <Route path="orders" element={<Order />} />
-          <Route path="orders/pos" element={<POS />} />
           <Route path="orders/management" element={<OrderManagerment />} />
           <Route path="orders/edit/:id" element={<OrderDetail />} />
+        </Route>
+
+        {/* POS toàn màn hình (không sidebar/header admin) */}
+        <Route element={<LayoutBlank />}>
+          <Route path="/manager/orders/pos" element={<POS />} />
         </Route>
       </Route>
 
@@ -286,16 +290,20 @@ export default function App() {
         }
       >
         <Route path="/staff" element={<LayoutAdmin />}>
-          {/* Mẹo: Staff thường làm việc trực tiếp, nên cho trang chủ của Staff là trang POS hoặc Table luôn */}
-          <Route index element={<Navigate to="orders/pos" replace />} />
+          {/* Staff vào thẳng trang Đơn, POS mở khi tạo đơn mới / chọn bàn */}
+          <Route index element={<Navigate to="/staff/orders" replace />} />
 
           {/* KHU VỰC DÙNG CHUNG (Tái sử dụng component) */}
           <Route path="tables" element={<Table />} />
           <Route path="orders" element={<Order />} />
-          <Route path="orders/pos" element={<POS />} />
           <Route path="orders/management" element={<OrderManagerment />} />
           <Route path="orders/edit/:id" element={<OrderDetail />} />
           <Route path="reservations" element={<ReservationPage />} />
+        </Route>
+
+        {/* POS toàn màn hình (không sidebar/header admin) */}
+        <Route element={<LayoutBlank />}>
+          <Route path="/staff/orders/pos" element={<POS />} />
         </Route>
       </Route>
 
