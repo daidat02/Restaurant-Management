@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
 import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
 import { SidebarTrigger } from './ui/sidebar';
@@ -6,18 +7,37 @@ import { useNotification } from '@/hooks/use-notification';
 import soundNotification from '@/assets/notification_sound.mp3';
 import { MailBoxPopover } from '@/pages/Admin/components/MailBoxPopover';
 import { NotificationPopover } from '@/pages/Admin/components/NotificationPopover';
+import { Search, ChevronDown } from 'lucide-react';
 import { extractId } from '@/utils/helpers';
+import { getPageTitle, getRoleLabel } from '@/configs/adminMenu';
 
 interface HeaderProps {
   /** Mở MessageModal tại đúng hội thoại khi bấm item trong MailBoxPopover. */
   onOpenConversation?: (conversationId: string) => void;
 }
 
+const ROLE_BADGE: Record<string, { label: string; cls: string }> = {
+  admin: { label: 'Admin', cls: 'bg-cerulean-blue-50 text-cerulean-blue-700' },
+  manager: { label: 'Quản lý', cls: 'bg-emerald-50 text-emerald-700' },
+  staff: { label: 'Nhân viên', cls: 'bg-violet-50 text-violet-700' },
+  'super-admin': { label: 'Super Admin', cls: 'bg-amber-50 text-amber-700' },
+};
+
 export default function Header({ onOpenConversation }: HeaderProps) {
   const { user } = useAuth();
   const activeRestaurantId = useActiveRestaurantId();
   const { notifications, startLiseningNotification, markReadNoti, markReadAllNoti } =
     useNotification(soundNotification);
+
+  const location = useLocation();
+
+  // Breadcrumb: tên trang hiện tại theo cấu hình menu (theo role của user).
+  const pageTitle = useMemo(
+    () => getPageTitle(location.pathname, user?.role),
+    [location.pathname, user?.role],
+  );
+
+  const roleBadge = user?.role ? ROLE_BADGE[user.role] : undefined;
 
   // Chuông admin: gộp toàn chuỗi (mọi restaurantIds); manager/staff theo 1 nhà hàng hiện tại.
   const notificationScope = useMemo(() => {
@@ -38,14 +58,21 @@ export default function Header({ onOpenConversation }: HeaderProps) {
   const unreadNotificationsCount = notifications.filter((n) => n.isRead === false).length;
 
   return (
-    <header className="flex items-center bg-white border-b justify-between px-4 lg:px-6  h-[66px] shrink-0">
-      {/* VÙNG TRÁI: Tìm kiếm */}
-      <div className="flex items-center gap-2 lg:gap-4 flex-1">
+    <header className="flex items-center bg-white border-b justify-between px-4 lg:px-6 h-[66px] shrink-0">
+      {/* VÙNG TRÁI: Breadcrumb */}
+      <div className="flex items-center gap-2 lg:gap-4 flex-1 min-w-0">
         <SidebarTrigger className="-ml-2 hover:bg-gray-100 rounded-xl transition-all duration-200" />
+
+        {pageTitle && (
+          <div className="hidden md:flex items-center gap-1.5 text-sm min-w-0">
+            <span className="text-gray-400 shrink-0">NhàHàng OS</span>
+            <span className="text-gray-300 shrink-0">/</span>
+            <span className="font-semibold text-gray-900 truncate">{pageTitle}</span>
+          </div>
+        )}
       </div>
 
-      {/* VÙNG PHẢI: Trả về các Component Popover đã được tách */}
-      <div className="flex items-center gap-1 sm:gap-5">
+      <div className="flex items-center gap-1 sm:gap-3">
         <div className="flex items-center gap-2 sm:gap-3">
           {/* 1. Nhóm Hộp Thư */}
           <MailBoxPopover onOpenConversation={onOpenConversation} />
@@ -66,25 +93,34 @@ export default function Header({ onOpenConversation }: HeaderProps) {
 
         <div className="h-8 w-[1px] bg-gray-300 mx-1 hidden sm:block" />
 
-        {/* Profile User: Avatar chỉ HIỂN THỊ (tĩnh) — không mở modal nào (ticket 05) */}
-        <div className="flex items-center gap-3 rounded-xl px-1 py-1 select-none">
+        {/* Profile User: giống preview — avatar + "Hệ Thống OS" + role + chevron */}
+        <button
+          id="profileBtn"
+          type="button"
+          className="flex items-center gap-2.5 rounded-xl p-1.5 transition hover:bg-cerulean-blue-50"
+        >
           <div className="relative">
-            <img
-              src={user?.avatar || 'https://github.com/shadcn.png'}
-              alt="Avatar"
-              className="h-4 w-4 sm:h-10 sm:w-10 rounded-lg object-cover border"
-            />
-            <span className="absolute -bottom-1 -right-1 h-3 w-3 bg-green-500 border-2 border-white rounded-full" />
+            {user?.avatar ? (
+              <img
+                src={user.avatar}
+                alt="Avatar"
+                className="h-9 w-9 rounded-xl object-cover border border-slate-200"
+              />
+            ) : (
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-cerulean-blue-600 text-sm font-bold text-white">
+                OS
+              </span>
+            )}
+            <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-500 border-2 border-white rounded-full" />
           </div>
-          <div className="hidden md:flex flex-col text-left">
-            <span className="text-xs font-semibold text-gray-900 leading-tight">
-              {user?.name || 'Người dùng'}
-            </span>
-            <span className="text-xs text-gray-500 capitalize leading-tight mt-0.5">
-              {user?.role || 'Nhân viên'}
+          <div className="hidden lg:flex flex-col text-left leading-tight">
+            <span className="text-xs font-semibold text-gray-900 leading-tight">Hệ Thống OS</span>
+            <span className="text-[11px] text-slate-400 leading-tight mt-0.5 capitalize">
+              {getRoleLabel(user?.role)}
             </span>
           </div>
-        </div>
+          <ChevronDown className="hidden h-4 w-4 text-slate-400 lg:block" />
+        </button>
       </div>
     </header>
   );

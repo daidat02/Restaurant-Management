@@ -84,6 +84,7 @@ test.describe('T05 — Settings Modal phân quyền theo role (ticket 05)', () =
 
     await page.getByRole('button', { name: 'Đăng Xuất' }).click();
 
-    await expect(page).toHaveURL(/\/auth/, { timeout: 10_000 });
+    // Sau logout → về landing page (route /auth cũ đã được thay bằng landing)
+    await expect(page).toHaveURL(/\/$/, { timeout: 10_000 });
   });
 });

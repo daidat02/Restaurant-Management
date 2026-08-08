@@ -12,6 +12,9 @@ server/build/
 .DS_Store
 .vscode/
 
+# Screenshot kiểm chứng redesign
+*-redesign-full.png
+
 # Playwright
 test-results/
 playwright-report/

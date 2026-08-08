@@ -1,62 +1,25 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import {
   Sidebar,
   SidebarHeader,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupLabel,
   SidebarGroupContent,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarTrigger,
 } from '@/components/ui/sidebar';
 
-import Logo from '@/assets/logo_app.svg';
-import Company from '@/assets/company.svg';
-
-// Import thêm các icon cần thiết cho nhà hàng
-import {
-  Home,
-  Store,
-  Users,
-  History,
-  Settings,
-  HelpCircle,
-  Moon,
-  ChevronDown,
-  Utensils,
-  LayoutGrid,
-  ClipboardList,
-  ChefHat,
-  Bell,
-  ChartLine,
-  type LucideIcon,
-  MonitorCheck,
-  ReceiptText,
-  CalendarDays,
-  MessageCircle,
-  CreditCard,
-} from 'lucide-react';
+import { ChevronDown, Moon, Store, LogOut, UtensilsCrossed } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
-
-type MenuItem = {
-  title: string;
-  icon: LucideIcon;
-  path?: string;
-  children?: {
-    title: string;
-    path: string;
-  }[];
-  onClick?: () => void;
-};
-
-type Role = 'staff' | 'manager' | 'admin';
-
-// --- 1. CẤU HÌNH MENU THEO TỪNG ROLE ---
+import { getMenuForRole, getRoleLabel, type MenuItem } from '@/configs/adminMenu';
+import { extractId } from '@/utils/helpers';
+import type { IRestaurant } from '@/types/restaurant.type';
 
 interface SideBarProps {
   onOpenSetting: () => void;
@@ -64,102 +27,84 @@ interface SideBarProps {
 }
 
 export default function SidebarApp({ onOpenSetting, onOpenMessage }: SideBarProps) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const activeRestaurantId = useActiveRestaurantId();
+
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
-
-  // Mặc định là admin nếu chưa có thông tin user
-  const currentRole = (user?.role as Role) || 'admin';
 
   const location = useLocation();
   const navigate = useNavigate();
 
-  const menuConfig: Record<Role, { general: MenuItem[]; tools: MenuItem[] }> = {
-    admin: {
-      general: [
-        { title: 'Tổng Quan Hệ Thống', icon: Home, path: '/admin' },
-        { title: 'Quản Lý Nhà Hàng', icon: Store, path: '/admin/restaurants' },
-        { title: 'Báo Cáo Kinh Doanh', icon: ChartLine, path: '/admin/reports' },
-        { title: 'Người Dùng Hệ Thống', icon: Users, path: '/admin/customers' },
-        { title: 'Thanh Toán & Gói', icon: CreditCard, path: '/admin/billing' },
-      ],
-      tools: [
-        { title: 'Tin Nhắn', icon: MessageCircle, onClick: () => onOpenMessage() },
-        { title: 'Audit Logs', icon: History, path: '/admin/logs' },
-        { title: 'Cài Đặt Chung', icon: Settings, onClick: () => onOpenSetting() },
-      ],
-    },
-    manager: {
-      general: [
-        { title: 'Tổng Quan Chi Nhánh', icon: Home, path: '/manager' },
-        { title: 'Quản Lý Thực Đơn', icon: Utensils, path: '/manager/menu/items' },
-        { title: 'Sơ Đồ Bàn', icon: LayoutGrid, path: '/manager/tables' },
-        { title: 'Đơn Hiện Tại', icon: ReceiptText, path: '/manager/orders' },
-        { title: 'Lịch Đặt Bàn', icon: CalendarDays, path: '/manager/reservations' },
-        { title: 'Quản Lý Đơn Hàng', icon: ClipboardList, path: '/manager/orders/management' },
-        { title: 'Nhân Viên', icon: Users, path: '/manager/staff' },
-      ],
-      tools: [
-        { title: 'Tin Nhắn', icon: MessageCircle, onClick: () => onOpenMessage() },
-        { title: 'Cài Đặt Chung', icon: Settings, onClick: () => onOpenSetting() },
-        { title: 'Trợ Giúp', icon: HelpCircle, path: '/manager/help' },
-      ],
-    },
-    staff: {
-      general: [
-        { title: 'Gọi Món (POS)', icon: Utensils, path: '/staff/orders/pos' },
-        { title: 'Sơ Đồ Bàn (Live)', icon: LayoutGrid, path: '/staff/tables' },
-        { title: 'Đơn Hiện Tại', icon: MonitorCheck, path: '/staff/orders' },
-        { title: 'Lịch Đặt Bàn', icon: CalendarDays, path: '/staff/reservations' },
-      ],
-      tools: [
-        { title: 'Tin Nhắn', icon: MessageCircle, onClick: () => onOpenMessage() },
-        { title: 'Cài Đặt Chung', icon: Settings, onClick: () => onOpenSetting() },
-      ],
-    },
-  };
+  const menuGroups = getMenuForRole(user?.role);
 
-  // Lấy danh sách menu hiện tại dựa trên Role
-  const { general: generalItems, tools: toolItems } = menuConfig[currentRole];
+  // Nội dung card scope dưới logo, theo role (admin = toàn hệ thống, super-admin = nền tảng).
+  const scopeInfo = (() => {
+    if (user?.role === 'super-admin') {
+      return { title: 'Hệ Thống OS', sub: 'Quản trị nền tảng', icon: 'server' as const };
+    }
+    if (user?.role === 'admin') {
+      const count = Array.isArray(user.restaurantIds) ? user.restaurantIds.length : 0;
+      return { title: 'Toàn Hệ Thống', sub: `${count} chi nhánh`, icon: 'store' as const };
+    }
+    // manager/staff: ưu tiên dùng tên nhà hàng từ restaurantIds (server đã populate 'name').
+    const foundRestaurant = Array.isArray(user?.restaurantIds)
+      ? user.restaurantIds.find((r) => extractId(r) === activeRestaurantId)
+      : undefined;
+    const currentRestaurant =
+      foundRestaurant && typeof foundRestaurant === 'object'
+        ? (foundRestaurant as IRestaurant)
+        : undefined;
+    return {
+      title: currentRestaurant?.name || (activeRestaurantId ? `Nhà hàng #${activeRestaurantId.slice(-4)}` : 'N/A'),
+      sub: 'Chi nhánh hiện tại',
+      icon: 'store' as const,
+    };
+  })();
 
   // Mở sẵn menu cha nếu đang ở menu con
   useEffect(() => {
-    [...generalItems, ...toolItems].forEach((item) => {
-      if (item.children?.some((c) => c.path === location.pathname)) {
-        setOpenMenu(item.title);
-      }
+    menuGroups.forEach((group) => {
+      group.items.forEach((item) => {
+        if (item.children?.some((c) => c.path === location.pathname)) {
+          setOpenMenu(item.title);
+        }
+      });
     });
-  }, [location.pathname, currentRole, generalItems, toolItems]);
+  }, [location.pathname, menuGroups]);
 
   const isActive = (path?: string) => {
     if (!path) return false;
     return location.pathname === path;
   };
 
-  const isParentActive = (item: any) =>
-    item.children?.some((c: any) => c.path === location.pathname);
+  const isParentActive = (item: MenuItem) =>
+    item.children?.some((c) => c.path === location.pathname);
+
+  const handleItemClick = (item: MenuItem) => {
+    if (item.children?.length) {
+      setOpenMenu(openMenu === item.title ? null : item.title);
+    } else if (item.path) {
+      navigate(item.path);
+    } else if (item.action === 'message') {
+      onOpenMessage();
+    } else if (item.action === 'setting') {
+      onOpenSetting();
+    }
+  };
 
   const renderMenuItem = (item: MenuItem) => {
-    const hasChildren = !!item.children;
+    const hasChildren = !!item.children?.length;
 
     return (
       <div key={item.title}>
         <SidebarMenuItem>
           <SidebarMenuButton
-            onClick={() => {
-              if (hasChildren) {
-                setOpenMenu(openMenu === item.title ? null : item.title);
-              } else if (item.path) {
-                navigate(item.path);
-              } else if (item.onClick) {
-                item.onClick();
-              }
-            }}
+            onClick={() => handleItemClick(item)}
             className={`flex items-center justify-between rounded-lg px-3 py-2 h-10 transition mb-1
               ${
                 isActive(item.path) || isParentActive(item)
-                  ? 'bg-cerulean-blue-100 text-black font-medium'
+                  ? 'bg-cerulean-blue-600 text-white shadow-md shadow-cerulean-blue-200 hover:bg-cerulean-blue-600 hover:text-white'
                   : 'text-gray-500 hover:bg-cerulean-blue-100 hover:text-black'
               }
             `}
@@ -196,7 +141,7 @@ export default function SidebarApp({ onOpenSetting, onOpenMessage }: SideBarProp
                     className={`text-sm cursor-pointer px-3 py-1.5 rounded-md transition
                       ${
                         isActive(child.path)
-                          ? 'bg-cerulean-blue-100 text-black font-medium'
+                          ? 'bg-cerulean-blue-600 text-white font-medium hover:bg-cerulean-blue-600'
                           : 'text-gray-400 hover:text-black hover:bg-cerulean-blue-100'
                       }
                     `}
@@ -215,46 +160,59 @@ export default function SidebarApp({ onOpenSetting, onOpenMessage }: SideBarProp
   return (
     <Sidebar>
       {/* --- HEADER --- */}
-      <SidebarHeader className="flex flex-col gap-4 p-5 bg-white ">
-        <div className="flex items-center justify-between">
-          <img src={Logo} className="h-6 w-auto" alt="Logo" />
+      <SidebarHeader className="flex flex-col gap-4 p-5 bg-white">
+        {/* Logo: box icon cerulean + tên + tagline (giống preview) */}
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-cerulean-blue-600 text-white shadow-lg shadow-cerulean-blue-200">
+            <UtensilsCrossed className="h-5 w-5" />
+          </span>
+          <div className="leading-tight">
+            <p className="text-base font-extrabold tracking-tight text-gray-900">NhàHàng OS</p>
+            <p className="text-[11px] font-medium text-slate-400">Quản lý nhà hàng Việt</p>
+          </div>
         </div>
 
-        {/* Box thông tin Nhà hàng */}
-        {user?.role !== 'admin' && (
-          <div className="flex items-center gap-3 p-1 border border-gray-200 rounded-lg mt-2">
-            <img src={Company} className="h-10 w-auto" alt="Company" />
-            <div className="flex flex-col">
-              <span className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">
-                Restaurant
-              </span>
-              <span className="text-sm font-semibold text-gray-900 line-clamp-1">
-                {activeRestaurantId ? `Nhà hàng #${activeRestaurantId.slice(-4)}` : 'N/A'}
-              </span>
-            </div>
+        {/* Box scope: Toàn Hệ Thống / Hệ Thống OS / Nhà hàng hiện tại (giống preview) */}
+        <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-2.5">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-cerulean-blue-100 text-cerulean-blue-600">
+            {scopeInfo.icon === 'server' ? (
+              <span className="text-sm font-bold">OS</span>
+            ) : (
+              <Store className="h-5 w-5" />
+            )}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-semibold text-gray-900">{scopeInfo.title}</p>
+
+            <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">
+              {scopeInfo.sub}
+            </p>
           </div>
-        )}
+        </div>
       </SidebarHeader>
 
       {/* --- CONTENT --- */}
       <SidebarContent className="px-2 bg-white">
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-xs text-gray-400 font-light tracking-wider mb-2">
-            GENERAL
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>{generalItems.map(renderMenuItem)}</SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {menuGroups.map((group) => (
+          <SidebarGroup
+            key={group.label}
+            className={group.label !== menuGroups[0].label ? 'mt-2' : ''}
+          >
+            <SidebarGroupLabel className="text-xs text-gray-400 font-light tracking-wider mb-2">
+              {group.label}
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>{group.items.map(renderMenuItem)}</SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
 
         <SidebarGroup className="mt-2">
           <SidebarGroupLabel className="text-xs text-gray-400 font-light tracking-wider mb-2">
-            TOOLS
+            Giao diện
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {toolItems.map(renderMenuItem)}
-
               {/* Nút Toggle Dark Mode */}
               <SidebarMenuItem>
                 <SidebarMenuButton
@@ -283,7 +241,40 @@ export default function SidebarApp({ onOpenSetting, onOpenMessage }: SideBarProp
         </SidebarGroup>
       </SidebarContent>
 
-      {/* Đã xóa SidebarFooter đi để tránh trùng lặp thông tin User với Header */}
+      {/* --- FOOTER: thông tin user + nút đăng xuất (giống preview) --- */}
+      <SidebarFooter className="border-t border-slate-100 p-4 bg-white">
+        <div className="flex items-center gap-3 rounded-xl bg-slate-50/70 p-2.5">
+          <div className="relative">
+            {user?.avatar ? (
+              <img
+                src={user.avatar}
+                alt="Avatar"
+                className="h-9 w-9 rounded-xl object-cover border border-slate-200"
+              />
+            ) : (
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-cerulean-blue-600 text-sm font-bold text-white">
+                OS
+              </span>
+            )}
+            <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-semibold text-gray-900">Hệ Thống OS</p>
+            <p className="text-[10px] font-medium text-slate-400">
+              {user?.name || 'Người dùng'} · {getRoleLabel(user?.role)}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={logout}
+            className="rounded-md p-1 text-slate-400 transition hover:bg-white hover:text-cerulean-blue-600"
+            title="Đăng xuất"
+            aria-label="Đăng xuất"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
+        </div>
+      </SidebarFooter>
     </Sidebar>
   );
 }

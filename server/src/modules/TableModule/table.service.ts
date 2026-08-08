@@ -17,7 +17,8 @@ class TableService {
   }
 
   async findTableByIdService(id: string): Promise<ServiceResponse<ITable>> {
-    const table = await tableRepository.findTableById(id);
+    // Dùng phiên bản có populate nhà hàng (tên/địa chỉ/logo) cho màn chào khách scan-to-order.
+    const table = await tableRepository.findTableByIdWithRestaurant(id);
     if (!table) {
       return { code: 404, message: 'Bàn không tồn tại' };
     }

@@ -63,16 +63,27 @@ export const USERS = {
   superAdmin: { email: 'super.admin@nhamnhi.vn', name: 'Super Admin' },
 } as const;
 
-/** Đăng nhập admin/staff/customer qua UI. */
+/** Mở auth modal trên landing (route /auth đã bị gỡ — auth qua modal). */
+export async function openAuthModal(page: Page, mode: 'login' | 'owner' = 'login') {
+  await page.goto('/');
+  if (mode === 'login') {
+    await page.getByRole('button', { name: 'Đăng nhập' }).first().click();
+  } else {
+    await page.getByRole('button', { name: 'Tạo tài khoản', exact: true }).click();
+  }
+}
+
+/** Đăng nhập admin/staff/customer qua UI (landing page + auth modal). */
 export async function login(
   page: Page,
   email: string,
   password: string = PASSWORD,
 ): Promise<void> {
-  await page.goto('/auth');
-  await page.getByPlaceholder('Input email').fill(email);
-  await page.getByPlaceholder('Input password').fill(password);
-  await page.getByRole('button', { name: 'Đăng Nhập', exact: true }).first().click();
+  await openAuthModal(page, 'login');
+  await page.getByPlaceholder('quanly@nhahang.vn').fill(email);
+  await page.getByPlaceholder('••••••••').fill(password);
+  // Submit form bằng Enter — tránh nhầm nút "Đăng nhập" (navbar/hero/tab modal/submit)
+  await page.getByPlaceholder('••••••••').press('Enter');
 }
 
 /** Đăng nhập admin (chủ chuỗi) → vào thẳng /admin, KHÔNG qua /select-restaurant. */
