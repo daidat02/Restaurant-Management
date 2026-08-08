@@ -1,19 +1,16 @@
 import type { ITable } from '@/types/table.type';
-import { useRef, useState } from 'react';
-import { SelectDropdown } from '@/components/SelectDropdown';
-import { Clock, Plus, Printer, SquarePen, X } from 'lucide-react';
-import { extractId, getTimeAgo } from '@/utils/helpers';
+import { useRef } from 'react';
+import { Plus, Printer } from 'lucide-react';
+import { getTimeAgo } from '@/utils/helpers';
 import { QRCodeSVG } from 'qrcode.react';
 import { useReactToPrint } from 'react-to-print';
-export const BASE_URL = import.meta.env.VITE_BASE_URL;
+const BASE_URL = import.meta.env.VITE_BASE_URL;
 
 interface TableCardProps {
   table: ITable;
   isSelected: boolean;
   onClick: () => void;
-  // Thêm prop để hứng sự kiện khi bấm nút tạo đơn
   onCreateOrder?: (tableId: string) => void;
-
   orderId?: string;
   customerName?: string;
   total?: number;
@@ -26,6 +23,17 @@ interface TableCardProps {
   restaurantName?: string;
   restaurantId?: string;
 }
+
+// Tone màu + nhãn theo preview tables.html
+const STYLE_CONFIG: Record<string, { label: string; badge: string }> = {
+  available: { label: 'Bàn trống', badge: 'bg-emerald-50 text-emerald-700' },
+  occupied: { label: 'Đang phục vụ', badge: 'bg-amber-50 text-amber-700' },
+  reserved: { label: 'Đã đặt', badge: 'bg-cerulean-blue-50 text-cerulean-blue-700' },
+  active: { label: 'Đã đặt', badge: 'bg-cerulean-blue-50 text-cerulean-blue-700' },
+  inactive: { label: 'Tạm đóng', badge: 'bg-slate-100 text-slate-500' },
+};
+
+const money = (n: number) => `${Math.round(n || 0).toLocaleString('vi-VN')}₫`;
 
 export const TableCard = ({
   table,
@@ -41,63 +49,142 @@ export const TableCard = ({
   restaurantName,
   restaurantId,
 }: TableCardProps) => {
-  const styleConfig = {
-    available: {
-      bg: 'bg-gray-50/60',
-      text: 'text-gray-500',
-      border: 'border-gray-200',
-      label: 'Bàn trống',
-    },
-    occupied: {
-      bg: 'bg-emerald-50/60',
-      text: 'text-emerald-500',
-      border: 'border-emerald-200',
-      label: 'Đang phục vụ',
-    },
-    reserved: {
-      bg: 'bg-amber-50/60',
-      text: 'text-amber-500',
-      border: 'border-amber-200',
-      label: 'Đã đặt',
-    },
-    active: {
-      bg: 'bg-amber-50/60',
-      text: 'text-amber-500',
-      border: 'border-amber-200',
-      label: 'Đã đặt',
-    },
-    inactive: {
-      bg: 'bg-red-50/60',
-      text: 'text-red-500',
-      border: 'border-red-200',
-      label: 'Tạm dừng phục vụ',
-    },
-  };
-
-  const currentStyle = styleConfig[table.status];
   const isAvailable = table.status === 'available';
+  const isReserved = table.status === 'reserved';
+  const currentStyle = STYLE_CONFIG[table.status] || STYLE_CONFIG['available'];
+
   const receiptRef = useRef<HTMLDivElement>(null);
   const triggerPrint = useReactToPrint({
     contentRef: receiptRef,
     documentTitle: `Ban_So_${table.tableNumber || 'Moi'}`,
     onAfterPrint: () => {
-      if (table.status == 'available') {
+      if (isAvailable) {
         onChangeStatus?.(table._id, 'occupied');
       }
-      return;
     },
   });
+
+  const orderId =
+    typeof table.currentOrder === 'object' ? table.currentOrder?._id : table.currentOrder;
+  const orderTotal =
+    typeof table.currentOrder === 'object'
+      ? table.currentOrder?.totalAmount
+      : undefined;
+
+  const name =
+    customerName ||
+    (typeof table.currentOrder === 'object'
+      ? table.currentOrder?.deliveryInfo?.name ||
+        (typeof table.currentOrder?.customer === 'object' ? table.currentOrder.customer.name : null)
+      : null) ||
+    'Khách lẻ';
+
+  // Thời gian hiển thị theo giờ của đơn hàng
+  const orderTime =
+    typeof table.currentOrder === 'object' && table.currentOrder
+      ? table.currentOrder.createdAt || table.currentOrder.updatedAt
+      : null;
+
+  const timeLabel = isAvailable
+    ? 'Sẵn sàng'
+    : time || (orderTime ? getTimeAgo(orderTime) : table.updatedAt ? getTimeAgo(table.updatedAt) : '-');
 
   return (
     <div
       onClick={onClick}
-      className={`bg-white rounded-2xl shadow-sm flex flex-col hover:shadow-md  cursor-pointer min-h-[140px] ${
+      className={`cursor-pointer rounded-2xl border bg-white p-4 shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover ${
         isSelected
-          ? 'ring-2 ring-cerulean-blue-500 border-cerulean-blue-400'
-          : 'border border-gray-200'
+          ? 'border-cerulean-blue-300 ring-2 ring-cerulean-blue-500'
+          : 'border-slate-200 hover:border-cerulean-blue-200'
       }`}
     >
-      {' '}
+      {/* Hàng 1: Số bàn + sức chứa | badge trạng thái */}
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-sm font-bold text-gray-900">Bàn số {table.tableNumber}</p>
+          <p className="text-xs text-slate-400">{table.capacity} chỗ</p>
+        </div>
+        <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${currentStyle.badge}`}>
+          {currentStyle.label}
+        </span>
+      </div>
+
+      {/* Hàng 2: Mã đơn / Khách / Tổng tiền */}
+      <div className="mt-3 rounded-xl bg-slate-50/70 p-3">
+        {!isAvailable ? (
+          <>
+            <div className="flex items-center justify-between gap-2">
+              <p className="truncate text-xs text-slate-400">
+                {isReserved ? `Đặt bởi: ${name}` : `Khách: ${name}`}
+              </p>
+              {typeof table.currentOrder === 'object' && (
+                <span className="shrink-0 rounded bg-cerulean-blue-50 px-1 py-0.5 text-[10px] font-semibold text-cerulean-blue-700">
+                  #{table.currentOrder?.orderId || ''}
+                </span>
+              )}
+            </div>
+            {!isReserved && (
+              <p className="mt-1 text-lg font-extrabold text-gray-900">
+                {orderTotal != null ? money(orderTotal) : '-'}
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="text-xs text-slate-400">Chưa có đơn hàng</p>
+        )}
+      </div>
+
+      {/* Hàng 3: Thời gian + nút action */}
+      <div className="mt-3 flex items-center justify-between">
+        <span className="text-[11px] text-slate-400">{timeLabel}</span>
+        <div className="flex gap-1.5">
+          {isAvailable ? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onCreateOrder) onCreateOrder(table._id);
+              }}
+              className="flex items-center gap-1 rounded-lg bg-cerulean-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-cerulean-blue-700"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Tạo đơn
+            </button>
+          ) : isReserved ? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onChangeStatus?.(table._id, 'occupied');
+              }}
+              className="flex items-center gap-1 rounded-lg bg-cerulean-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-cerulean-blue-700"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Nhận bàn
+            </button>
+          ) : (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (orderId && onOpenPayment) onOpenPayment(orderId);
+              }}
+              className="rounded-lg bg-cerulean-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-cerulean-blue-700"
+            >
+              Thanh toán
+            </button>
+          )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              triggerPrint();
+            }}
+            className="rounded-lg border border-slate-200 p-1.5 text-slate-500 transition hover:border-cerulean-blue-200 hover:text-cerulean-blue-600"
+            title="In QR"
+          >
+            <Printer className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Khu in QR (ẩn) */}
       <div className="hidden">
         <div ref={receiptRef}>
           {/* Layout chuẩn khổ giấy in nhiệt K80 (80mm) */}
@@ -113,13 +200,13 @@ export const TableCard = ({
               </p>
             </div>
 
-            {/* Khung chứa QR có viền nét đứt tạo hiệu ứng trực quan */}
+            {/* Khung chứa QR */}
             <div className="p-3 rounded-xl my-3 bg-white flex flex-col items-center justify-center">
               <QRCodeSVG
                 value={`${BASE_URL}/scan-to-order?${restaurantId ? `restaurantId=${restaurantId}&` : ''}tableId=${table._id}`}
-                size={130} // Tăng kích thước lên một chút cho dễ quét bằng camera điện thoại
+                size={130}
                 includeMargin={false}
-                level="H" // Tăng mức độ sửa lỗi (Error Correction Level) giúp mã QR dễ quét hơn ngay cả khi mờ
+                level="H"
               />
             </div>
 
@@ -137,130 +224,21 @@ export const TableCard = ({
 
             {/* Chân trang cám ơn */}
             <div className="w-full mt-6 text-center text-gray-800">
-              {/* Đường gạch ngang phân cách nét đứt rõ ràng hơn */}
               <div className="border-b border-dashed border-gray-400 w-full mb-3" />
-
-              {/* Lời chúc: Tăng nhẹ size, đậm, tạo khoảng cách chữ */}
               <p className="text-[11px] font-bold uppercase tracking-widest text-black">
                 Chúc Quý Khách Ngon Miệng!
               </p>
-
-              {/* Thông tin Wifi: Đổi từ italic sang text thường kèm bôi đậm label để dễ đọc */}
               <p className="mt-2 text-[10px] text-gray-700">
                 <span className="font-medium">Wifi:</span> {wifiName}{' '}
                 <span className="mx-1">|</span> <span className="font-medium">Pass:</span>{' '}
                 {wifiPassword}
               </p>
-
-              {/* Bản quyền: Thu nhỏ lại làm nền, mờ nhẹ vừa phải */}
               <p className="text-[9px] text-gray-400 mt-3 tracking-wide">
                 Powered by datnd.02 POS v1.0
               </p>
             </div>
           </div>
         </div>
-      </div>
-      <div className="p-4 flex flex-col flex-1 gap-2.5">
-        {/* Số bàn & Sức chứa / Mã đơn */}
-        <div className="flex justify-between items-center">
-          <span className="font-bold text-gray-800 text-sm">Bàn số {table.tableNumber}</span>
-          <span className="text-gray-400 text-xs">
-            {isAvailable
-              ? `Sức chứa: ${table.capacity}`
-              : table.currentOrder && `#${extractId(table.currentOrder, 'orderId')}`}
-          </span>
-        </div>
-
-        {/* KHU VỰC GIỮA: Thông tin khách HOẶC Nút Tạo đơn */}
-        <div className="flex-1 flex flex-col justify-center mt-1">
-          {!isAvailable ? (
-            // NẾU BÀN CÓ KHÁCH: Hiện tên khách và tổng tiền
-            <div className="flex flex-col gap-3">
-              <div className="flex justify-between items-center text-xs">
-                <span className="font-medium text-gray-500 line-clamp-1 max-w-[120px]">
-                  Khách: {customerName}
-                </span>
-                {table.currentOrder && (
-                  <span className="font-bold text-gray-800">
-                    {extractId(table.currentOrder, 'totalAmount').toLocaleString() + 'đ'}
-                  </span>
-                )}
-              </div>
-
-              {/* Cụm Nút Action cho bàn đang phục vụ */}
-              <div className="flex justify-between items-center h-7">
-                <div className="flex gap-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const orderId =
-                        typeof table.currentOrder === 'object'
-                          ? table.currentOrder?._id
-                          : table.currentOrder;
-                      if (orderId && onOpenPayment) onOpenPayment(orderId as string);
-                    }}
-                    className="bg-cerulean-blue-600 hover:bg-cerulean-blue-700 text-white px-3 py-1.5 rounded-lg text-[11px] font-medium transition-colors"
-                  >
-                    Thanh toán
-                  </button>
-                </div>
-                <div className="flex gap-1.5">
-                  <button
-                    className="bg-[#f4f6fa] hover:bg-gray-200 p-1.5 rounded-lg text-gray-400 transition-colors"
-                    title="In hóa đơn"
-                    onClick={() => onChangeStatus?.(table._id, 'available')}
-                  >
-                    <X size={16} />
-                  </button>
-                  <button
-                    className="bg-[#f4f6fa] hover:bg-gray-200 p-1.5 rounded-lg text-gray-400 transition-colors"
-                    title="In hóa đơn"
-                    onClick={triggerPrint}
-                  >
-                    <Printer size={16} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            // NẾU BÀN TRỐNG: Hiện Text "Chưa có đơn hàng" và Nút tạo đơn
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] text-gray-400 italic">Chưa có đơn hàng</span>
-              <div className="flex gap-1.5">
-                <button
-                  className="bg-[#f4f6fa] hover:bg-gray-200 p-1.5 rounded-lg text-gray-400 transition-colors"
-                  title="In hóa đơn"
-                  onClick={triggerPrint}
-                >
-                  <Printer size={16} />
-                </button>
-                <button
-                  onClick={(e) => {
-                    // CỰC KỲ QUAN TRỌNG: Ngăn chặn sự kiện click lan ra thẻ div bọc ngoài (tránh việc vừa mở trang order vừa chớp chọn bàn)
-                    e.stopPropagation();
-                    if (onCreateOrder) onCreateOrder(table._id);
-                  }}
-                  className="bg-cerulean-blue-100 hover:bg-cerulean-blue-600 text-cerulean-blue-600 hover:text-white px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5"
-                >
-                  <Plus size={14} />
-                  Tạo đơn
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-      {/* Footer trạng thái (Giữ nguyên) */}
-      <div
-        className={`px-4 py-2 border-t border-dashed flex justify-between items-center text-[11px] font-bold rounded-b-2xl ${currentStyle?.bg} ${currentStyle?.border}`}
-      >
-        <span className={`${currentStyle.text}`}>{currentStyle.label}</span>
-        {!isAvailable && (
-          <div className={`flex items-center gap-1 ${currentStyle.text}`}>
-            <Clock size={12} />
-            <span>{getTimeAgo(table.updatedAt)}</span>
-          </div>
-        )}
       </div>
     </div>
   );

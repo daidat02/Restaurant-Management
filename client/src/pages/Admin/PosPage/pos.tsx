@@ -3,14 +3,20 @@ import { CustomTabs } from '@/components/tabsCustom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMenu } from '@/hooks/use-menu';
 import type { IMenuItem } from '@/types/category.type';
+import type { Image } from '@/types/image.type';
 import { useTable } from '@/hooks/use-table';
 import type { ITable } from '@/types/table.type';
 import type { IOrder, IOrderItem } from '@/types/order.type';
 import { useOrder } from '@/hooks/use-order';
-import { useAuth } from '@/hooks/use-auth';
 import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
 import { PaymentModal } from '../components/PaymentModal';
 import FormBillOrder from '../components/FormBillOrder';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer';
 
 // ==========================================
 // COMPONENT ITEM CARD
@@ -27,7 +33,7 @@ export const ItemCard = ({ item, onClick }: ItemCardProps) => {
   if (item.imageUrl && item.imageUrl.length > 0) {
     const firstImage = item.imageUrl[0];
     displayImg =
-      typeof firstImage === 'string' ? firstImage : (firstImage as any).url || defaultImage;
+      typeof firstImage === 'string' ? firstImage : (firstImage as Image).url || defaultImage;
   }
 
   return (
@@ -92,7 +98,6 @@ export const ItemCard = ({ item, onClick }: ItemCardProps) => {
 };
 
 export default function POS() {
-  const { user } = useAuth();
   const activeRestaurantId = useActiveRestaurantId();
   const { categories, fetchCategories, fetchAllItems, items } = useMenu();
   const { fetchTableById } = useTable();
@@ -128,8 +133,6 @@ export default function POS() {
         }
       };
       getTableInfo();
-    } else {
-      setSelectedTable(null);
     }
 
     if (orderIdFromUrl) {
@@ -286,44 +289,54 @@ export default function POS() {
       {/* BÊN PHẢI: CHI TIẾT ĐƠN HÀNG (BILL) */}
       {/* ========================================= */}
 
-      {/* Lớp phủ màn hình tối khi mở Drawer trên Mobile */}
-      {isMobileCartOpen && (
-        <div
-          className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm z-40 lg:hidden"
-          onClick={() => setIsMobileCartOpen(false)}
-        />
-      )}
+      {/* Drawer giỏ hàng MOBILE: bottom sheet (vaul) */}
+      <Drawer open={isMobileCartOpen} onOpenChange={(o) => (o ? null : setIsMobileCartOpen(false))}>
+        <DrawerContent className="mx-auto max-h-[90vh] lg:hidden">
+          <DrawerHeader className="border-b border-gray-100">
+            <DrawerTitle className="flex w-full items-center justify-between text-lg font-bold text-gray-800">
+              Giỏ hàng
+              <span className="rounded-full bg-cerulean-blue-50 px-2.5 py-0.5 text-xs font-bold text-cerulean-blue-700">
+                {totalMobileQuantity} món
+              </span>
+            </DrawerTitle>
+          </DrawerHeader>
 
-      {/* Container của FormBill - Trở thành Drawer trượt trên Mobile */}
-      <div
-        className={`
-          fixed inset-y-0 right-0 w-[85vw] sm:w-[400px] z-50 bg-white shadow-2xl transition-transform duration-300 flex flex-col
-          lg:static lg:flex-1 lg:h-full lg:w-auto lg:min-w-[320px] lg:max-w-[450px] lg:translate-x-0 lg:border-l lg:border-gray-100 lg:shadow-2xl
-          ${isMobileCartOpen ? 'translate-x-0' : 'translate-x-full'}
-        `}
-      >
-        {/* Nút đóng Drawer (Chỉ hiện trên Mobile) */}
-        <div className="lg:hidden flex items-center justify-between p-4 border-b border-gray-100 shrink-0">
-          <h2 className="font-bold text-gray-800 text-lg">Giỏ hàng</h2>
-          <button
-            onClick={() => setIsMobileCartOpen(false)}
-            className="p-2 bg-gray-50 hover:bg-gray-100 rounded-full text-gray-500 transition-colors"
-          >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+          <div className="flex-1 overflow-hidden">
+            <FormBillOrder
+              order={order || undefined}
+              orderItems={orderItems}
+              onUpdateQuantity={handleUpdateQuantity}
+              onRemoveItem={handleRemoveItem}
+              onClearOrder={() => setOrderItems([])}
+              tableInfo={
+                currentOrder?.table && typeof currentOrder.table === 'object'
+                  ? (currentOrder.table as ITable)
+                  : selectedTable || undefined
+              }
+              pos={true}
+              onTriggerPayment={async (orderId) => {
+                if (!orderId) return;
+                const params = new URLSearchParams(searchParams);
+                params.set('orderId', orderId as string);
+                setSearchParams(params, { replace: true });
 
+                setOrderIdSelected(orderId);
+                setIsMobileCartOpen(false); // Đóng bottom sheet khi mở modal thanh toán
+
+                const result = await fetchOrderById(orderId as string);
+                if (result) {
+                  setOrder(result);
+                  setOrderItems(result.items || []);
+                }
+                setIsPaymentModalOpen(true);
+              }}
+            />
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Container của FormBill - Cột phải cố định trên Desktop */}
+      <div className="hidden lg:flex lg:flex-1 lg:h-full lg:w-auto lg:min-w-[320px] lg:max-w-[450px] lg:flex-col lg:border-l lg:border-gray-100 lg:shadow-2xl">
         <div className="flex-1 overflow-hidden relative">
           <FormBillOrder
             order={order || undefined}
@@ -337,14 +350,14 @@ export default function POS() {
                 : selectedTable || undefined
             }
             pos={true}
-              onTriggerPayment={async (orderId) => {
+            onTriggerPayment={async (orderId) => {
               if (!orderId) return;
               const params = new URLSearchParams(searchParams);
               params.set('orderId', orderId as string);
               setSearchParams(params, { replace: true });
 
               setOrderIdSelected(orderId);
-              setIsMobileCartOpen(false); // Đóng drawer trên mobile khi mở modal thanh toán
+              setIsMobileCartOpen(false);
 
               const result = await fetchOrderById(orderId as string);
               if (result) {
