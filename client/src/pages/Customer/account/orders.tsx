@@ -28,6 +28,7 @@ import type { IOrder } from '@/types/order.type';
 import type { IReservation } from '@/types/reservation.type';
 import type { IRestaurant } from '@/types/restaurant.type';
 import { formatVND } from '@/utils/helpers';
+import { mergeOrderItems } from '@/utils/orderItems';
 import { cn } from '@/lib/utils';
 
 // Danh sách trạng thái đơn hàng (cho bộ lọc)
@@ -149,7 +150,7 @@ function OrderDetailDrawer({
               Món đã gọi ({order.items?.length || order.itemsCount || 0})
             </p>
             <div className="space-y-2">
-              {(order.items || []).map((item) => (
+              {mergeOrderItems(order.items || []).map((item) => (
                 <div
                   key={item._id}
                   className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2.5"
@@ -158,6 +159,14 @@ function OrderDetailDrawer({
                     <p className="text-xs font-semibold text-gray-800 truncate">
                       {item.nameSnapshot}
                     </p>
+                    {item.toppings && item.toppings.length > 0 && (
+                      <p className="text-[10px] text-cerulean-blue-600 truncate">
+                        + {item.toppings.map((t) => t.name).join(', ')}
+                      </p>
+                    )}
+                    {item.note && (
+                      <p className="text-[10px] text-amber-600 truncate">Ghi chú: {item.note}</p>
+                    )}
                     <p className="text-[10px] text-gray-400">SL: x{item.quantity}</p>
                   </div>
                   <p className="text-xs font-bold text-gray-800 shrink-0">

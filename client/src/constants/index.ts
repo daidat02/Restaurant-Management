@@ -79,9 +79,12 @@ export const API_ENDPOINTS = {
     RESTAURANT_STATUS: (restaurantId: string, status: string) =>
       `${API_BASE_URL}/orders/restaurant/${restaurantId}/${status}`,
     RESTAURANT_ACTIVE: (restaurantId: string) => `${API_BASE_URL}/orders/active/${restaurantId}`,
+    RESTAURANT_KDS: (restaurantId: string) => `${API_BASE_URL}/orders/kds/${restaurantId}`,
     UPDATE_STATUS: (id: string) => `${API_BASE_URL}/orders/${id}/status`,
     GET_BY_TABLE: (tableId: string) => `${API_BASE_URL}/orders/table/${tableId}`,
     MY_ORDERS: `${API_BASE_URL}/orders/my-orders`,
+    CALL_STAFF: `${API_BASE_URL}/orders/call-staff`,
+    REQUEST_PAYMENT: `${API_BASE_URL}/orders/request-payment`,
   },
 
   // --- PHÂN HỆ THANH TOÁN (PAYMENTS) ---

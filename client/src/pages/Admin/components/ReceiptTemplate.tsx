@@ -1,5 +1,6 @@
 import type { IReceiptConfig } from '@/types/setting.type';
 import { QRCodeSVG } from 'qrcode.react';
+import { mergeOrderItems } from '@/utils/orderItems';
 
 interface ReceiptTemplateProps {
   restaurantInfor?: any;
@@ -70,9 +71,17 @@ export default function ReceiptTemplate({
           </tr>
         </thead>
         <tbody>
-          {order?.items?.map((item: any) => (
+          {mergeOrderItems(order?.items || []).map((item: any) => (
             <tr key={item._id}>
-              <td className="py-1 break-words pr-1">{item.nameSnapshot}</td>
+              <td className="py-1 break-words pr-1">
+                <p>{item.nameSnapshot}</p>
+                {item.toppings && item.toppings.length > 0 && (
+                  <p className="text-[10px] text-gray-500">
+                    + {item.toppings.map((t: any) => t.name).join(', ')}
+                  </p>
+                )}
+                {item.note && <p className="text-[10px] text-gray-500">({item.note})</p>}
+              </td>
               <td className="text-center align-top py-1">{item.quantity}</td>
               <td className="text-right align-top py-1">
                 {(item.quantity * item.priceSnapshot).toLocaleString()}

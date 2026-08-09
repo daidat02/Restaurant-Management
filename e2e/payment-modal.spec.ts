@@ -26,13 +26,17 @@ test.describe('T13 — Modal thanh toán không gọi API id rỗng', () => {
     });
 
     await login(page, USERS.staff.email);
-    await expect(page).toHaveURL(/\/staff\/orders\/pos/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/staff\/orders$/, { timeout: 15_000 });
     await waitAuthPersisted(page, SEED_IDS.tenantX);
+
+    // Vào POS từ trang Đơn
+    await page.getByRole('button', { name: /Đơn mới/ }).click();
+    await expect(page).toHaveURL(/\/staff\/orders\/pos/, { timeout: 15_000 });
 
     // Chọn món X rồi bấm Thanh toán
     await expect(page.getByText('Cà phê sữa')).toBeVisible({ timeout: 20_000 });
     await page.getByText('Cà phê sữa').click();
-    await expect(page.getByText(/Thành tiền: 35\.000đ/)).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('aside').getByText('Tổng cộng')).toBeVisible({ timeout: 15_000 });
     await page.getByRole('button', { name: 'Thanh toán' }).click();
 
     // Modal thanh toán mở với data thật (không phải màn hình "đang khởi tạo")

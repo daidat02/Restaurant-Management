@@ -18,7 +18,7 @@ test.describe('T12 — Super-admin', () => {
       timeout: 20_000,
     });
     await expect(page.getByText('Nhà hàng hoạt động')).toBeVisible({ timeout: 20_000 });
-    await expect(page.getByText('Chủ đã thanh toán')).toBeVisible();
+    await expect(page.getByText('Tổng chủ thuê')).toBeVisible();
 
     // Người thuê (chủ nhà hàng)
     await page.goto('/super-admin/tenants');

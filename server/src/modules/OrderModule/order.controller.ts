@@ -83,6 +83,26 @@ class OrderController {
     }
   }
 
+  async getKdsOrders(req: AuthRequest, res: Response) {
+    try {
+      const restaurantId = req.tenantId;
+
+      const orders = await orderService.getKdsOrdersService(restaurantId || '');
+
+      return res.status(200).json({
+        success: true,
+        message: 'Lấy danh sách đơn cho màn hình bếp thành công',
+        data: orders,
+      });
+    } catch (error: any) {
+      console.error('Lỗi getKdsOrders:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Lỗi server nội bộ',
+      });
+    }
+  }
+
   async getAllOrderStatusByRestaurant(req: AuthRequest, res: Response) {
     const { status } = req.params;
     const restaurantId = req.tenantId;
@@ -176,6 +196,26 @@ class OrderController {
     } catch (error) {
       console.log('error:', error);
       res.status(500).json({ message: 'Lỗi server... 1' });
+    }
+  }
+
+  // Khách tại bàn gọi nhân viên (public — không cần token)
+  async callStaff(req: Request, res: Response) {
+    try {
+      const result = await orderService.tableRequestService('call_staff', req.body);
+      res.status(result.code).json(result);
+    } catch (error) {
+      res.status(500).json({ message: 'Lỗi server...' });
+    }
+  }
+
+  // Khách tại bàn yêu cầu thanh toán (public — không cần token)
+  async requestPayment(req: Request, res: Response) {
+    try {
+      const result = await orderService.tableRequestService('payment_request', req.body);
+      res.status(result.code).json(result);
+    } catch (error) {
+      res.status(500).json({ message: 'Lỗi server...' });
     }
   }
 }

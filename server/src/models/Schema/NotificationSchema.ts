@@ -4,7 +4,16 @@ const ObjectId = Schema.Types.ObjectId;
 export interface INotification extends Document {
   user?: Types.ObjectId;
   restaurant?: Types.ObjectId;
-  type: 'new_order' | 'orderUpdate' | 'new_reservation' | 'tableStatus' | 'promotion' | 'system' | 'subscription';
+  type:
+    | 'new_order'
+    | 'orderUpdate'
+    | 'new_reservation'
+    | 'tableStatus'
+    | 'promotion'
+    | 'system'
+    | 'subscription'
+    | 'call_staff'
+    | 'payment_request';
   message: string;
   description?: string;
   data?: any;
@@ -19,7 +28,17 @@ const NotificationSchema = new Schema<INotification>(
     restaurant: { type: ObjectId, ref: 'Restaurant', index: true },
     type: {
       type: String,
-      enum: ['new_order', 'orderUpdate', 'new_reservation', 'tableStatus', 'promotion', 'system', 'subscription'],
+      enum: [
+        'new_order',
+        'orderUpdate',
+        'new_reservation',
+        'tableStatus',
+        'promotion',
+        'system',
+        'subscription',
+        'call_staff',
+        'payment_request',
+      ],
       required: true,
       index: true,
     },

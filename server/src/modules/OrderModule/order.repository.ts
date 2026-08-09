@@ -76,6 +76,49 @@ class OrderRepository {
   }
 
   /**
+   * KDS: lấy danh sách đơn còn ít nhất 1 món chưa được phục vụ (pending/preparing),
+   * bất kể trạng thái đơn (kể cả served/paid thanh toán trước). Chỉ loại đơn đã hủy.
+   * Dựa vào trạng thái MÓN (item), không phải trạng thái đơn — đúng bản chất màn hình bếp.
+   */
+  async findKdsOrders(restaurantId: string): Promise<IOrderDocument[]> {
+    const ObjectId = DB_Connection.Order.base.Types.ObjectId;
+
+    // Lấy orderId từ các món chưa xong thuộc nhà hàng (join qua Order để xác định restaurant —
+    // OrderItem tạo từ processOrderItems có thể không lưu trường restaurant).
+    const rows = await DB_Connection.OrderItem.aggregate([
+      { $match: { status: { $in: ['pending', 'preparing'] } } },
+      {
+        $lookup: {
+          from: 'orders',
+          localField: 'order',
+          foreignField: '_id',
+          as: 'orderRef',
+        },
+      },
+      { $unwind: '$orderRef' },
+      {
+        $match: {
+          'orderRef.restaurant': new ObjectId(restaurantId),
+          'orderRef.status': { $ne: 'cancelled' },
+        },
+      },
+      { $group: { _id: '$orderRef._id' } },
+    ]);
+
+    const orderIds = rows.map((r) => r._id);
+    if (!orderIds || orderIds.length === 0) return [];
+
+    return await DB_Connection.Order.find({ _id: { $in: orderIds } })
+      .populate([
+        { path: 'table', select: 'tableNumber capacity status' },
+        { path: 'customer', select: 'name email phone' },
+        { path: 'items' },
+      ])
+      .sort({ createdAt: -1 })
+      .exec();
+  }
+
+  /**
    * Lấy chi tiết đơn hàng dạng Full Populate
    */
   async findDetailOrder(id: string): Promise<IOrderPopulate | null> {

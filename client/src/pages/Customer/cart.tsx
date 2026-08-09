@@ -25,12 +25,22 @@ import {
 import { toast } from 'sonner';
 import { useMenu } from '@/hooks/use-menu';
 import { extractId } from '@/utils/helpers';
-import { addToCart, updateQuantity, clearCart } from '@/redux/slices/cartSlice';
+import { mergeOrderItems } from '@/utils/orderItems';
+import { addToCart, updateQuantity, updateItemDetail, clearCart } from '@/redux/slices/cartSlice';
+import type { ICartTopping } from '@/redux/slices/cartSlice';
 import { selectRestaurant } from '@/redux/slices/restaurantSlice';
 import type { IMenuItem } from '@/types/category.type';
+import type { IOptionGroup } from '@/types/category.type';
 import { useAppSelector } from '@/hooks/redux-hook';
 import { useTable } from '@/hooks/use-table';
 import SideDrawer from '@/components/SideDrawer';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useAuth } from '@/hooks/use-auth';
 import { useOrder } from '@/hooks/use-order';
 import type { IOrder } from '@/types/order.type';
@@ -64,7 +74,7 @@ export default function CartPage() {
   } = useMenu();
   const { currentOrder, addOrder, addItemToOrder, fetchOrderByTableId, startListeningOrderSocket } =
     useOrder();
-  const { currentTable, fetchTableById } = useTable();
+  const { currentTable, fetchTableById, callStaffAtTable, requestPaymentAtTable } = useTable();
   const [activeTab, setActiveTab] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showWelcome, setShowWelcome] = useState<boolean>(true);
@@ -72,6 +82,9 @@ export default function CartPage() {
   // Quản lý 2 Drawer riêng biệt cho Mobile
   const [isCartDrawerOpen, setIsCartDrawerOpen] = useState<boolean>(false);
   const [isStatusDrawerOpen, setIsStatusDrawerOpen] = useState<boolean>(false);
+
+  // Modal nhỏ xác nhận đã gửi yêu cầu gọi nhân viên / thanh toán thành công
+  const [requestSent, setRequestSent] = useState<{ title: string; message: string } | null>(null);
 
   // Drawer chi tiết món ăn (mở khi click vào card)
   const [selectedFood, setSelectedFood] = useState<IMenuItem | null>(null);
@@ -115,10 +128,10 @@ export default function CartPage() {
     return null;
   }, [currentTable]);
 
-  const subtotal = (cartItems || []).reduce(
-    (acc, item) => acc + item.food?.price * item.quantity,
-    0,
-  );
+  const subtotal = (cartItems || []).reduce((acc, item) => {
+    const unitPrice = item.food?.price + (item.toppings || []).reduce((s, t) => s + t.price, 0);
+    return acc + unitPrice * item.quantity;
+  }, 0);
   const totalItemsCount = (cartItems || []).reduce((acc, item) => acc + (item?.quantity || 0), 0);
 
   // Lọc món theo từ khoá tìm kiếm (theo iPOS: thanh "Bạn muốn tìm món gì ?")
@@ -151,6 +164,19 @@ export default function CartPage() {
     dispatch(updateQuantity({ id, delta }));
   };
 
+  // Thêm món vào giỏ với đúng số lượng + options + ghi chú người dùng chọn
+  const handleConfirmAddItem = (
+    food: IMenuItem,
+    qty: number,
+    note?: string,
+    toppings?: ICartTopping[],
+  ) => {
+    const existing = cartItems?.find((i) => i.food._id === food._id);
+    if (!existing) dispatch(addToCart({ food }));
+    dispatch(updateItemDetail({ id: food._id, quantity: qty, note, toppings }));
+    closeItemDetail();
+  };
+
   const handleCheckoutSubmit = async () => {
     if (cartItems.length === 0) return;
 
@@ -160,6 +186,8 @@ export default function CartPage() {
         nameSnapshot: item.food.name,
         priceSnapshot: item.food.price,
         quantity: item.quantity,
+        ...(item.toppings && item.toppings.length > 0 ? { toppings: item.toppings } : {}),
+        ...(item.note ? { note: item.note } : {}),
       }));
 
       if (!tableId) {
@@ -201,22 +229,35 @@ export default function CartPage() {
     }
   };
 
-  // Khách bấm nút gọi thanh toán tại bàn
+  // Khách bấm nút gọi thanh toán tại bàn → gửi yêu cầu thật tới nhân viên qua hook
   const handlePaymentRequest = async () => {
     if (!tableId) return;
-    const confirmPayment = window.confirm('Bạn có muốn gửi yêu cầu thanh toán tới nhân viên?');
-    if (confirmPayment) {
-      console.log('API CALL: POST /api/orders/request-payment', { tableId });
-      alert('Đã gửi yêu cầu thanh toán! Nhân viên sẽ mang hóa đơn tới bàn của bạn ngay.');
-      setIsStatusDrawerOpen(false);
+    const result = await requestPaymentAtTable({
+      tableId,
+      restaurantId: restaurantId || extractId(currentTable?.restaurant) || undefined,
+    });
+    setIsStatusDrawerOpen(false);
+    if (result) {
+      setRequestSent({
+        title: 'Đã gửi yêu cầu thanh toán!',
+        message: 'Nhân viên sẽ mang hóa đơn tới bàn của bạn ngay.',
+      });
     }
   };
 
-  // Gọi nhân viên / Đánh giá (placeholder — chưa có backend, chỉ thông báo như iPOS)
-  const handleCallStaff = () => {
-    toast.success('Đã gửi yêu cầu tới nhân viên! Họ sẽ tới bàn của bạn ngay.', {
-      position: 'top-center',
+  // Gọi nhân viên → gửi yêu cầu thật tới nhân viên qua hook
+  const handleCallStaff = async () => {
+    if (!tableId) return;
+    const result = await callStaffAtTable({
+      tableId,
+      restaurantId: restaurantId || extractId(currentTable?.restaurant) || undefined,
     });
+    if (result) {
+      setRequestSent({
+        title: 'Đã gọi nhân viên!',
+        message: 'Nhân viên sẽ tới bàn của bạn ngay.',
+      });
+    }
   };
 
   const handleReview = () => {
@@ -244,6 +285,32 @@ export default function CartPage() {
     }
   }, [fetchCategories, fetchTableById, tableId, restaurantId]);
 
+  //  Polling đơn theo bàn — khách chưa đăng nhập không nhận được socket realtime,
+  // nên định kỳ lấy lại đơn để cập nhật trạng thái món do bếp cập nhật.
+  useEffect(() => {
+    if (!tableId || !activeOrder?._id) return;
+
+    let cancelled = false;
+    const pollOrder = async () => {
+      try {
+        const result = await fetchOrderByTableId(tableId);
+        if (!cancelled) setActiveOrder(result || null);
+      } catch (error: any) {
+        // Đơn đã thanh toán/hủy → backend trả 404 → reset đơn active cho bàn
+        if (!cancelled && error?.response?.status === 404) {
+          setActiveOrder(null);
+        }
+      }
+    };
+
+    pollOrder();
+    const interval = setInterval(pollOrder, 15000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [tableId, activeOrder?._id]);
+
   useEffect(() => {
     if (activeTab && activeTab === 'all' && !tableId) {
       if (restaurantSelected) {
@@ -261,17 +328,20 @@ export default function CartPage() {
   // Màn chào khách — chỉ hiển thị trong luồng quét QR (có tableId)
   if (tableId && showWelcome) {
     return (
-      <WelcomeScreen
-        restaurantName={restaurantInfo?.name || ''}
-        restaurantAddress={restaurantInfo?.address || ''}
-        logoUrl={restaurantInfo?.logoUrl || ''}
-        tableNumber={currentTable?.tableNumber || tableId}
-        hasActiveOrder={!!activeOrder}
-        onEnterMenu={() => setShowWelcome(false)}
-        onPaymentRequest={handlePaymentRequest}
-        onCallStaff={handleCallStaff}
-        onReview={handleReview}
-      />
+      <>
+        <WelcomeScreen
+          restaurantName={restaurantInfo?.name || ''}
+          restaurantAddress={restaurantInfo?.address || ''}
+          logoUrl={restaurantInfo?.logoUrl || ''}
+          tableNumber={currentTable?.tableNumber || tableId}
+          hasActiveOrder={!!activeOrder}
+          onEnterMenu={() => setShowWelcome(false)}
+          onPaymentRequest={handlePaymentRequest}
+          onCallStaff={handleCallStaff}
+          onReview={handleReview}
+        />
+        <RequestSentDialog requestSent={requestSent} onClose={() => setRequestSent(null)} />
+      </>
     );
   }
 
@@ -491,7 +561,7 @@ export default function CartPage() {
 
           <div className="flex-1 min-h-0 overflow-hidden">
             <ActiveOrderStatus
-              activeOrder={currentOrder}
+              activeOrder={activeOrder}
               tableNumber={currentTable?.tableNumber || tableId}
               onPaymentRequest={handlePaymentRequest}
             />
@@ -512,12 +582,47 @@ export default function CartPage() {
             food={selectedFood}
             cartItem={cartItems?.find((i) => i.food._id === selectedFood._id)}
             onClose={closeItemDetail}
-            onAddToCart={handleAddToCart}
-            onQuantityChange={handleQuantityChange}
+            onConfirmAdd={handleConfirmAddItem}
           />
         )}
       </SideDrawer>
+
+      {/* MODAL NHỎ XÁC NHẬN ĐÃ GỬI YÊU CẦU (GỌI NHÂN VIÊN / THANH TOÁN) */}
+      <RequestSentDialog requestSent={requestSent} onClose={() => setRequestSent(null)} />
     </div>
+  );
+}
+
+/* ==========================================================================
+   MODAL NHỎ XÁC NHẬN ĐÃ GỬI YÊU CẦU (DÙNG CHUNG: MÀN WELCOME + TRANG CHÍNH)
+   ========================================================================== */
+
+interface RequestSentDialogProps {
+  requestSent: { title: string; message: string } | null;
+  onClose: () => void;
+}
+
+function RequestSentDialog({ requestSent, onClose }: RequestSentDialogProps) {
+  return (
+    <AlertDialog open={!!requestSent} onOpenChange={(open) => !open && onClose()}>
+      <AlertDialogContent className="max-w-xs text-center">
+        <div className="flex flex-col items-center gap-2 py-2">
+          <span className="flex items-center justify-center w-12 h-12 rounded-full bg-emerald-50">
+            <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+          </span>
+          <AlertDialogTitle className="text-base">{requestSent?.title}</AlertDialogTitle>
+          <AlertDialogDescription className="text-xs">
+            {requestSent?.message}
+          </AlertDialogDescription>
+        </div>
+        <AlertDialogAction
+          onClick={onClose}
+          className="w-full bg-cerulean-blue-600 hover:bg-cerulean-blue-700"
+        >
+          OK
+        </AlertDialogAction>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
@@ -616,12 +721,12 @@ function WelcomeScreen({
               </button>
             </div>
 
-            {/* 3 nút nhanh — mobile xếp dọc, từ sm trở lên xếp 3 cột */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            {/* 3 nút nhanh — luôn xếp trên một hàng ngang giống desktop */}
+            <div className="grid grid-cols-3 gap-2">
               <button
                 onClick={onPaymentRequest}
                 disabled={!hasActiveOrder}
-                className="flex items-center justify-center sm:flex-col gap-2.5 sm:gap-1.5 rounded-2xl border border-slate-200 bg-white px-4 py-3 sm:py-3.5 transition-all hover:border-emerald-200 hover:bg-emerald-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-slate-200 disabled:hover:bg-white active:scale-95"
+                className="flex items-center justify-center flex-col gap-2.5 sm:gap-1.5 rounded-2xl border border-slate-200 bg-white px-4 py-3 sm:py-3.5 transition-all hover:border-emerald-200 hover:bg-emerald-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-slate-200 disabled:hover:bg-white active:scale-95"
               >
                 <Receipt className="w-5 h-5 shrink-0 text-emerald-600" />
                 <span className="text-[10px] sm:text-[11px] font-bold text-slate-600">
@@ -630,7 +735,7 @@ function WelcomeScreen({
               </button>
               <button
                 onClick={onCallStaff}
-                className="flex items-center justify-center sm:flex-col gap-2.5 sm:gap-1.5 rounded-2xl border border-slate-200 bg-white px-4 py-3 sm:py-3.5 transition-all hover:border-cerulean-blue-200 hover:bg-cerulean-blue-50 active:scale-95"
+                className="flex items-center justify-center flex-col gap-2.5 sm:gap-1.5 rounded-2xl border border-slate-200 bg-white px-4 py-3 sm:py-3.5 transition-all hover:border-cerulean-blue-200 hover:bg-cerulean-blue-50 active:scale-95"
               >
                 <BellRing className="w-5 h-5 shrink-0 text-cerulean-blue-600" />
                 <span className="text-[10px] sm:text-[11px] font-bold text-slate-600">
@@ -639,7 +744,7 @@ function WelcomeScreen({
               </button>
               <button
                 onClick={onReview}
-                className="flex items-center justify-center sm:flex-col gap-2.5 sm:gap-1.5 rounded-2xl border border-slate-200 bg-white px-4 py-3 sm:py-3.5 transition-all hover:border-amber-200 hover:bg-amber-50 active:scale-95"
+                className="flex items-center justify-center flex-col gap-2.5 sm:gap-1.5 rounded-2xl border border-slate-200 bg-white px-4 py-3 sm:py-3.5 transition-all hover:border-amber-200 hover:bg-amber-50 active:scale-95"
               >
                 <Star className="w-5 h-5 shrink-0 text-amber-500" />
                 <span className="text-[10px] sm:text-[11px] font-bold text-slate-600">
@@ -1046,7 +1151,7 @@ function ActiveOrderStatus({ activeOrder, tableNumber, onPaymentRequest }: Activ
 
       {/* Danh sách các món ăn đã order trong bếp - Chỉ scroll ở đây */}
       <div className="flex-1 overflow-y-auto pr-1 no-scrollbar space-y-3 min-h-0 pb-2">
-        {activeOrder.items?.map((item: any, index: number) => {
+        {mergeOrderItems(activeOrder.items || []).map((item: any, index: number) => {
           // Lấy cấu hình trạng thái hiện tại dựa vào item.status từ backend gửi về
           // Nếu không khớp trạng thái nào, mặc định hiển thị theo 'pending'
           const currentStatus = STATUS[item.status] || STATUS.pending;
@@ -1058,6 +1163,14 @@ function ActiveOrderStatus({ activeOrder, tableNumber, onPaymentRequest }: Activ
             >
               <div className="min-w-0 flex-1">
                 <h4 className="text-xs font-bold text-gray-900 truncate">{item?.nameSnapshot}</h4>
+                {item.toppings && item.toppings.length > 0 && (
+                  <p className="text-[10px] text-cerulean-blue-600 truncate mt-0.5">
+                    + {item.toppings.map((t: any) => t.name).join(', ')}
+                  </p>
+                )}
+                {item.note && (
+                  <p className="text-[10px] text-amber-600 truncate mt-0.5">Ghi chú: {item.note}</p>
+                )}
                 <p className="text-[10px] text-slate-400 font-medium mt-0.5">
                   Số lượng đặt:{''}
                   <span className="text-gray-900 font-mono font-bold">{item.quantity}</span>
@@ -1106,18 +1219,87 @@ interface ItemDetailSheetProps {
   food: IMenuItem;
   cartItem?: any;
   onClose: () => void;
-  onAddToCart: (food: IMenuItem) => void;
-  onQuantityChange: (id: string, delta: number) => void;
+  onConfirmAdd: (food: IMenuItem, qty: number, note?: string, toppings?: ICartTopping[]) => void;
 }
 
-function ItemDetailSheet({
-  food,
-  cartItem,
-  onClose,
-  onAddToCart,
-  onQuantityChange,
-}: ItemDetailSheetProps) {
+function ItemDetailSheet({ food, cartItem, onClose, onConfirmAdd }: ItemDetailSheetProps) {
   const soldOut = food?.isAvailable === false;
+  const optionGroups = food?.optionGroups || [];
+
+  // Số lượng mặc định là 1 khi mở chi tiết (để luôn tăng/giảm được)
+  const [qty, setQty] = useState<number>(cartItem?.quantity || 1);
+
+  // Lựa chọn theo từng group (key = index group, value = mảng tên choice đã chọn)
+  // Group single bắt buộc → mặc định chọn choice đầu tiên
+  const initSelected = () => {
+    const map: Record<number, string[]> = {};
+    optionGroups.forEach((group, index) => {
+      if (group.type === 'single' && group.required && group.choices.length > 0) {
+        map[index] = [group.choices[0].name];
+      } else {
+        map[index] = [];
+      }
+    });
+    return map;
+  };
+  const [selected, setSelected] = useState<Record<number, string[]>>(initSelected);
+  const [note, setNote] = useState('');
+
+  const toggleChoice = (groupIndex: number, group: IOptionGroup, choiceName: string) => {
+    const current = selected[groupIndex] || [];
+    if (group.type === 'single') {
+      setSelected((prev) => ({ ...prev, [groupIndex]: [choiceName] }));
+      return;
+    }
+    // multiple
+    const already = current.includes(choiceName);
+    if (already) {
+      setSelected((prev) => ({
+        ...prev,
+        [groupIndex]: current.filter((name) => name !== choiceName),
+      }));
+    } else {
+      const max = group.max ?? group.choices.length;
+      if (current.length >= max) return; // Đã đạt giới hạn tối đa
+      setSelected((prev) => ({ ...prev, [groupIndex]: [...current, choiceName] }));
+    }
+  };
+
+  const selectedToppings = (): ICartTopping[] => {
+    const toppings: ICartTopping[] = [];
+    optionGroups.forEach((group, index) => {
+      const chosen = selected[index] || [];
+      for (const choice of group.choices) {
+        if (chosen.includes(choice.name)) {
+          toppings.push({ name: choice.name, price: choice.price });
+        }
+      }
+    });
+    return toppings;
+  };
+
+  const toppingsPrice = selectedToppings().reduce((sum, t) => sum + t.price, 0);
+
+  // Kiểm tra tính hợp lệ trước khi thêm vào giỏ (group bắt buộc phải chọn đủ)
+  const validateSelection = (): string | null => {
+    for (const [rawIndex, group] of optionGroups.entries()) {
+      const count = (selected[rawIndex] || []).length;
+      const min = group.type === 'single' ? 1 : group.min || 0;
+      if (group.required && count < min) {
+        return `Vui lòng chọn cho nhóm "${group.name}"`;
+      }
+    }
+    return null;
+  };
+
+  const handleConfirm = () => {
+    const error = validateSelection();
+    if (error) {
+      toast.error(error, { position: 'top-center' });
+      return;
+    }
+    onConfirmAdd(food, qty, note, selectedToppings());
+  };
 
   return (
     <div className="flex flex-col h-full">
@@ -1135,7 +1317,7 @@ function ItemDetailSheet({
 
       {/* Nội dung chi tiết */}
       <div className="flex-1 overflow-y-auto min-h-0 no-scrollbar">
-        {/* Ảnh lớn */}
+        {/* Ảnh lớn — object-contain để ảnh nằm trọn trong khung, không bị cắt */}
         <div className="relative w-full aspect-[16/9] bg-slate-50">
           <img
             src={
@@ -1144,7 +1326,7 @@ function ItemDetailSheet({
                 : 'https://placehold.co/800x450/f8f9fc/a3a8bf?text=No+Image'
             }
             alt={food.name}
-            className={`w-full h-full object-cover ${soldOut ? 'grayscale opacity-60' : ''}`}
+            className={`w-full h-full object-contain ${soldOut ? 'grayscale opacity-60' : ''}`}
           />
           {soldOut && (
             <div className="absolute inset-0 flex items-center justify-center bg-gray-950/40">
@@ -1157,15 +1339,9 @@ function ItemDetailSheet({
 
         <div className="px-5 py-5 space-y-4">
           <div className="space-y-1.5">
-            <span className="text-[9px] font-extrabold text-cerulean-blue-600 uppercase tracking-wider bg-cerulean-blue-50 px-1.5 py-0.5 rounded">
-              {extractId(food.category, 'name')}
-            </span>
             <h2 className="text-lg font-black text-gray-900 tracking-tight leading-snug">
               {food.name}
             </h2>
-            <p className="text-2xl font-black text-cerulean-blue-700 tracking-tighter">
-              {food.price.toLocaleString('vi-VN')} đ
-            </p>
           </div>
 
           {food.description && (
@@ -1178,46 +1354,129 @@ function ItemDetailSheet({
               </p>
             </div>
           )}
+
+          {/* LỰA CHỌN THÊM — render theo cấu hình optionGroups của món */}
+          {!soldOut && optionGroups.length > 0 && (
+            <div className="space-y-3">
+              {optionGroups.map((group, index) => {
+                const chosen = selected[index] || [];
+                const isSingle = group.type === 'single';
+                const max = group.max ?? group.choices.length;
+                return (
+                  <div key={index} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                        {group.name}
+                      </p>
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-cerulean-blue-50 text-cerulean-blue-600">
+                        {group.required
+                          ? isSingle
+                            ? 'Chọn 1'
+                            : `Chọn ${group.min || 1}-${max}`
+                          : 'Tùy chọn'}
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {group.choices.map((choice) => {
+                        const isChecked = chosen.includes(choice.name);
+                        const reachMax = !isSingle && chosen.length >= max && !isChecked;
+                        return (
+                          <label
+                            key={choice.name}
+                            className={`flex items-center justify-between gap-3 p-3 bg-slate-50/60 rounded-xl border cursor-pointer select-none transition-all active:bg-slate-100/60 ${
+                              isChecked
+                                ? 'border-cerulean-blue-300 bg-cerulean-blue-50/50'
+                                : 'border-slate-100/60'
+                            } ${reachMax ? 'opacity-50 pointer-events-none' : ''}`}
+                          >
+                            <span className="flex items-center gap-2.5 min-w-0">
+                              <input
+                                type={isSingle ? 'radio' : 'checkbox'}
+                                checked={isChecked}
+                                onChange={() => toggleChoice(index, group, choice.name)}
+                                className="accent-cerulean-blue-600 w-4 h-4 shrink-0"
+                              />
+                              <span className="text-xs font-bold text-gray-900 truncate">
+                                {choice.name}
+                              </span>
+                            </span>
+                            <span className="text-[10px] font-black text-cerulean-blue-600 shrink-0">
+                              {choice.price > 0
+                                ? `+${choice.price.toLocaleString('vi-VN')} đ`
+                                : 'Miễn phí'}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Ghi chú cho món — lưu vào note của OrderItem */}
+          {!soldOut && (
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                Ghi chú
+              </p>
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                rows={2}
+                placeholder="Ví dụ: không cay, bớt ngọt, làm sẵn..."
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-xs font-medium text-gray-900 placeholder:text-slate-400 outline-none transition-all focus:border-cerulean-blue-300 focus:bg-white focus:ring-4 focus:ring-cerulean-blue-50 resize-none"
+              />
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Nút thêm vào giỏ cố định dưới cùng */}
-      <div className="px-4 py-4 border-t border-slate-100 flex-shrink-0 bg-white space-y-2">
+      {/* Footer cố định: nút tăng/giảm ngang hàng với nút thêm giỏ, giá nằm trong nút thêm giỏ */}
+      <div className="px-4 py-4 border-t border-slate-100 flex-shrink-0 bg-white">
         {soldOut ? (
           <div className="w-full text-center text-xs font-black text-slate-400 py-3.5 bg-slate-50 rounded-xl uppercase tracking-wider">
             Món này hiện đã bán hết
           </div>
         ) : (
-          <>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4  p-3">
-                <button
-                  onClick={() => onQuantityChange(food._id, -1)}
-                  disabled={!cartItem}
-                  className="flex items-center justify-center w-11 h-11 rounded-lg border border-slate-500 text-slate-500 disabled:opacity-40 active:scale-90 transition-all"
-                  aria-label={`Giảm số lượng ${food.name}`}
-                >
-                  <Minus className="w-3.5 h-3.5" />
-                </button>
-                <span className=" text-gray-900 w-6 text-center select-none">
-                  {cartItem?.quantity || 0}
-                </span>
-                <button
-                  onClick={() => onQuantityChange(food._id, 1)}
-                  className="flex items-center justify-center w-11 h-11 rounded-lg bg-cerulean-blue-100  border border-cerulean-600 text-slate-500 active:scale-90 transition-all"
-                  aria-label={`Tăng số lượng ${food.name}`}
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                </button>
-              </div>
+          <div className="flex items-center justify-between gap-3">
+            {/* Nút tăng/giảm số lượng (state local, mặc định 1) */}
+            <div className="flex items-center gap-3 p-2 bg-slate-50/70 rounded-xl border border-slate-100 shrink-0">
               <button
-                onClick={() => onAddToCart(food)}
-                className="w-full flex items-center justify-center gap-2 rounded-lg bg-cerulean-blue-600 hover:bg-cerulean-blue-700 text-white font-black text-sm py-3.5 tracking-wide uppercase transition-all shadow-md active:scale-[0.99]"
+                onClick={() => setQty((prev) => Math.max(1, prev - 1))}
+                disabled={qty <= 1}
+                className="flex items-center justify-center w-9 h-9 rounded-lg border border-slate-500 text-slate-500 disabled:opacity-40 active:scale-90 transition-all"
+                aria-label={`Giảm số lượng ${food.name}`}
               >
-                Thêm vào giỏ
+                <Minus className="w-3.5 h-3.5" />
+              </button>
+              <span className="text-gray-900 w-6 text-center select-none font-black text-sm">
+                {qty}
+              </span>
+              <button
+                onClick={() => setQty((prev) => prev + 1)}
+                className="flex items-center justify-center w-9 h-9 rounded-lg bg-cerulean-blue-100 border border-cerulean-600 text-slate-500 active:scale-90 transition-all"
+                aria-label={`Tăng số lượng ${food.name}`}
+              >
+                <Plus className="w-3.5 h-3.5" />
               </button>
             </div>
-          </>
+
+            {/* Nút thêm vào giỏ — giá (món + options) nằm bên dưới chữ */}
+            <button
+              onClick={handleConfirm}
+              className="flex-1 flex flex-col items-center justify-center gap-0.5 rounded-xl bg-cerulean-blue-600 hover:bg-cerulean-blue-700 text-white font-black text-xs py-3 tracking-wide uppercase transition-all shadow-md active:scale-[0.99]"
+            >
+              <span className="flex items-center gap-1.5">
+                <ShoppingBag className="w-4 h-4" />
+                Thêm vào giỏ
+              </span>
+              <span className="text-[10px] font-bold text-cerulean-blue-100 normal-case">
+                {((food.price + toppingsPrice) * qty).toLocaleString('vi-VN')} đ
+              </span>
+            </button>
+          </div>
         )}
       </div>
     </div>

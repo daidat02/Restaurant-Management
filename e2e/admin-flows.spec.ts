@@ -34,15 +34,21 @@ test.describe('T12/T13 — Admin & manager flows', () => {
 
   test('POS: thêm món vào bill (staff cơ sở X)', async ({ page }) => {
     await login(page, USERS.staff.email);
-    await expect(page).toHaveURL(/\/staff\/orders\/pos/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/staff\/orders$/, { timeout: 15_000 });
     await waitAuthPersisted(page, SEED_IDS.tenantX);
+
+    // Vào POS từ trang Đơn (bấm "+ Đơn mới")
+    await page.getByRole('button', { name: /Đơn mới/ }).click();
+    await expect(page).toHaveURL(/\/staff\/orders\/pos/, { timeout: 15_000 });
 
     // Chọn món X
     await expect(page.getByText('Cà phê sữa')).toBeVisible({ timeout: 20_000 });
     await page.getByText('Cà phê sữa').click();
 
     // Panel bill hiển thị món đã chọn (tiền format vi-VN: 35.000đ)
-    await expect(page.getByText(/Thành tiền: 35\.000đ/)).toBeVisible({ timeout: 15_000 });
+    const bill = page.locator('aside');
+    await expect(bill.getByText('Tổng cộng')).toBeVisible({ timeout: 15_000 });
+    await expect(bill.getByText('35.000đ').first()).toBeVisible();
   });
 
   test('order: đổi status pending → confirmed (manager X)', async ({ page, request }) => {

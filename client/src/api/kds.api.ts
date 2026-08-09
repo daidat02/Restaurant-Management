@@ -8,8 +8,9 @@ const { ORDERS } = API_ENDPOINTS;
 // Các API dành riêng cho màn hình bếp (KDS), dùng token nhà bếp thay vì token đăng nhập
 
 export const getKdsActiveOrders = async (restaurantId: string) => {
+  // Endpoint KDS riêng: trả đơn còn món chưa được phục vụ (kể cả đơn served/paid thanh toán trước)
   const res = await kdsClient.get<any, ApiResponse<IOrder[]>>(
-    ORDERS.RESTAURANT_ACTIVE(restaurantId),
+    ORDERS.RESTAURANT_KDS(restaurantId),
   );
   return res.data;
 };

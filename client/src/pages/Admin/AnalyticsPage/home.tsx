@@ -9,6 +9,7 @@ import { OverviewCards, TopDishesTable } from './components/OverView';
 import { ChartsSection } from './components/ChartsSection';
 import { SubscriptionAlertsTable } from '../components/SubscriptionAlertsTable';
 import { extractId } from '@/utils/helpers';
+import { BarChart3, Activity } from 'lucide-react';
 
 interface IHeaderProps {
   value: { from: string; to: string };
@@ -18,13 +19,21 @@ interface IHeaderProps {
 function GlobalHeader({ value, onSelectDate }: IHeaderProps) {
   const today = new Date();
   return (
-    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8 border-b border-slate-200 pb-5">
-      <div className="flex items-start gap-3">
+    <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex items-start gap-4">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-cerulean-blue-600 text-white shadow-lg shadow-cerulean-blue-200">
+          <BarChart3 className="h-6 w-6" />
+        </span>
         <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-950">
-            Báo Cáo & Phân Tích
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-950 md:text-3xl">
+              Báo Cáo & Phân Tích
+            </h1>
+            <span className="inline-flex items-center gap-1 rounded-full bg-cerulean-blue-50 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-cerulean-blue-700">
+              <Activity className="h-3 w-3" /> Realtime
+            </span>
+          </div>
+          <p className="mt-1 text-sm text-slate-500">
             Hôm nay:{' '}
             {today.toLocaleDateString('vi-VN', {
               weekday: 'long',
@@ -97,9 +106,12 @@ export default function Home() {
         {/* Bảng cảnh báo thuê bao từng chi nhánh — chỉ hiển thị với admin (chủ chuỗi) */}
         {user?.role === 'admin' && <SubscriptionAlertsTable />}
 
-        <div className="space-y-8 animate-fade-in">
+        <div className="space-y-6 animate-fade-in">
           {/* Cụm 1: Thẻ thông số tổng quan */}
-          <OverviewCards overviewStats={overviewStats} />
+          <OverviewCards
+            overviewStats={overviewStats}
+            sparkData={revenueHourly?.map((r) => r.amount ?? 0) ?? []}
+          />
 
           <ChartsSection
             userRole={user?.role} // Truyền role để component con tự đổi giao diện

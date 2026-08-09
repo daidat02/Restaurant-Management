@@ -11,6 +11,7 @@ import {
   Check,
   CalendarDays,
   CreditCard,
+  BellRing,
 } from 'lucide-react';
 import { getTimeAgo } from '@/utils/helpers';
 import type { INotification } from '@/types/noti.type';
@@ -65,6 +66,16 @@ const notificationConfigs: Record<
     bgColor: 'bg-cerulean-blue-50',
     iconColor: 'text-cerulean-blue-600',
   },
+  call_staff: {
+    icon: <BellRing className="h-4 w-4" />,
+    bgColor: 'bg-cerulean-blue-50',
+    iconColor: 'text-cerulean-blue-600',
+  },
+  payment_request: {
+    icon: <CreditCard className="h-4 w-4" />,
+    bgColor: 'bg-emerald-50',
+    iconColor: 'text-emerald-600',
+  },
   default: {
     icon: <Info className="h-4 w-4" />,
     bgColor: 'bg-gray-50',
@@ -108,6 +119,10 @@ export function NotificationPopover({
         break;
       case 'new_reservation':
         navigate(`/${role}/reservations`); // Điều hướng trang quản lý đặt bàn
+        break;
+      case 'call_staff':
+      case 'payment_request':
+        navigate(`/${role}/tables`); // Khách cần hỗ trợ tại bàn → mở sơ đồ bàn
         break;
       default:
         break;

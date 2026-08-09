@@ -1,6 +1,7 @@
 import { useRef, type ReactNode } from 'react';
 import { useReactToPrint } from 'react-to-print';
 import { extractId, formatVND } from '@/utils/helpers';
+import { mergeOrderItems } from '@/utils/orderItems';
 import { useAuth } from '@/hooks/use-auth';
 import type { IOrder } from '@/types/order.type';
 
@@ -29,6 +30,7 @@ export default function ReceiptPrinter({ order, children }: ReceiptPrinterProps)
   });
 
   const items = order?.items || [];
+  const mergedItems = mergeOrderItems(items);
   const subtotal = items.reduce((s, it) => s + (it.priceSnapshot || 0) * it.quantity, 0);
   const tableNumber =
     order?.table && typeof order.table === 'object' ? order.table?.tableNumber : null;
@@ -64,16 +66,24 @@ export default function ReceiptPrinter({ order, children }: ReceiptPrinterProps)
                 </tr>
               </thead>
               <tbody>
-                {items.map((item, idx) => (
+                {mergedItems.map((item, idx) => (
                   <tr key={item._id || idx}>
-                    <td className="py-1 break-words pr-1">{item.nameSnapshot}</td>
+                    <td className="py-1 break-words pr-1">
+                      <p>{item.nameSnapshot}</p>
+                      {item.toppings && item.toppings.length > 0 && (
+                        <p className="text-[10px] text-gray-500">
+                          + {item.toppings.map((t) => t.name).join(', ')}
+                        </p>
+                      )}
+                      {item.note && <p className="text-[10px] text-gray-500">({item.note})</p>}
+                    </td>
                     <td className="text-center align-top py-1">{item.quantity}</td>
                     <td className="text-right align-top py-1">
                       {(item.quantity * item.priceSnapshot).toLocaleString('vi-VN')}
                     </td>
                   </tr>
                 ))}
-                {items.length === 0 && (
+                {mergedItems.length === 0 && (
                   <tr>
                     <td colSpan={3} className="py-2 text-center text-gray-400">
                       Chưa có món nào

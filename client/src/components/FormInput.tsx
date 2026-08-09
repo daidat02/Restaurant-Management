@@ -21,15 +21,16 @@ export const CustomInput = ({
 }: FormInputProps) => {
   return (
     <div className={cn('flex flex-col gap-1.5 w-full', containerClassName)}>
-      <label className="text-sm text-gray-900">{label}</label>
+      <label className="text-sm font-medium text-gray-900">{label}</label>
       <div className="relative">
         <input
           /* 🛠️ SỬ DỤNG HÀM cn() ĐỂ QUẢN LÝ CLASS MÀU: Nếu bên ngoài truyền vào focus:border-..., nó sẽ tự ghi đè màu cerulean-blue */
           className={cn(
-            'w-full px-4 py-2 border border-gray-300 rounded-lg text-sm placeholder:text-gray-400 transition-colors',
-            'focus:outline-none focus:border-cerulean-blue-500 focus:ring-1 focus:ring-cerulean-blue-500', // Cặp màu mặc định
+            'h-10 w-full px-3.5 rounded-xl border text-sm placeholder:text-slate-400 transition-colors',
+            'border-slate-200 bg-slate-50/70 focus:bg-white', // Nền + viền mặc định
+            'focus:outline-none focus:border-cerulean-blue-500 focus:ring-2 focus:ring-cerulean-blue-100', // Cặp màu focus mặc định
             icon || actionButton ? 'pr-10' : '',
-            error ? 'border-red-500' : '',
+            error ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : '',
             className, // Class động từ ngoài truyền vào sẽ đè bẹp các class trùng ở trên nhờ hàm cn
           )}
           {...props}

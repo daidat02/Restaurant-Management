@@ -70,3 +70,18 @@ export const getMyOrders = async () => {
   console.log('res.data:', res.data);
   return res.data;
 };
+
+// Khách tại bàn gọi nhân viên (public — không cần token)
+export const callStaffAtTable = async (payload: { tableId: string; restaurantId?: string }) => {
+  const res = await axiosClient.post<any, ApiResponse<null>>(ORDERS.CALL_STAFF, payload);
+  return res.data;
+};
+
+// Khách tại bàn yêu cầu thanh toán (public — không cần token)
+export const requestPaymentAtTable = async (payload: {
+  tableId: string;
+  restaurantId?: string;
+}) => {
+  const res = await axiosClient.post<any, ApiResponse<null>>(ORDERS.REQUEST_PAYMENT, payload);
+  return res.data;
+};

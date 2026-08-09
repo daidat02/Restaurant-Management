@@ -132,7 +132,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       {/* KHUNG KÉO THẢ */}
       <div 
         className={`relative w-full border-2 border-dashed rounded-xl p-6 flex flex-col items-center justify-center transition-colors cursor-pointer min-h-[160px]
-          ${dragActive ? 'border-cerulean-blue-500 bg-cerulean-blue-50' : 'border-gray-300 bg-gray-50 hover:bg-gray-100'}
+          ${dragActive ? 'border-cerulean-blue-500 bg-cerulean-blue-50' : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100'}
         `}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}

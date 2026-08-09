@@ -41,7 +41,7 @@ export const PaymentModal = ({
       onOpenChange={(open) => {
         if (!open) onClose(); // Khi bấm ra ngoài modal hoặc bấm nút X, gọi onClose
       }}
-      contentClass="!max-w-screen max-h-screen w-[95vw] md:w-[800px] lg:w-[1200px] p-0"
+      contentClass="!max-w-screen !max-h-[100dvh] w-screen md:w-[800px] lg:w-[1200px] p-0"
       content={
         // Chỉ render FormPayment khi đã có paymentId thật — tránh:
         //  1) fetch GET /api/payments/ (id rỗng) ngay khi modal mở, initiate còn đang chạy async → 404 "Cannot GET /api/payments/".

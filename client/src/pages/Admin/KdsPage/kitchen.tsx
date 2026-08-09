@@ -11,11 +11,14 @@ import {
   isKdsSessionValid,
   type KdsSession,
 } from '@/utils/kds-session';
-import { socket, connectSocketWithAuth } from '@/configs/socket.io';
+import { kdsSocket, connectKdsSocketWithAuth } from '@/configs/socket.io';
 import type { IOrder, IOrderItem } from '@/types/order.type';
+import { useNotification } from '@/hooks/use-notification';
 
-// Đơn thuộc các trạng thái này sẽ tự ẩn khỏi màn hình bếp
-const HIDDEN_STATUSES = ['served', 'paid', 'cancelled', 'delivered'];
+// KDS hiển thị đơn khi còn ít nhất 1 món chưa được phục vụ (cần nấu),
+// không phụ thuộc trạng thái đơn (served/paid vẫn hiện nếu còn món chưa xong).
+const hasUnservedItems = (order?: Partial<IOrder>): boolean =>
+  Boolean(order?.items?.length) && order!.items!.some((i) => i.status !== 'served');
 
 type TabId = 'all' | 'dine-in' | 'delivery' | 'to-go';
 
@@ -42,13 +45,14 @@ function KitchenDashboard({
   session: KdsSession;
   onSessionExpired: () => void;
 }) {
+  const { playAudio } = useNotification();
   const restaurantId = session.restaurantId;
   const [orders, setOrders] = useState<IOrder[]>([]);
   const [activeTab, setActiveTab] = useState<TabId>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [isSocketConnected, setIsSocketConnected] = useState(socket.connected);
+  const [isSocketConnected, setIsSocketConnected] = useState(kdsSocket.connected);
 
   const handleSessionExpired = useCallback(() => {
     clearKdsSession();
@@ -62,7 +66,7 @@ function KitchenDashboard({
     setLoadError(null);
     try {
       const result = await getKdsActiveOrders(restaurantId);
-      setOrders((result || []).filter((o) => !HIDDEN_STATUSES.includes(o.status || '')));
+      setOrders((result || []).filter((o) => hasUnservedItems(o)));
     } catch (error) {
       const err = error as { message?: string; status?: number };
       if (err?.status === 401) {
@@ -89,20 +93,32 @@ function KitchenDashboard({
   const handleOrderEvent = useCallback(
     (res: { action: string; orderData?: Partial<IOrder>; itemData?: Partial<IOrderItem> }) => {
       const { action, orderData, itemData } = res;
-
       setOrders((prevOrders) => {
         switch (action) {
           case 'CREATE': {
+            playAudio(3);
             if (!orderData) return prevOrders;
             if (String(orderData.restaurant) !== String(restaurantId)) return prevOrders;
-            if (HIDDEN_STATUSES.includes(orderData.status || '')) return prevOrders;
+            if (!hasUnservedItems(orderData)) return prevOrders;
             if (prevOrders.some((o) => o._id === orderData._id)) return prevOrders;
             return [orderData as IOrder, ...prevOrders];
           }
-          case 'ADD_ITEMS':
+          case 'ADD_ITEMS': {
+            playAudio(1);
+            if (!orderData) return prevOrders;
+            // Đơn thêm món mới: nếu đã từng bị ẩn khỏi KDS (đã served hết trước đó)
+            // thì đưa lại vào danh sách khi còn món chưa xong.
+            if (!hasUnservedItems(orderData)) return prevOrders;
+            const exists = prevOrders.some((o) => o._id === orderData._id);
+            if (exists) {
+              return prevOrders.map((o) => (o._id === orderData._id ? { ...o, ...orderData } : o));
+            }
+            return [orderData as IOrder, ...prevOrders];
+          }
           case 'UPDATE_STATUS': {
             if (!orderData) return prevOrders;
-            if (HIDDEN_STATUSES.includes(orderData.status || '')) {
+            // Giữ đơn nếu còn món chưa xong; chỉ ẩn khi đơn kết thúc và không còn món phải nấu.
+            if (!hasUnservedItems(orderData)) {
               return prevOrders.filter((o) => o._id !== orderData._id);
             }
             return prevOrders.map((o) => (o._id === orderData._id ? { ...o, ...orderData } : o));
@@ -115,12 +131,13 @@ function KitchenDashboard({
               const newItems = o.items!.map((i) =>
                 i._id === itemData._id ? { ...i, status: itemData.status } : i,
               );
-              const allServed = newItems.length > 0 && newItems.every((i) => i.status === 'served');
-              if (allServed) return acc; // Tất cả món đã xong -> tự ẩn card
+              const stillCooking = newItems.some((i) => i.status !== 'served');
+              if (!stillCooking) return acc; // Không còn món nào cần nấu -> tự ẩn card
               return [...acc, { ...o, items: newItems }];
             }, []);
           }
           case 'CANCEL':
+            playAudio(1);
             return prevOrders.filter((o) => o._id !== orderData?._id);
           default:
             return prevOrders;
@@ -133,26 +150,27 @@ function KitchenDashboard({
   // Kết nối socket phòng nhà hàng của phiên bếp (xác thực bằng token KDS)
   useEffect(() => {
     if (!restaurantId) return;
-
-    connectSocketWithAuth(session.token);
-    socket.emit('init_room_restaurant', restaurantId);
+    console.log('Connecting KDS socket for restaurant:', restaurantId, 'with KDS token...');
+    connectKdsSocketWithAuth(session.token);
+    kdsSocket.emit('init_room_restaurant', restaurantId);
 
     const handleConnect = () => {
       setIsSocketConnected(true);
-      socket.emit('init_room_restaurant', restaurantId);
+      kdsSocket.emit('init_room_restaurant', restaurantId);
+      console.log('KDS socket connected to restaurant room:', restaurantId);
       fetchOrders();
     };
     const handleDisconnect = () => setIsSocketConnected(false);
 
-    socket.on('order_event', handleOrderEvent);
-    socket.on('connect', handleConnect);
-    socket.on('disconnect', handleDisconnect);
+    kdsSocket.on('order_event', handleOrderEvent);
+    kdsSocket.on('connect', handleConnect);
+    kdsSocket.on('disconnect', handleDisconnect);
 
     return () => {
-      socket.off('order_event', handleOrderEvent);
-      socket.off('connect', handleConnect);
-      socket.off('disconnect', handleDisconnect);
-      socket.emit('leave_restaurant', restaurantId);
+      kdsSocket.off('order_event', handleOrderEvent);
+      kdsSocket.off('connect', handleConnect);
+      kdsSocket.off('disconnect', handleDisconnect);
+      kdsSocket.emit('leave_restaurant', restaurantId);
     };
   }, [restaurantId, session.token, handleOrderEvent, fetchOrders]);
 
@@ -167,8 +185,8 @@ function KitchenDashboard({
             const newItems = o.items.map((i) =>
               i._id === itemId ? { ...i, status: nextStatus } : i,
             );
-            const allServed = newItems.length > 0 && newItems.every((i) => i.status === 'served');
-            if (allServed) return acc;
+            const stillCooking = newItems.some((i) => i.status !== 'served');
+            if (!stillCooking) return acc;
             return [...acc, { ...o, items: newItems }];
           }, []),
         );

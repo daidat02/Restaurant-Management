@@ -1,12 +1,13 @@
-import { useSidebar } from '@/components/ui/sidebar';
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { usePayment } from '@/hooks/use-payment';
 import { Banknote, Check, CreditCard, Printer, QrCode, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { extractId } from '@/utils/helpers';
+import { mergeOrderItems } from '@/utils/orderItems';
 import { CustomTabs } from '@/components/tabsCustom';
 import { useReactToPrint } from 'react-to-print';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // IMPORT COMPONENT IN HÓA ĐƠN
 import ReceiptTemplate from './ReceiptTemplate';
@@ -55,7 +56,7 @@ export default function PaymentForm({ paymentId, onCancel, onConfirm }: PaymentF
   const [tenderedInput, setTenderedInput] = useState<string>('');
   const [isPrint, setIsPrint] = useState<boolean>(true);
 
-  const { isMobile } = useSidebar();
+  const isMobile = useIsMobile();
 
   // ========================== TRUNG TÂM TÍNH TOÁN LOGIC THUẾ PHÍ ==========================
   const vatRate = currentSetting?.receiptConfig?.vat || 0;
@@ -167,7 +168,7 @@ export default function PaymentForm({ paymentId, onCancel, onConfirm }: PaymentF
   }, [paymentId, activeRestaurantId]);
 
   return (
-    <div className="flex flex-col md:flex-row h-[90vh] w-full overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-sm relative">
+    <div className="flex flex-col md:flex-row h-screen md:h-[90vh] w-full overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-sm relative supports-[height:100dvh]:h-dvh">
       {/* DIALOG THÔNG BÁO THANH TOÁN THÀNH CÔNG REALTIME */}
       {paymentSocketResult?.data?.code === '00' && (
         <DialogCustom
@@ -233,7 +234,7 @@ export default function PaymentForm({ paymentId, onCancel, onConfirm }: PaymentF
         </div>
 
         <div className="flex-1 overflow-y-auto p-3 sm:p-4 flex flex-col gap-2">
-          {currentPayment?.order?.items?.map((item: any) => (
+          {mergeOrderItems(currentPayment?.order?.items || []).map((item: any) => (
             <div
               key={item._id}
               className="flex justify-between pt-2 items-start text-xs sm:text-sm border-t border-gray-100 first:border-0 first:pt-0"

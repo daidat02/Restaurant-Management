@@ -41,9 +41,9 @@ test.describe('T04 — Admin & tenant sau redesign (bỏ /select-restaurant)', (
     expect(res.status()).toBe(403);
   });
 
-  test('staff login → vào POS tự động (cơ sở X)', async ({ page }) => {
+  test('staff login → vào trang Đơn (không còn vào thẳng POS)', async ({ page }) => {
     await login(page, USERS.staff.email);
-    await expect(page).toHaveURL(/\/staff\/orders\/pos/, { timeout: 15_000 });
+    await expect(page).toHaveURL(/\/staff\/orders$/, { timeout: 15_000 });
   });
 
   test('admin bị chặn URL /manager/menu/items → redirect về /admin', async ({ page }) => {

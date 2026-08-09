@@ -2,6 +2,7 @@ import { StatusTag } from '@/components/StatusTag';
 import { DataTable, type ColumnDef } from '@/components/TableData';
 import type { IOrderItem } from '@/types/order.type';
 import { calcItemTotal, formatPrice } from './orderDetailHelpers';
+import { mergeOrderItems } from '@/utils/orderItems';
 
 const itemColumns: ColumnDef<IOrderItem>[] = [
   {
@@ -41,10 +42,12 @@ interface OrderItemsTableProps {
 }
 
 export default function OrderItemsTable({ items, isLoading }: OrderItemsTableProps) {
+  // Gộp các món trùng menuItem thành 1 dòng (tổng SL), status theo item mới nhất
+  const merged = mergeOrderItems(items);
   return (
     <DataTable
       columns={itemColumns}
-      data={items}
+      data={merged}
       getRowKey={(item) => item._id as string}
       isLoading={isLoading}
     />
