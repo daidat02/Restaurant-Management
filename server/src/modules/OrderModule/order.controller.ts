@@ -83,6 +83,26 @@ class OrderController {
     }
   }
 
+  async getKdsOrders(req: AuthRequest, res: Response) {
+    try {
+      const restaurantId = req.tenantId;
+
+      const orders = await orderService.getKdsOrdersService(restaurantId || '');
+
+      return res.status(200).json({
+        success: true,
+        message: 'Lấy danh sách đơn cho màn hình bếp thành công',
+        data: orders,
+      });
+    } catch (error: any) {
+      console.error('Lỗi getKdsOrders:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Lỗi server nội bộ',
+      });
+    }
+  }
+
   async getAllOrderStatusByRestaurant(req: AuthRequest, res: Response) {
     const { status } = req.params;
     const restaurantId = req.tenantId;

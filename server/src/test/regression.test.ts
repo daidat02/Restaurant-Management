@@ -112,4 +112,103 @@ describe('T13 — Regression nghiệp vụ', () => {
     const res = await request.get('/api/auth/').set('Authorization', `Bearer ${adminX()}`);
     expect(res.status).toBe(200);
   });
+
+  it('KDS regression — đơn served rồi thêm món → đơn quay về pending để bếp nhận', async () => {
+    // 1. Tạo đơn dine-in X với 1 món
+    const createRes = await request.post('/api/orders').send({
+      restaurant: X,
+      table: idOf(SEED_IDS.tableX2),
+      orderType: 'dine-in',
+      items: [{ menuItem: idOf(SEED_IDS.menuItemX1), quantity: 1 }],
+    });
+    expect(createRes.status).toBe(201);
+    const orderId = createRes.body.data._id;
+    const itemId = createRes.body.data.items[0]._id;
+    expect(orderId).toBeTruthy();
+    expect(itemId).toBeTruthy();
+
+    // 2. Bếp xác nhận món nấu xong → đơn tự chuyển served
+    const servedRes = await request
+      .post(`/api/orders/item/${itemId}/served`)
+      .set('Authorization', `Bearer ${managerX()}`);
+    expect(servedRes.status).toBe(200);
+
+    const servedOrder = await request
+      .get(`/api/orders/${orderId}`)
+      .set('Authorization', `Bearer ${managerX()}`);
+    expect(servedOrder.status).toBe(200);
+    expect(servedOrder.body.data.status).toBe('served');
+
+    // 3. Khách gọi thêm món → đơn phải mở lại pending để KDS nhận món mới
+    const addRes = await request.post('/api/orders/add-item').send({
+      orderId,
+      items: [{ menuItem: idOf(SEED_IDS.menuItemX2), quantity: 1 }],
+    });
+    expect(addRes.status).toBe(200);
+
+    const reopenedOrder = await request
+      .get(`/api/orders/${orderId}`)
+      .set('Authorization', `Bearer ${managerX()}`);
+    expect(reopenedOrder.status).toBe(200);
+    expect(reopenedOrder.body.data.status).toBe('pending');
+    expect(reopenedOrder.body.data.items.length).toBe(2);
+  });
+
+  it('KDS regression — đơn paid trước rồi thêm món → đơn quay về pending để bếp nhận', async () => {
+    // 1. Tạo đơn dine-in X với 1 món
+    const createRes = await request.post('/api/orders').send({
+      restaurant: X,
+      table: idOf(SEED_IDS.tableX2),
+      orderType: 'dine-in',
+      items: [{ menuItem: idOf(SEED_IDS.menuItemX1), quantity: 1 }],
+    });
+    expect(createRes.status).toBe(201);
+    const orderId = createRes.body.data._id;
+
+    // 2. Chuyển đơn sang paid (thanh toán trước)
+    const paidRes = await request
+      .put(`/api/orders/${orderId}/status`)
+      .set('Authorization', `Bearer ${managerX()}`)
+      .send({ status: 'paid' });
+    expect(paidRes.status).toBe(200);
+
+    // 3. Khách gọi thêm món → đơn phải mở lại pending để KDS nhận món mới
+    const addRes = await request.post('/api/orders/add-item').send({
+      orderId,
+      items: [{ menuItem: idOf(SEED_IDS.menuItemX2), quantity: 1 }],
+    });
+    expect(addRes.status).toBe(200);
+
+    const reopenedOrder = await request
+      .get(`/api/orders/${orderId}`)
+      .set('Authorization', `Bearer ${managerX()}`);
+    expect(reopenedOrder.status).toBe(200);
+    expect(reopenedOrder.body.data.status).toBe('pending');
+  });
+
+  it('KDS regression — GET /orders/kds/:id trả đơn paid còn món chưa xong (bất kể trạng thái đơn)', async () => {
+    // Tạo đơn dine-in X với 1 món, chuyển sang paid (thanh toán trước nhưng món chưa nấu)
+    const createRes = await request.post('/api/orders').send({
+      restaurant: X,
+      table: idOf(SEED_IDS.tableX2),
+      orderType: 'dine-in',
+      items: [{ menuItem: idOf(SEED_IDS.menuItemX1), quantity: 1 }],
+    });
+    expect(createRes.status).toBe(201);
+    const orderId = createRes.body.data._id;
+
+    await request
+      .put(`/api/orders/${orderId}/status`)
+      .set('Authorization', `Bearer ${managerX()}`)
+      .send({ status: 'paid' });
+
+    // Endpoint KDS dùng token bếp X
+    const kdsRes = await request
+      .get(`/api/orders/kds/${X}`)
+      .set('Authorization', `Bearer ${tokenFor('kds', X)}`);
+    expect(kdsRes.status).toBe(200);
+    const kdsOrderIds = (kdsRes.body.data as any[]).map((o) => String(o._id));
+    // Đơn paid còn món chưa xong phải xuất hiện trên KDS
+    expect(kdsOrderIds).toContain(String(orderId));
+  });
 });

@@ -34,6 +34,7 @@ router.get(
   verifyTenant,
   orderController.getAllOrderByRestaurant,
 );
+router.get('/kds/:restaurantId', verifyToken, verifyTenant, orderController.getKdsOrders);
 router.get('/active/:restaurantId', verifyToken, verifyTenant, orderController.getActiveOrders);
 router.get('/table/:tableId', orderController.getOrderByTableId);
 

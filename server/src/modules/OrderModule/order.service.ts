@@ -296,6 +296,13 @@ class OrderService {
         (sum: number, item: IOrderItemDocument) => sum + item.quantity,
         0,
       );
+
+      // Món mới được thêm vào đơn đã phục vụ hết (served) hoặc đã thanh toán trước (paid)
+      // → mở lại đơn về pending để bếp nhận món mới (KDS) và đơn hiển thị lại ở màn quản lý.
+      if (['served', 'paid'].includes(populatedOrder.status)) {
+        populatedOrder.status = 'pending';
+      }
+
       await populatedOrder.save();
 
       const tableData = populatedOrder.table as any;
@@ -332,6 +339,15 @@ class OrderService {
       restaurant: restaurantId,
       status: { $nin: ['paid', 'cancelled', 'delivered'] },
     });
+  }
+
+  /**
+   * KDS: danh sách đơn còn món chưa được phục vụ — bất kể trạng thái đơn
+   * (kể cả served / paid thanh toán trước). Dựa trên trạng thái món, không phải trạng thái đơn.
+   */
+  async getKdsOrdersService(restaurantId: string): Promise<IOrderDocument[]> {
+    if (!restaurantId) throw new Error('Thiếu ID nhà hàng (restaurantId)');
+    return await orderRepository.findKdsOrders(restaurantId);
   }
 
   async getAllOrderByStatusByRestaurant(
