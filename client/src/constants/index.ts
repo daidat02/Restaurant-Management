@@ -83,6 +83,8 @@ export const API_ENDPOINTS = {
     UPDATE_STATUS: (id: string) => `${API_BASE_URL}/orders/${id}/status`,
     GET_BY_TABLE: (tableId: string) => `${API_BASE_URL}/orders/table/${tableId}`,
     MY_ORDERS: `${API_BASE_URL}/orders/my-orders`,
+    CALL_STAFF: `${API_BASE_URL}/orders/call-staff`,
+    REQUEST_PAYMENT: `${API_BASE_URL}/orders/request-payment`,
   },
 
   // --- PHÂN HỆ THANH TOÁN (PAYMENTS) ---

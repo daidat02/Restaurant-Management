@@ -45,11 +45,11 @@ export const useOrder = () => {
 
     setOrderSocketResult(res);
 
-    toast.success(message || 'Có cập nhật mới về đơn hàng!', { position: 'top-right' });
     // playAudio(10);
     setOrders((prevOrders) => {
       switch (action) {
         case 'CREATE':
+          toast.success(message || 'Có cập nhật mới về đơn hàng!', { position: 'top-right' });
           return [orderData, ...prevOrders];
 
         case 'ADD_ITEMS':
@@ -57,7 +57,6 @@ export const useOrder = () => {
             order._id === orderData._id ? { ...order, ...orderData } : order,
           );
         case 'UPDATE_STATUS':
-          // Khách thêm món HOẶC bếp cập nhật trạng thái đơn -> Thay thế đơn cũ bằng dữ liệu mới cập nhật
           return prevOrders.map((order) => (order._id === orderData._id ? orderData : order));
         case 'CANCEL':
           // Đơn bị hủy -> Lọc bỏ đơn đó khỏi màn hình hiển thị trực quan
@@ -73,6 +72,7 @@ export const useOrder = () => {
     console.log(`[Socket] Nhận sự kiện order item với action [${res.action}]:`, res);
     playAudio(1);
     const { action, itemData } = res;
+    console.log('Cập nhật trạng thái đơn hàng:', itemData);
 
     setCurrentOrder((prevOrder) => {
       if (!prevOrder) return prevOrder;
@@ -97,14 +97,14 @@ export const useOrder = () => {
       socket.on('order_event', handleOrderEvent);
     } else if (listeningSocketOrder) {
       console.log(`[Socket] Bắt đầu vào phòng order_${listeningSocketOrder}`);
-      socket.emit('join_order', listeningSocketOrder);
+      socket.emit('join_order', `order_${listeningSocketOrder}`);
       socket.on('order_event', handelOrderItemEvent);
     } else {
       return;
     }
 
     return () => {
-      socket.emit('leave_order', listeningSocketOrder);
+      socket.emit('leave_order', `order_${listeningSocketOrder}`);
       socket.off('order_event', handleOrderEvent);
       socket.off('order_event', handelOrderItemEvent);
     };

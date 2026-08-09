@@ -253,8 +253,9 @@ const PosBill = ({
     try {
       if (existingOrderId) {
         // 1. ĐÃ CÓ ĐƠN HÀNG
+        // Chỉ gửi món MỚI (không kèm _id): server luôn tạo OrderItem mới,
+        // không cập nhật quantity item cũ — bếp nhận đúng từng món mới gọi.
         const itemsToSend = orderItems.map((item) => ({
-          _id: item._id || undefined,
           menuItem: extractId(item.menuItem),
           quantity: item.quantity,
           priceSnapshot: item.priceSnapshot,

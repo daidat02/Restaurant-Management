@@ -233,11 +233,7 @@ export default function App() {
       {/* ---------------- ONBOARDING (BLANK LAYOUT, dùng chung với landing tương lai) ---------------- */}
       <Route
         element={
-          <OnboardingRoute
-            isAuthenticated={isAuthenticated}
-            user={user}
-            userRole={userRole}
-          />
+          <OnboardingRoute isAuthenticated={isAuthenticated} user={user} userRole={userRole} />
         }
       >
         <Route path="/onboarding" element={<LayoutBlank />}>

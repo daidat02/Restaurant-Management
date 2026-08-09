@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { request, tokenFor, idOf } from './utils.js';
 import { SEED_IDS } from './seed.js';
+import DB_Connection from '../models/DB_Connection.js';
 
 const X = SEED_IDS.tenantX.toString();
+const Y = SEED_IDS.tenantY.toString();
 
 const managerX = () => tokenFor('manager', X);
 const adminX = () => tokenFor('admin', X);
@@ -210,5 +212,86 @@ describe('T13 — Regression nghiệp vụ', () => {
     const kdsOrderIds = (kdsRes.body.data as any[]).map((o) => String(o._id));
     // Đơn paid còn món chưa xong phải xuất hiện trên KDS
     expect(kdsOrderIds).toContain(String(orderId));
+  });
+
+  it('POS regression — gọi thêm món TRÙNG menuItem với món đã served → TẠO OrderItem mới (không cập nhật quantity item cũ)', async () => {
+    // 1. Tạo đơn dine-in X với 1 món X1 (dùng bàn X1 để tránh race với test file khác)
+    const createRes = await request.post('/api/orders').send({
+      restaurant: X,
+      table: idOf(SEED_IDS.tableX1),
+      orderType: 'dine-in',
+      items: [{ menuItem: idOf(SEED_IDS.menuItemX1), quantity: 1 }],
+    });
+    expect(createRes.status).toBe(201);
+    const orderId = createRes.body.data._id;
+    const firstItemId = createRes.body.data.items[0]._id;
+
+    // 2. Bếp phục vụ xong món X1 → đơn served
+    await request
+      .post(`/api/orders/item/${firstItemId}/served`)
+      .set('Authorization', `Bearer ${managerX()}`);
+
+    // 3. POS gọi THÊM 1 món X1 nữa (cùng menuItem, không kèm _id) → phải TẠO OrderItem mới pending
+    const addRes = await request.post('/api/orders/add-item').send({
+      orderId,
+      items: [{ menuItem: idOf(SEED_IDS.menuItemX1), quantity: 1 }],
+    });
+    expect(addRes.status).toBe(200);
+
+    const detailRes = await request
+      .get(`/api/orders/${orderId}`)
+      .set('Authorization', `Bearer ${managerX()}`);
+    expect(detailRes.status).toBe(200);
+    const items = detailRes.body.data.items as any[];
+    expect(items.length).toBe(2);
+
+    // Item cũ vẫn served, item mới pending (để KDS nhận món mới)
+    const firstItem = items.find((i) => String(i._id) === firstItemId);
+    expect(firstItem.status).toBe('served');
+    expect(firstItem.quantity).toBe(1);
+
+    const addedItems = items.filter((i) => String(i._id) !== firstItemId);
+    expect(addedItems.length).toBe(1);
+    expect(addedItems[0].status).toBe('pending');
+    expect(String(addedItems[0].menuItem)).toBe(idOf(SEED_IDS.menuItemX1));
+
+    // Đơn phải mở lại pending để bếp nhận món mới
+    expect(detailRes.body.data.status).toBe('pending');
+    // itemsCount = tổng số lượng (2), không gộp quantity vào item cũ
+    expect(detailRes.body.data.itemsCount).toBe(2);
+  });
+
+  it('POST /orders/call-staff — khách tại bàn gọi nhân viên (public, không token)', async () => {
+    const res = await request
+      .post('/api/orders/call-staff')
+      .send({ tableId: idOf(SEED_IDS.tableY1), restaurantId: Y });
+    expect(res.status).toBe(200);
+    expect(res.body.data.message).toContain('gọi nhân viên');
+    // Phải tạo notification type call_staff cho nhà hàng Y
+    const notiExists = await DB_Connection.Notification.exists({
+      type: 'call_staff',
+      restaurant: SEED_IDS.tenantY,
+    });
+    expect(notiExists).toBeTruthy();
+  });
+
+  it('POST /orders/request-payment — khách tại bàn yêu cầu thanh toán (public, không token)', async () => {
+    const res = await request
+      .post('/api/orders/request-payment')
+      .send({ tableId: idOf(SEED_IDS.tableY1), restaurantId: Y });
+    expect(res.status).toBe(200);
+    expect(res.body.data.message).toContain('thanh toán');
+  });
+
+  it('POST /orders/request-payment — bàn không thuộc nhà hàng → 400 (chống giả mạo)', async () => {
+    const res = await request
+      .post('/api/orders/request-payment')
+      .send({ tableId: idOf(SEED_IDS.tableY1), restaurantId: X });
+    expect(res.status).toBe(400);
+  });
+
+  it('POST /orders/call-staff — thiếu tableId → 400', async () => {
+    const res = await request.post('/api/orders/call-staff').send({ restaurantId: Y });
+    expect(res.status).toBe(400);
   });
 });

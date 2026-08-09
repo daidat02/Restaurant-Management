@@ -4,6 +4,7 @@ import { usePayment } from '@/hooks/use-payment';
 import { Banknote, Check, CreditCard, Printer, QrCode, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { extractId } from '@/utils/helpers';
+import { mergeOrderItems } from '@/utils/orderItems';
 import { CustomTabs } from '@/components/tabsCustom';
 import { useReactToPrint } from 'react-to-print';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -233,7 +234,7 @@ export default function PaymentForm({ paymentId, onCancel, onConfirm }: PaymentF
         </div>
 
         <div className="flex-1 overflow-y-auto p-3 sm:p-4 flex flex-col gap-2">
-          {currentPayment?.order?.items?.map((item: any) => (
+          {mergeOrderItems(currentPayment?.order?.items || []).map((item: any) => (
             <div
               key={item._id}
               className="flex justify-between pt-2 items-start text-xs sm:text-sm border-t border-gray-100 first:border-0 first:pt-0"

@@ -198,6 +198,26 @@ class OrderController {
       res.status(500).json({ message: 'Lỗi server... 1' });
     }
   }
+
+  // Khách tại bàn gọi nhân viên (public — không cần token)
+  async callStaff(req: Request, res: Response) {
+    try {
+      const result = await orderService.tableRequestService('call_staff', req.body);
+      res.status(result.code).json(result);
+    } catch (error) {
+      res.status(500).json({ message: 'Lỗi server...' });
+    }
+  }
+
+  // Khách tại bàn yêu cầu thanh toán (public — không cần token)
+  async requestPayment(req: Request, res: Response) {
+    try {
+      const result = await orderService.tableRequestService('payment_request', req.body);
+      res.status(result.code).json(result);
+    } catch (error) {
+      res.status(500).json({ message: 'Lỗi server...' });
+    }
+  }
 }
 
 export default new OrderController();

@@ -50,28 +50,19 @@ class OrderService {
         throw new Error(`Món ăn với ID ${item.menuItem} không tồn tại`);
       }
 
-      if (item._id) {
-        const existingItem = await orderRepository.updateOrderItem(item._id.toString(), {
-          quantity: item.quantity ?? 1,
-          priceSnapshot: menuItem.price,
-          nameSnapshot: menuItem.name,
-        });
-        if (existingItem) {
-          totalAmount += existingItem.priceSnapshot * existingItem.quantity;
-          totalCount += existingItem.quantity;
-          orderItems.push(new ObjectId(existingItem._id.toString()));
-        }
-      } else {
-        const orderItem = await orderRepository.createOrderItem({
-          ...item,
-          nameSnapshot: menuItem.name,
-          priceSnapshot: menuItem.price,
-          order: orderId as any,
-        });
-        totalAmount += orderItem.priceSnapshot * orderItem.quantity;
-        totalCount += orderItem.quantity;
-        orderItems.push(new ObjectId(orderItem._id.toString()));
-      }
+      // Mỗi lần gửi bếp = tạo OrderItem MỚI (không cập nhật quantity item cũ).
+      // Nếu món đã served mà gọi thêm cùng loại → bếp nhận 1 item mới (status mặc định pending),
+      // chi tiết đơn/bill sẽ gộp hiển thị theo menuItem còn KDS hiển thị từng item riêng.
+      const { _id: _ignored, ...itemData } = item;
+      const orderItem = await orderRepository.createOrderItem({
+        ...itemData,
+        nameSnapshot: menuItem.name,
+        priceSnapshot: menuItem.price,
+        order: orderId as any,
+      });
+      totalAmount += orderItem.priceSnapshot * orderItem.quantity;
+      totalCount += orderItem.quantity;
+      orderItems.push(new ObjectId(orderItem._id.toString()));
     }
 
     return { totalAmount, totalCount, orderItems };
@@ -216,6 +207,8 @@ class OrderService {
       const existingOrder = await orderRepository.findOrderById(updateItem.order.toString());
       const orderRoom = `order_${updateItem.order.toString()}`;
 
+      console.log('Emitting order item update:', updateItem, 'to room:', orderRoom);
+
       this.emitOrderUpdate({
         targetRoom: orderRoom,
         action: 'UPDATE_ITEM',
@@ -278,7 +271,7 @@ class OrderService {
       const uniqueNewItemIds = [...new Set(orderItems.map((id) => id.toString()))];
       const existingItemIds = new Set(order.items.map((id) => id.toString()));
       const itemsToAdd = uniqueNewItemIds.filter((id) => !existingItemIds.has(id));
-      order.items.push(...itemsToAdd.map((id) => new Types.ObjectId(id)) as any);
+      order.items.push(...(itemsToAdd.map((id) => new Types.ObjectId(id)) as any));
       await order.save();
 
       const populatedOrder = await order.populate([
@@ -446,6 +439,43 @@ class OrderService {
     });
 
     return { code: 200, message: 'Cập nhật trạng thái đơn hàng thành công', data: order };
+  }
+
+  /**
+   * Khách tại bàn gọi nhân viên / yêu cầu thanh toán.
+   * Public endpoint (không cần token) — nên dựa vào table để xác định đúng nhà hàng (chống giả mạo).
+   */
+  async tableRequestService(
+    type: 'call_staff' | 'payment_request',
+    payload: { tableId?: string; restaurantId?: string },
+  ): Promise<ServiceResponse<INotification | null>> {
+    const tableId = payload?.tableId;
+    if (!tableId) return { code: 400, message: 'Thiếu thông tin bàn (tableId)' };
+
+    const table = await tableRepository.findTableById(tableId);
+    if (!table) return { code: 404, message: 'Không tìm thấy thông tin bàn' };
+
+    // Bảo mật đa tenant: nhà hàng thật lấy từ bàn, không tin tưởng restaurantId từ client
+    const restaurantId = table.restaurant.toString();
+    if (payload?.restaurantId && payload.restaurantId !== restaurantId) {
+      return { code: 400, message: 'Bàn không thuộc nhà hàng này' };
+    }
+
+    const tableNumber = table.tableNumber;
+    const isPayment = type === 'payment_request';
+    const message = isPayment
+      ? `Khách yêu cầu thanh toán tại bàn ${tableNumber}`
+      : `Khách gọi nhân viên tại bàn ${tableNumber}`;
+
+    const payloadNoti: Partial<INotification> = {
+      restaurant: new ObjectId(restaurantId),
+      type,
+      message,
+      data: { tableId, tableNumber },
+    };
+
+    await notificationService.createNewNotification(payloadNoti, `restaurant_${restaurantId}`);
+    return { code: 200, message: message, data: payloadNoti as INotification };
   }
 }
 

@@ -28,6 +28,7 @@ import type { IOrder } from '@/types/order.type';
 import type { IReservation } from '@/types/reservation.type';
 import type { IRestaurant } from '@/types/restaurant.type';
 import { formatVND } from '@/utils/helpers';
+import { mergeOrderItems } from '@/utils/orderItems';
 import { cn } from '@/lib/utils';
 
 // Danh sách trạng thái đơn hàng (cho bộ lọc)
@@ -149,7 +150,7 @@ function OrderDetailDrawer({
               Món đã gọi ({order.items?.length || order.itemsCount || 0})
             </p>
             <div className="space-y-2">
-              {(order.items || []).map((item) => (
+              {mergeOrderItems(order.items || []).map((item) => (
                 <div
                   key={item._id}
                   className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2.5"

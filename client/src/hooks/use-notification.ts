@@ -64,6 +64,10 @@ export const useNotification = (soundUr?: string) => {
         if (isDuplicate) return prevNotification;
 
         switch (true) {
+          case type === 'call_staff' || type === 'payment_request':
+            // Khách tại bàn gọi nhân viên / yêu cầu thanh toán → cảnh báo để xử lý ngay
+            playAudio(3);
+            break;
           case !staff && type === 'new_order':
             // Case 1: Không có staff (Khách tự đặt qua QR/Web)
             playAudio(20);

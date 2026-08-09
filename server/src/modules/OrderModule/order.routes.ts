@@ -6,7 +6,7 @@ import {
   requireResourceTenant,
   orderTenantResolver,
 } from '../../middlewares/auth.middleware.js';
-import { orderCreateRateLimit } from '../../middlewares/rateLimit.middleware.js';
+import { orderCreateRateLimit, publicRateLimit } from '../../middlewares/rateLimit.middleware.js';
 import orderController from './order.controller.js';
 
 const router = Router();
@@ -14,6 +14,10 @@ const router = Router();
 router.post('/', orderCreateRateLimit, orderController.createOrder);
 router.post('/add-item', orderCreateRateLimit, orderController.addItemIntoOrder);
 router.post('/item/:itemId/:status', verifyToken, orderController.updateOrederItemStatus);
+
+// Khách tại bàn gọi nhân viên / yêu cầu thanh toán — public (không cần token), có rate limit chống spam
+router.post('/call-staff', publicRateLimit(20, 60 * 1000), orderController.callStaff);
+router.post('/request-payment', publicRateLimit(20, 60 * 1000), orderController.requestPayment);
 
 router.get('/my-orders', verifyToken, verifyRole(['customer']), orderController.getMyOrders);
 router.get(

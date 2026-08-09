@@ -12,7 +12,9 @@ export interface INotification {
     | 'promotion'
     | 'system'
     | 'new_reservation'
-    | 'subscription';
+    | 'subscription'
+    | 'call_staff'
+    | 'payment_request';
   message: string;
   data?: any;
   isRead: boolean;

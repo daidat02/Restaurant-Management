@@ -300,9 +300,11 @@ export default function POS() {
   };
 
   useEffect(() => {
-    if (currentOrder && currentOrder.items && orderIdFromUrl) {
+    if (currentOrder && orderIdFromUrl) {
+      // Giữ thông tin đơn cũ (mã đơn/bàn) nhưng GIỎ HÀNG TRỐNG —
+      // khi gọi thêm món, chỉ gửi món mới lên bếp, không kèm món đã order.
       setOrder(currentOrder);
-      setOrderItems(currentOrder.items);
+      setOrderItems([]);
     } else if (!orderIdFromUrl) {
       setOrderItems([]);
     }
@@ -333,11 +335,10 @@ export default function POS() {
     const result = await fetchOrderById(orderId as string);
     if (result) {
       setOrder(result);
-      setOrderItems(result.items || []);
+      setOrderItems([]);
     }
     setIsPaymentModalOpen(true);
   };
-
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[#f8f9fc] supports-[height:100dvh]:h-dvh">
       <PosHeader tableNumber={tableNumber} onBack={handleBack} />

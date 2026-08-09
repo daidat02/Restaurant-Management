@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/drawer';
 import ReceiptPrinter from './ReceiptPrinter';
 import { extractId, getTimeAgo } from '@/utils/helpers';
+import { mergeOrderItems } from '@/utils/orderItems';
 import type { IOrder, IOrderItem } from '@/types/order.type';
 import type { ITable } from '@/types/table.type';
 
@@ -173,7 +174,10 @@ export default function OrderDetailDrawer({
     'Khách lẻ';
   const customerInitial = customerName.slice(0, 1).toUpperCase();
   const hasCustomer = customerName !== 'Khách lẻ';
-  const itemsCount = order?.items?.length || 0;
+  // Gộp các món trùng menuItem thành 1 dòng hiển thị (status theo item mới nhất) —
+  // backend tạo OrderItem mới mỗi lần gọi thêm món, nên cần gộp lại cho khớp nghiệp vụ
+  const mergedItems = useMemo(() => mergeOrderItems(order?.items || []), [order?.items]);
+  const itemsCount = mergedItems.length;
   const money = (n: number) => `${Math.round(n).toLocaleString('vi-VN')}₫`;
 
   const renderItemRow = (it: DraftItem | IOrderItem, isDraft: boolean) => {
@@ -441,8 +445,8 @@ export default function OrderDetailDrawer({
         <ul className="divide-y divide-slate-100">
           {isEditing
             ? activeDraftItems.map((it) => renderItemRow(it, true))
-            : (order?.items || []).map((it) => renderItemRow(it, false))}
-          {(isEditing ? activeDraftItems : order?.items || []).length === 0 && (
+            : mergedItems.map((it) => renderItemRow(it, false))}
+          {(isEditing ? activeDraftItems : mergedItems).length === 0 && (
             <li className="py-8 text-center text-slate-300">
               <ShoppingBasket className="mx-auto h-8 w-8" />
               <p className="mt-1 text-xs">Chưa có món nào</p>

@@ -12,6 +12,12 @@ import {
   updateTableStatus,
 } from '@/api/table.api';
 
+// API nghiệp vụ khách tại bàn (được đưa vào hook table để component không import API trực tiếp)
+import {
+  callStaffAtTable as callStaffAtTableApi,
+  requestPaymentAtTable as requestPaymentAtTableApi,
+} from '@/api/order.api';
+
 import { useGlobalLoading } from '@/components/LoadingOverlay';
 
 export const useTable = () => {
@@ -153,6 +159,31 @@ export const useTable = () => {
     [showLoading, hideLoading],
   );
 
+  // ==========================================
+  // NGHIỆP VỤ KHÁCH TẠI BÀN (GỌI NHÂN VIÊN / THANH TOÁN / ĐƠN HÀNG)
+  // ==========================================
+
+  // Khách bấm nút gọi nhân viên tại bàn — component gọi hook này sẽ tự hiển thị thông báo
+  const callStaffAtTable = useCallback(async (payload: { tableId: string; restaurantId?: string }) => {
+    try {
+      return await callStaffAtTableApi(payload);
+    } catch {
+      return null;
+    }
+  }, []);
+
+  // Khách bấm nút yêu cầu thanh toán tại bàn — component gọi hook này sẽ tự hiển thị thông báo
+  const requestPaymentAtTable = useCallback(
+    async (payload: { tableId: string; restaurantId?: string }) => {
+      try {
+        return await requestPaymentAtTableApi(payload);
+      } catch {
+        return null;
+      }
+    },
+    [],
+  );
+
   return {
     // State
     tables,
@@ -167,5 +198,9 @@ export const useTable = () => {
     editTable,
     removeTable,
     changeTableStatus,
+
+    // Nghiệp vụ khách tại bàn
+    callStaffAtTable,
+    requestPaymentAtTable,
   };
 };
