@@ -40,7 +40,7 @@ export const FormSelect = ({
       {/* 1. CSS Label: Đỏ khi lỗi, mờ đi khi bị disabled */}
       <Label
         className={cn(
-          'text-sm mb-3 font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70',
+          'text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70',
           error && 'text-red-500',
           disabled && 'opacity-50 cursor-not-allowed',
         )}
@@ -52,8 +52,8 @@ export const FormSelect = ({
         {/* 2. CSS Trigger (Khung bấm): Bo góc, viền đỏ khi lỗi, hiệu ứng ring khi focus */}
         <SelectTrigger
           className={cn(
-            'w-full py-2.5 transition-colors focus:ring-2 focus:ring-blue-500', // <-- Thay h-full thành h-11 hoặc h-12 ở đây
-            error && 'border-red-500 text-red-900 focus:ring-red-500',
+            'w-full transition-colors', // Chiều cao h-10 + ring cerulean được xử lý sẵn ở base ui/select
+            error && 'border-red-400 focus-visible:ring-red-100',
           )}
         >
           <SelectValue className="h-full" placeholder={placeholder} />
@@ -64,7 +64,7 @@ export const FormSelect = ({
             <SelectItem
               key={opt.value}
               value={opt.value}
-              className="cursor-pointer hover:bg-gray-100" // Thêm hover cho từng item
+              className="cursor-pointer hover:bg-gray-100 data-[state=checked]:bg-cerulean-blue-50 data-[state=checked]:text-cerulean-blue-700" // Thêm hover + trạng thái chọn cho từng item
             >
               {opt.label}
             </SelectItem>

@@ -50,14 +50,26 @@ class OrderService {
         throw new Error(`Món ăn với ID ${item.menuItem} không tồn tại`);
       }
 
+      // Snapshot toppings: đối chiếu tên lựa chọn với cấu hình optionGroups của món
+      // và LẤY GIÁ TỪ SERVER (không tin giá client gửi lên — chống giả mạo giá).
+      const allChoices = (menuItem.optionGroups || []).flatMap((group) => group.choices);
+      const validatedToppings: { name: string; price: number }[] = [];
+      for (const topping of item.toppings || []) {
+        const choice = allChoices.find((c) => c.name === topping?.name);
+        if (!choice) continue; // Bỏ qua topping không khớp cấu hình món
+        validatedToppings.push({ name: choice.name, price: choice.price });
+      }
+      const toppingsPrice = validatedToppings.reduce((sum, t) => sum + t.price, 0);
+
       // Mỗi lần gửi bếp = tạo OrderItem MỚI (không cập nhật quantity item cũ).
       // Nếu món đã served mà gọi thêm cùng loại → bếp nhận 1 item mới (status mặc định pending),
       // chi tiết đơn/bill sẽ gộp hiển thị theo menuItem còn KDS hiển thị từng item riêng.
-      const { _id: _ignored, ...itemData } = item;
+      const { _id: _ignored, toppings: _rawToppings, ...itemData } = item;
       const orderItem = await orderRepository.createOrderItem({
         ...itemData,
         nameSnapshot: menuItem.name,
-        priceSnapshot: menuItem.price,
+        priceSnapshot: menuItem.price + toppingsPrice,
+        ...(validatedToppings.length > 0 ? { toppings: validatedToppings } : {}),
         order: orderId as any,
       });
       totalAmount += orderItem.priceSnapshot * orderItem.quantity;

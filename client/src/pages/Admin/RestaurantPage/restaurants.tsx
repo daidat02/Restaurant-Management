@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Download, Plus, Edit2, Trash2, CreditCard, Settings } from 'lucide-react';
+import { Search, Download, Plus, Edit2, Trash2, CreditCard, Settings, Store, Building2 } from 'lucide-react';
 
 import { useRestaurant } from '@/hooks/use-restaurant';
 import { useSubscription } from '@/hooks/use-subscription';
@@ -206,13 +206,23 @@ export default function RestaurantsPage() {
       <div className="min-h-screen bg-slate-50 text-slate-800 p-4 md:p-8">
         {/* TOP HEADER */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-950">
-              Quản Lý Nhà Hàng
-            </h1>
-            <p className="text-sm text-slate-500 mt-1">
-              Danh sách chuỗi chi nhánh hệ thống nhà hàng toàn quốc
-            </p>
+          <div className="flex items-start gap-4">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-cerulean-blue-600 text-white shadow-lg shadow-cerulean-blue-200">
+              <Building2 className="h-6 w-6" />
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-950">
+                  Quản Lý Nhà Hàng
+                </h1>
+                <span className="inline-flex items-center gap-1 rounded-full bg-cerulean-blue-50 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-cerulean-blue-700">
+                  <Store className="h-3 w-3" /> Chuỗi chi nhánh
+                </span>
+              </div>
+              <p className="text-sm text-slate-500 mt-1">
+                Danh sách chuỗi chi nhánh hệ thống nhà hàng toàn quốc
+              </p>
+            </div>
           </div>
         </div>
 
@@ -262,17 +272,30 @@ export default function RestaurantsPage() {
         </FilterToolbar>
 
         {/* BẢNG HIỂN THỊ CHÍNH */}
-        <DataTable
-          columns={columns}
-          data={paginatedData}
-          currentPage={safeCurrentPage}
-          totalPages={totalPages}
-          totalItems={filteredRestaurants.length}
-          pageSize={pageSize}
-          onPageChange={(page) => setCurrentPage(page)}
-          isLoading={isLoading}
-          getRowKey={(item) => item._id}
-        />
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center gap-2">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-cerulean-blue-50 text-cerulean-blue-600">
+              <Store className="h-4 w-4" />
+            </span>
+            <div>
+              <h2 className="text-base font-bold text-slate-900">Chi nhánh hệ thống</h2>
+              <p className="text-xs text-slate-400">
+                {filteredRestaurants.length} cơ sở · gói thuê và trạng thái vận hành
+              </p>
+            </div>
+          </div>
+          <DataTable
+            columns={columns}
+            data={paginatedData}
+            currentPage={safeCurrentPage}
+            totalPages={totalPages}
+            totalItems={filteredRestaurants.length}
+            pageSize={pageSize}
+            onPageChange={(page) => setCurrentPage(page)}
+            isLoading={isLoading}
+            getRowKey={(item) => item._id}
+          />
+        </div>
 
         {/* SIDE DRAWER FORM */}
         <SideDrawer

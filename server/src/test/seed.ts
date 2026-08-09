@@ -205,7 +205,37 @@ async function seedMenu(): Promise<void> {
     { _id: SEED_IDS.categoryY, name: 'Món chính', restaurant: SEED_IDS.tenantY },
   ]);
   await DB_Connection.MenuItem.insertMany([
-    { _id: SEED_IDS.menuItemX1, category: SEED_IDS.categoryX, restaurant: SEED_IDS.tenantX, name: 'Cà phê sữa', price: 35000, isAvailable: true },
+    {
+      _id: SEED_IDS.menuItemX1,
+      category: SEED_IDS.categoryX,
+      restaurant: SEED_IDS.tenantX,
+      name: 'Cà phê sữa',
+      price: 35000,
+      isAvailable: true,
+      optionGroups: [
+        {
+          name: 'Topping',
+          type: 'multiple',
+          required: false,
+          min: 0,
+          max: 3,
+          choices: [
+            { name: 'Trân châu', price: 5000 },
+            { name: 'Thạch', price: 4000 },
+            { name: 'Kem sữa', price: 6000 },
+          ],
+        },
+        {
+          name: 'Đường',
+          type: 'single',
+          required: true,
+          choices: [
+            { name: 'Ít đường', price: 0 },
+            { name: 'Bình thường', price: 0 },
+          ],
+        },
+      ],
+    },
     { _id: SEED_IDS.menuItemX2, category: SEED_IDS.categoryX, restaurant: SEED_IDS.tenantX, name: 'Trà đào', price: 40000, isAvailable: true },
     { _id: SEED_IDS.menuItemY1, category: SEED_IDS.categoryY, restaurant: SEED_IDS.tenantY, name: 'Cơm tấm', price: 50000, isAvailable: true },
     { _id: SEED_IDS.menuItemY2, category: SEED_IDS.categoryY, restaurant: SEED_IDS.tenantY, name: 'Phở bò', price: 60000, isAvailable: true },

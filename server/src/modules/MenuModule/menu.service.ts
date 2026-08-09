@@ -6,6 +6,52 @@ import menuRepository from './menu.repository.js';
 
 class MenuService {
   // ==========================================
+  // VALIDATE OPTION GROUPS
+  // ==========================================
+
+  /**
+   * Kiểm tra cấu trúc optionGroups của món ăn. Trả về message lỗi hoặc null nếu hợp lệ.
+   * - type: 'single' (chọn 1) hoặc 'multiple' (chọn nhiều)
+   * - choices: mỗi lựa chọn có name + price (price = 0 là free)
+   */
+  private validateOptionGroups(optionGroups: any[]): string | null {
+    if (!optionGroups || !Array.isArray(optionGroups)) return null;
+    if (optionGroups.length === 0) return null;
+
+    for (const group of optionGroups) {
+      if (!group?.name || typeof group.name !== 'string' || !group.name.trim()) {
+        return 'Nhóm lựa chọn phải có tên';
+      }
+      if (group.type !== 'single' && group.type !== 'multiple') {
+        return `Nhóm "${group.name}" phải có loại là single hoặc multiple`;
+      }
+      if (!Array.isArray(group.choices) || group.choices.length === 0) {
+        return `Nhóm "${group.name}" phải có ít nhất 1 lựa chọn`;
+      }
+      for (const choice of group.choices) {
+        if (!choice?.name || typeof choice.name !== 'string' || !choice.name.trim()) {
+          return `Nhóm "${group.name}" có lựa chọn thiếu tên`;
+        }
+        if (typeof choice.price !== 'number' || choice.price < 0) {
+          return `Nhóm "${group.name}" có lựa chọn giá không hợp lệ`;
+        }
+      }
+      if (group.type === 'multiple') {
+        if (typeof group.min === 'number' && group.min < 0) {
+          return `Nhóm "${group.name}" có số lượng tối thiểu không hợp lệ`;
+        }
+        if (
+          typeof group.max === 'number' &&
+          (group.max < 0 || (typeof group.min === 'number' && group.max < group.min))
+        ) {
+          return `Nhóm "${group.name}" có số lượng tối đa không hợp lệ`;
+        }
+      }
+    }
+    return null;
+  }
+
+  // ==========================================
   // MENU CATEGORY SERVICE
   // ==========================================
 
@@ -39,6 +85,12 @@ class MenuService {
   // ==========================================
 
   async createMenuItem(menuItemData: any): Promise<ServiceResponse<IMenuItemDocument>> {
+    // Validate cấu trúc optionGroups trước khi lưu
+    const optionError = this.validateOptionGroups(menuItemData?.optionGroups);
+    if (optionError) {
+      return { code: 400, message: optionError };
+    }
+
     // Validate xem danh mục có tồn tại thật không trước khi gán món ăn vào
     const menuCat = await menuRepository.findCategoryById(menuItemData?.category?.toString());
     if (!menuCat) {
@@ -69,6 +121,12 @@ class MenuService {
   }
 
   async updateMenuItem(id: string, menuItemData: any): Promise<ServiceResponse<IMenuItemDocument>> {
+    // Validate cấu trúc optionGroups trước khi lưu
+    const optionError = this.validateOptionGroups(menuItemData?.optionGroups);
+    if (optionError) {
+      return { code: 400, message: optionError };
+    }
+
     const menuItem = await menuRepository.updateMenuItem(id, menuItemData);
     if (!menuItem) {
       return { code: 404, message: 'Không tìm thấy món ăn' };

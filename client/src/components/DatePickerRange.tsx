@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils';
 interface DatePickerProps {
   mode: 'single' | 'range';
   value?: string | { from: string; to: string }; // Nhận giá trị string cho single hoặc object cho range
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onChange?: (value: any) => void;
 }
 
@@ -40,6 +41,7 @@ export function DatePickerWithRange({ mode, value, onChange }: DatePickerProps) 
   });
 
   // Đồng bộ hóa khi prop `value` từ bên ngoài thay đổi
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!value) return;
     if (mode === 'single' && typeof value === 'string') {
@@ -51,6 +53,7 @@ export function DatePickerWithRange({ mode, value, onChange }: DatePickerProps) 
       });
     }
   }, [value, mode]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Các presets cho trạng thái chọn khoảng ngày (Range) - ảnh "Ảnh màn hình 2026-06-10 lúc 22.19.52.png"
   const rangePresets = [
@@ -142,7 +145,7 @@ export function DatePickerWithRange({ mode, value, onChange }: DatePickerProps) 
           variant="outline"
           id="date-picker-range"
           className={cn(
-            'h-9 px-2.5 justify-start text-left font-medium rounded-xl border-slate-200 bg-slate-50/50 hover:bg-slate-100/50 px-3 text-slate-700 text-sm transition-all outline-none focus-visible:ring-0 focus:border-cerulean-blue-500 focus:bg-white',
+            'h-10 px-2.5 justify-start text-left font-medium rounded-xl border-slate-200 bg-slate-50/50 hover:bg-slate-100/50 px-3 text-slate-700 text-sm transition-all outline-none focus-visible:ring-0 focus:border-cerulean-blue-500 focus:bg-white',
             !value && 'text-slate-400',
           )}
         >

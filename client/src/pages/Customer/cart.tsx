@@ -26,9 +26,11 @@ import { toast } from 'sonner';
 import { useMenu } from '@/hooks/use-menu';
 import { extractId } from '@/utils/helpers';
 import { mergeOrderItems } from '@/utils/orderItems';
-import { addToCart, updateQuantity, clearCart } from '@/redux/slices/cartSlice';
+import { addToCart, updateQuantity, updateItemDetail, clearCart } from '@/redux/slices/cartSlice';
+import type { ICartTopping } from '@/redux/slices/cartSlice';
 import { selectRestaurant } from '@/redux/slices/restaurantSlice';
 import type { IMenuItem } from '@/types/category.type';
+import type { IOptionGroup } from '@/types/category.type';
 import { useAppSelector } from '@/hooks/redux-hook';
 import { useTable } from '@/hooks/use-table';
 import SideDrawer from '@/components/SideDrawer';
@@ -126,10 +128,10 @@ export default function CartPage() {
     return null;
   }, [currentTable]);
 
-  const subtotal = (cartItems || []).reduce(
-    (acc, item) => acc + item.food?.price * item.quantity,
-    0,
-  );
+  const subtotal = (cartItems || []).reduce((acc, item) => {
+    const unitPrice = item.food?.price + (item.toppings || []).reduce((s, t) => s + t.price, 0);
+    return acc + unitPrice * item.quantity;
+  }, 0);
   const totalItemsCount = (cartItems || []).reduce((acc, item) => acc + (item?.quantity || 0), 0);
 
   // Lọc món theo từ khoá tìm kiếm (theo iPOS: thanh "Bạn muốn tìm món gì ?")
@@ -162,20 +164,16 @@ export default function CartPage() {
     dispatch(updateQuantity({ id, delta }));
   };
 
-  // Thêm món vào giỏ với đúng số lượng người dùng chọn (set số lượng chính xác nếu món đã có trong giỏ)
-  const handleConfirmAddItem = (food: IMenuItem, qty: number) => {
+  // Thêm món vào giỏ với đúng số lượng + options + ghi chú người dùng chọn
+  const handleConfirmAddItem = (
+    food: IMenuItem,
+    qty: number,
+    note?: string,
+    toppings?: ICartTopping[],
+  ) => {
     const existing = cartItems?.find((i) => i.food._id === food._id);
-    if (existing) {
-      const diff = qty - existing.quantity;
-      if (diff > 0) {
-        for (let i = 0; i < diff; i++) dispatch(updateQuantity({ id: food._id, delta: 1 }));
-      } else if (diff < 0) {
-        for (let i = 0; i < -diff; i++) dispatch(updateQuantity({ id: food._id, delta: -1 }));
-      }
-    } else {
-      dispatch(addToCart({ food }));
-      for (let i = 1; i < qty; i++) dispatch(updateQuantity({ id: food._id, delta: 1 }));
-    }
+    if (!existing) dispatch(addToCart({ food }));
+    dispatch(updateItemDetail({ id: food._id, quantity: qty, note, toppings }));
     closeItemDetail();
   };
 
@@ -188,6 +186,8 @@ export default function CartPage() {
         nameSnapshot: item.food.name,
         priceSnapshot: item.food.price,
         quantity: item.quantity,
+        ...(item.toppings && item.toppings.length > 0 ? { toppings: item.toppings } : {}),
+        ...(item.note ? { note: item.note } : {}),
       }));
 
       if (!tableId) {
@@ -1163,6 +1163,14 @@ function ActiveOrderStatus({ activeOrder, tableNumber, onPaymentRequest }: Activ
             >
               <div className="min-w-0 flex-1">
                 <h4 className="text-xs font-bold text-gray-900 truncate">{item?.nameSnapshot}</h4>
+                {item.toppings && item.toppings.length > 0 && (
+                  <p className="text-[10px] text-cerulean-blue-600 truncate mt-0.5">
+                    + {item.toppings.map((t: any) => t.name).join(', ')}
+                  </p>
+                )}
+                {item.note && (
+                  <p className="text-[10px] text-amber-600 truncate mt-0.5">Ghi chú: {item.note}</p>
+                )}
                 <p className="text-[10px] text-slate-400 font-medium mt-0.5">
                   Số lượng đặt:{''}
                   <span className="text-gray-900 font-mono font-bold">{item.quantity}</span>
@@ -1211,27 +1219,86 @@ interface ItemDetailSheetProps {
   food: IMenuItem;
   cartItem?: any;
   onClose: () => void;
-  onConfirmAdd: (food: IMenuItem, qty: number) => void;
+  onConfirmAdd: (food: IMenuItem, qty: number, note?: string, toppings?: ICartTopping[]) => void;
 }
 
 function ItemDetailSheet({ food, cartItem, onClose, onConfirmAdd }: ItemDetailSheetProps) {
   const soldOut = food?.isAvailable === false;
+  const optionGroups = food?.optionGroups || [];
 
   // Số lượng mặc định là 1 khi mở chi tiết (để luôn tăng/giảm được)
   const [qty, setQty] = useState<number>(cartItem?.quantity || 1);
 
-  // MOCK: danh sách option (topping) — chuẩn bị cho tính năng option của món
-  const mockOptions = [
-    { id: 'opt-1', name: 'Thêm trứng ốp la', price: 5000 },
-    { id: 'opt-2', name: 'Thêm phô mai', price: 8000 },
-    { id: 'opt-3', name: 'Thêm hành phi', price: 3000 },
-  ];
-  const [selectedOptions, setSelectedOptions] = useState<string[]>([]);
+  // Lựa chọn theo từng group (key = index group, value = mảng tên choice đã chọn)
+  // Group single bắt buộc → mặc định chọn choice đầu tiên
+  const initSelected = () => {
+    const map: Record<number, string[]> = {};
+    optionGroups.forEach((group, index) => {
+      if (group.type === 'single' && group.required && group.choices.length > 0) {
+        map[index] = [group.choices[0].name];
+      } else {
+        map[index] = [];
+      }
+    });
+    return map;
+  };
+  const [selected, setSelected] = useState<Record<number, string[]>>(initSelected);
+  const [note, setNote] = useState('');
 
-  const toggleOption = (id: string) => {
-    setSelectedOptions((prev) =>
-      prev.includes(id) ? prev.filter((o) => o !== id) : [...prev, id],
-    );
+  const toggleChoice = (groupIndex: number, group: IOptionGroup, choiceName: string) => {
+    const current = selected[groupIndex] || [];
+    if (group.type === 'single') {
+      setSelected((prev) => ({ ...prev, [groupIndex]: [choiceName] }));
+      return;
+    }
+    // multiple
+    const already = current.includes(choiceName);
+    if (already) {
+      setSelected((prev) => ({
+        ...prev,
+        [groupIndex]: current.filter((name) => name !== choiceName),
+      }));
+    } else {
+      const max = group.max ?? group.choices.length;
+      if (current.length >= max) return; // Đã đạt giới hạn tối đa
+      setSelected((prev) => ({ ...prev, [groupIndex]: [...current, choiceName] }));
+    }
+  };
+
+  const selectedToppings = (): ICartTopping[] => {
+    const toppings: ICartTopping[] = [];
+    optionGroups.forEach((group, index) => {
+      const chosen = selected[index] || [];
+      for (const choice of group.choices) {
+        if (chosen.includes(choice.name)) {
+          toppings.push({ name: choice.name, price: choice.price });
+        }
+      }
+    });
+    return toppings;
+  };
+
+  const toppingsPrice = selectedToppings().reduce((sum, t) => sum + t.price, 0);
+
+  // Kiểm tra tính hợp lệ trước khi thêm vào giỏ (group bắt buộc phải chọn đủ)
+  const validateSelection = (): string | null => {
+    for (const [rawIndex, group] of optionGroups.entries()) {
+      const count = (selected[rawIndex] || []).length;
+      const min = group.type === 'single' ? 1 : group.min || 0;
+      if (group.required && count < min) {
+        return `Vui lòng chọn cho nhóm "${group.name}"`;
+      }
+    }
+    return null;
+  };
+
+  const handleConfirm = () => {
+    const error = validateSelection();
+    if (error) {
+      toast.error(error, { position: 'top-center' });
+      return;
+    }
+    onConfirmAdd(food, qty, note, selectedToppings());
   };
 
   return (
@@ -1288,33 +1355,79 @@ function ItemDetailSheet({ food, cartItem, onClose, onConfirmAdd }: ItemDetailSh
             </div>
           )}
 
-          {/* MOCK: Lựa chọn thêm (topping/option) — chuẩn bị cho phần option của món */}
+          {/* LỰA CHỌN THÊM — render theo cấu hình optionGroups của món */}
+          {!soldOut && optionGroups.length > 0 && (
+            <div className="space-y-3">
+              {optionGroups.map((group, index) => {
+                const chosen = selected[index] || [];
+                const isSingle = group.type === 'single';
+                const max = group.max ?? group.choices.length;
+                return (
+                  <div key={index} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                        {group.name}
+                      </p>
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-cerulean-blue-50 text-cerulean-blue-600">
+                        {group.required
+                          ? isSingle
+                            ? 'Chọn 1'
+                            : `Chọn ${group.min || 1}-${max}`
+                          : 'Tùy chọn'}
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      {group.choices.map((choice) => {
+                        const isChecked = chosen.includes(choice.name);
+                        const reachMax = !isSingle && chosen.length >= max && !isChecked;
+                        return (
+                          <label
+                            key={choice.name}
+                            className={`flex items-center justify-between gap-3 p-3 bg-slate-50/60 rounded-xl border cursor-pointer select-none transition-all active:bg-slate-100/60 ${
+                              isChecked
+                                ? 'border-cerulean-blue-300 bg-cerulean-blue-50/50'
+                                : 'border-slate-100/60'
+                            } ${reachMax ? 'opacity-50 pointer-events-none' : ''}`}
+                          >
+                            <span className="flex items-center gap-2.5 min-w-0">
+                              <input
+                                type={isSingle ? 'radio' : 'checkbox'}
+                                checked={isChecked}
+                                onChange={() => toggleChoice(index, group, choice.name)}
+                                className="accent-cerulean-blue-600 w-4 h-4 shrink-0"
+                              />
+                              <span className="text-xs font-bold text-gray-900 truncate">
+                                {choice.name}
+                              </span>
+                            </span>
+                            <span className="text-[10px] font-black text-cerulean-blue-600 shrink-0">
+                              {choice.price > 0
+                                ? `+${choice.price.toLocaleString('vi-VN')} đ`
+                                : 'Miễn phí'}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Ghi chú cho món — lưu vào note của OrderItem */}
           {!soldOut && (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
-                Lựa chọn thêm
+                Ghi chú
               </p>
-              <div className="space-y-2">
-                {mockOptions.map((opt) => (
-                  <label
-                    key={opt.id}
-                    className="flex items-center justify-between gap-3 p-3 bg-slate-50/60 rounded-xl border border-slate-100/60 cursor-pointer select-none active:bg-slate-100/60"
-                  >
-                    <span className="flex items-center gap-2.5 min-w-0">
-                      <input
-                        type="checkbox"
-                        checked={selectedOptions.includes(opt.id)}
-                        onChange={() => toggleOption(opt.id)}
-                        className="accent-cerulean-blue-600 w-4 h-4 shrink-0"
-                      />
-                      <span className="text-xs font-bold text-gray-900 truncate">{opt.name}</span>
-                    </span>
-                    <span className="text-[10px] font-black text-cerulean-blue-600 shrink-0">
-                      +{opt.price.toLocaleString('vi-VN')} đ
-                    </span>
-                  </label>
-                ))}
-              </div>
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                rows={2}
+                placeholder="Ví dụ: không cay, bớt ngọt, làm sẵn..."
+                className="w-full rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2.5 text-xs font-medium text-gray-900 placeholder:text-slate-400 outline-none transition-all focus:border-cerulean-blue-300 focus:bg-white focus:ring-4 focus:ring-cerulean-blue-50 resize-none"
+              />
             </div>
           )}
         </div>
@@ -1350,9 +1463,9 @@ function ItemDetailSheet({ food, cartItem, onClose, onConfirmAdd }: ItemDetailSh
               </button>
             </div>
 
-            {/* Nút thêm vào giỏ — giá nằm bên dưới chữ */}
+            {/* Nút thêm vào giỏ — giá (món + options) nằm bên dưới chữ */}
             <button
-              onClick={() => onConfirmAdd(food, qty)}
+              onClick={handleConfirm}
               className="flex-1 flex flex-col items-center justify-center gap-0.5 rounded-xl bg-cerulean-blue-600 hover:bg-cerulean-blue-700 text-white font-black text-xs py-3 tracking-wide uppercase transition-all shadow-md active:scale-[0.99]"
             >
               <span className="flex items-center gap-1.5">
@@ -1360,7 +1473,7 @@ function ItemDetailSheet({ food, cartItem, onClose, onConfirmAdd }: ItemDetailSh
                 Thêm vào giỏ
               </span>
               <span className="text-[10px] font-bold text-cerulean-blue-100 normal-case">
-                {(food.price * qty).toLocaleString('vi-VN')} đ
+                {((food.price + toppingsPrice) * qty).toLocaleString('vi-VN')} đ
               </span>
             </button>
           </div>

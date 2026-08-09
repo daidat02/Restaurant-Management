@@ -27,7 +27,7 @@ export const CustomTextarea = React.forwardRef<HTMLTextAreaElement, CustomTextar
           // min-h-[100px] để set chiều cao mặc định cho đẹp, người dùng có thể tự kéo giãn thêm
           className={cn(
             "min-h-[100px] resize-y", 
-            error && "border-red-500 focus-visible:ring-red-500",
+            error && "border-red-400 focus-visible:ring-red-100",
             className
           )}
           {...props}

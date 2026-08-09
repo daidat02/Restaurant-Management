@@ -116,6 +116,11 @@ const PosBillItem = ({ item, onIncrease, onDecrease, onRemove }: PosBillItemProp
 
       <div className="min-w-0 flex-1">
         <p className="truncate text-xs font-semibold text-gray-900">{nameSnapshot}</p>
+        {item.toppings && item.toppings.length > 0 && (
+          <p className="text-[11px] text-cerulean-blue-600 truncate">
+            + {item.toppings.map((t) => t.name).join(', ')}
+          </p>
+        )}
         <p className="text-[11px] text-slate-400">
           {fmt(priceSnapshot)}
           {note ? <span className="text-amber-600"> · {note}</span> : null}

@@ -2,9 +2,17 @@ import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import type { IMenuItem } from '@/types/category.type';
 import type { IOrder } from '@/types/order.type';
 
-interface CartItem {
+// Snapshot lựa chọn thêm đã chọn cho món (giá lấy từ cấu hình món)
+export interface ICartTopping {
+  name: string;
+  price: number;
+}
+
+export interface CartItem {
   food: IMenuItem;
   quantity: number;
+  note?: string;
+  toppings?: ICartTopping[];
 }
 
 interface CartState {
@@ -50,6 +58,26 @@ export const cartSlice = createSlice({
       }
     },
 
+    // Action: Cập nhật số lượng + options + ghi chú chính xác theo lựa chọn ở drawer chi tiết món
+    // (item phải đã tồn tại trong giỏ — gọi addToCart trước nếu chưa có)
+    updateItemDetail: (
+      state,
+      action: PayloadAction<{
+        id: string;
+        quantity: number;
+        note?: string;
+        toppings?: ICartTopping[];
+      }>,
+    ) => {
+      const { id, quantity, note, toppings } = action.payload;
+      const existing = state.cartItems.find((item) => item.food._id === id);
+      if (existing) {
+        existing.quantity = quantity;
+        existing.note = note?.trim() ? note.trim() : undefined;
+        existing.toppings = toppings && toppings.length > 0 ? toppings : undefined;
+      }
+    },
+
     // Action: Xóa sạch giỏ hàng sau khi đặt đơn thành công
     clearCart: (state) => {
       state.cartItems = [];
@@ -57,5 +85,5 @@ export const cartSlice = createSlice({
   },
 });
 
-export const { addToCart, updateQuantity, clearCart } = cartSlice.actions;
+export const { addToCart, updateQuantity, updateItemDetail, clearCart } = cartSlice.actions;
 export default cartSlice.reducer;

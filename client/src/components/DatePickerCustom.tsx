@@ -38,7 +38,7 @@ export function CustomDatePicker({
         <Button
           variant={'outline'}
           className={cn(
-            'h-9 justify-start text-left font-medium rounded-xl border-slate-200 bg-slate-50/50 hover:bg-slate-100/50 px-3 text-slate-700 text-sm transition-all outline-none focus-visible:ring-0 focus:border-cerulean-blue-500 focus:bg-white',
+            'h-10 justify-start text-left font-medium rounded-xl border-slate-200 bg-slate-50/50 hover:bg-slate-100/50 px-3 text-slate-700 text-sm transition-all outline-none focus-visible:ring-0 focus:border-cerulean-blue-500 focus:bg-white',
             !value && 'text-slate-400',
             className,
           )}

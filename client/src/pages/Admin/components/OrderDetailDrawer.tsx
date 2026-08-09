@@ -204,6 +204,11 @@ export default function OrderDetailDrawer({
             {name}
           </p>
           {note && <p className="mt-0.5 text-[11px] text-amber-600">{note}</p>}
+          {(it as IOrderItem).toppings && (it as IOrderItem).toppings!.length > 0 && (
+            <p className="mt-0.5 text-[11px] text-cerulean-blue-600">
+              + {(it as IOrderItem).toppings!.map((t) => t.name).join(', ')}
+            </p>
+          )}
           {isDraft ? (
             <div className="mt-1.5 flex items-center gap-1.5">
               <button

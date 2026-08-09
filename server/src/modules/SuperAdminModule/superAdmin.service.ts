@@ -17,7 +17,7 @@ class SuperAdminService {
 
     // Chủ = user role admin (sở hữu ≥ 1 nhà hàng). Trạng thái chủ theo nhà hàng họ sở hữu.
     const owners = await DB_Connection.User.find({ role: 'admin' })
-      .select('_id name email isActive')
+      .select('_id name email isActive createdAt')
       .lean();
     const ownerIds = owners.map((o: any) => o._id);
 
@@ -61,6 +61,28 @@ class SuperAdminService {
     ]);
     const monthRevenue = monthRevenueAgg[0]?.total || 0;
 
+    // ---- Chỉ số mở rộng: MRR, ARPU, chủ/nhà hàng mới, chủ bị khoá, giao dịch tháng ----
+    const last30 = new Date(now.getTime() - 30 * day);
+    const lockedOwners = ownerStatusArr.filter(
+      ([, states]) => !states.has('active') && !states.has('trial'),
+    ).length;
+
+    const mrrAgg = await DB_Connection.Transaction.aggregate([
+      { $match: { status: 'paid', createdAt: { $gte: last30 } } },
+      { $group: { _id: null, total: { $sum: '$amount' } } },
+    ]);
+    const mrr = mrrAgg[0]?.total || 0;
+    const arpu = activeOwners > 0 ? Math.round(monthRevenue / activeOwners) : 0;
+    const newOwners30d = await DB_Connection.User.countDocuments({
+      role: 'admin',
+      createdAt: { $gte: last30 },
+    });
+    const newRestaurants30d = await DB_Connection.Restaurant.countDocuments({ createdAt: { $gte: last30 } });
+    const monthTransactions = await DB_Connection.Transaction.countDocuments({
+      status: 'paid',
+      createdAt: { $gte: monthStart },
+    });
+
     // Biểu đồ doanh thu 6 tháng gần nhất
     const revenueByMonth: { month: string; total: number }[] = [];
     for (let i = 5; i >= 0; i--) {
@@ -91,6 +113,41 @@ class SuperAdminService {
       .populate('ownerId', 'name email')
       .lean();
 
+    // Top 5 nhà hàng đóng góp doanh thu nhiều nhất (theo giao dịch paid)
+    const topRestaurantsAgg = await DB_Connection.Transaction.aggregate([
+      { $match: { status: 'paid' } },
+      { $group: { _id: '$restaurant', totalPaid: { $sum: '$amount' } } },
+      { $sort: { totalPaid: -1 } },
+      { $limit: 5 },
+    ]);
+    const topRestIds = topRestaurantsAgg.map((t: any) => t._id);
+    const topRestaurants = topRestIds.length
+      ? await DB_Connection.Restaurant.find({ _id: { $in: topRestIds } }).select('name').lean()
+      : [];
+    const topRestNameMap = new Map(topRestaurants.map((r: any) => [String(r._id), r.name]));
+    const topRestaurantsOut = topRestaurantsAgg.map((t: any) => ({
+      _id: t._id,
+      name: topRestNameMap.get(String(t._id)) || 'Nhà hàng',
+      totalPaid: t.totalPaid,
+    }));
+
+    // Sự kiện nổi bật gần đây (từ audit log)
+    const recentLogs = await DB_Connection.AuditLog.find().sort({ createdAt: -1 }).limit(6).lean();
+    const recentEvents = recentLogs.map((log: any) => {
+      const action: string = log.action || '';
+      let type: 'success' | 'warning' | 'danger' | 'info' = 'info';
+      if (/block|lock|expire|fail|delete|refuse/i.test(action)) type = 'danger';
+      else if (/renew|paid|create|register|unblock|extend/i.test(action)) type = 'success';
+      else if (/update|edit|pricing|change/i.test(action)) type = 'info';
+      return {
+        _id: log._id,
+        action: log.action,
+        type,
+        summary: log.summary,
+        createdAt: log.createdAt,
+      };
+    });
+
     return {
       message: 'Lấy thống kê nền tảng thành công!',
       code: 200,
@@ -98,12 +155,20 @@ class SuperAdminService {
         kpis: {
           trialOwners,
           activeOwners,
+          lockedOwners,
           activeRestaurants,
           monthRevenue,
+          mrr,
+          arpu,
+          newOwners30d,
+          newRestaurants30d,
+          monthTransactions,
         },
         revenueByMonth,
         recentOwners,
         expiringRestaurants,
+        topRestaurants: topRestaurantsOut,
+        recentEvents,
       },
     };
   }

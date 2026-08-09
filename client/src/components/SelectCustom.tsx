@@ -48,17 +48,17 @@ export function CustomSelect({
   return (
     /* 1. BẮT BUỘC: Thêm class `relative` ở đây để định vị Menu absolute bên dưới */
     <div ref={selectRef} className={`relative text-left flex flex-col gap-1.5 ${className}`}>
-      {label && <label className="text-sm text-gray-900">{label}</label>}
+      {label && <label className="text-sm font-medium text-gray-900">{label}</label>}
 
       {/* TRIGGER BUTTON */}
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex w-full items-center justify-between rounded-xl border border-gray-300 px-3 py-2 text-sm font-medium text-slate-700 transition-all text-left outline-none
+        className={`flex h-10 w-full items-center justify-between rounded-xl border bg-slate-50/70 px-3 text-sm font-medium text-slate-700 transition-all text-left outline-none
           ${
             isOpen
-              ? 'border-cerulean-blue-500 bg-white ring-2 ring-cerulean-blue-50'
-              : 'border-gray-300 hover:bg-gray-100/50'
+              ? 'border-cerulean-blue-500 bg-white ring-2 ring-cerulean-blue-100'
+              : 'border-slate-200 hover:bg-gray-100/50'
           } ${triggerClass}`}
       >
         <span className="truncate pr-2">{selectedLabel}</span>

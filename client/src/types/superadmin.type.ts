@@ -1,12 +1,18 @@
 /** Trạng thái subscription của nhà hàng. */
 export type SubscriptionState = 'trial' | 'active' | 'locked';
 
-/** 4 KPI nền tảng trên dashboard super-admin. */
+/** KPI nền tảng trên dashboard super-admin. */
 export interface IAdminKpis {
   trialOwners: number;
   activeOwners: number;
+  lockedOwners: number;
   activeRestaurants: number;
   monthRevenue: number;
+  mrr: number;
+  arpu: number;
+  newOwners30d: number;
+  newRestaurants30d: number;
+  monthTransactions: number;
 }
 
 /** Doanh thu từng tháng (cho biểu đồ 6 tháng). */
@@ -37,12 +43,30 @@ export interface IExpiringRestaurant {
   ownerId?: { _id: string; name: string; email: string };
 }
 
+/** Nhà hàng đóng góp doanh thu nhiều nhất. */
+export interface ITopRestaurant {
+  _id: string;
+  name: string;
+  totalPaid: number;
+}
+
+/** Sự kiện nổi bật gần đây (từ audit log). */
+export interface IRecentEvent {
+  _id: string;
+  action: string;
+  type: 'success' | 'warning' | 'danger' | 'info';
+  summary: string;
+  createdAt: string;
+}
+
 /** Payload GET /api/admin/dashboard. */
 export interface IAdminDashboard {
   kpis: IAdminKpis;
   revenueByMonth: IRevenueByMonth[];
   recentOwners: IOwnerSummary[];
   expiringRestaurants: IExpiringRestaurant[];
+  topRestaurants: ITopRestaurant[];
+  recentEvents: IRecentEvent[];
 }
 
 /** Nhà hàng của 1 chủ (trong chi tiết chủ). */

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Search, Download, Plus, Edit2, Trash2, Eye } from 'lucide-react';
+import { Search, Download, Plus, Edit2, Trash2, Eye, Users, UserCog } from 'lucide-react';
 
 // Import hook và type của User
 import { useUser } from '@/hooks/use-user';
@@ -194,15 +194,26 @@ export default function UsersPage() {
       <div className="min-h-screen bg-slate-50 text-slate-800 p-4 md:p-8">
         {/* TOP HEADER */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-950">
-              Quản Lý Người Dùng
-            </h1>
-            <p className="text-sm text-slate-500 mt-1">
-              {user?.role === 'admin'
-                ? 'Quản lý các tài khoản quản lý chi nhánh trong chuỗi.'
-                : 'Quản lý phân quyền tài khoản nhân viên trong chi nhánh.'}
-            </p>
+          <div className="flex items-start gap-4">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-cerulean-blue-600 text-white shadow-lg shadow-cerulean-blue-200">
+              <Users className="h-6 w-6" />
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-950">
+                  Quản Lý Người Dùng
+                </h1>
+                <span className="inline-flex items-center gap-1 rounded-full bg-cerulean-blue-50 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-cerulean-blue-700">
+                  <UserCog className="h-3 w-3" />{' '}
+                  {user?.role === 'admin' ? 'Manager chi nhánh' : 'Nhân viên'}
+                </span>
+              </div>
+              <p className="text-sm text-slate-500 mt-1">
+                {user?.role === 'admin'
+                  ? 'Quản lý các tài khoản quản lý chi nhánh trong chuỗi.'
+                  : 'Quản lý phân quyền tài khoản nhân viên trong chi nhánh.'}
+              </p>
+            </div>
           </div>
         </div>
 
@@ -269,17 +280,30 @@ export default function UsersPage() {
         </FilterToolbar>
 
         {/* BẢNG HIỂN THỊ CHÍNH */}
-        <DataTable
-          columns={columns}
-          data={paginatedData}
-          currentPage={currentPage}
-          totalPages={totalPages}
-          totalItems={filteredUsers.length}
-          pageSize={pageSize}
-          onPageChange={(page) => setCurrentPage(page)}
-          isLoading={isLoading}
-          getRowKey={(item) => item._id}
-        />
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center gap-2">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-cerulean-blue-50 text-cerulean-blue-600">
+              <Users className="h-4 w-4" />
+            </span>
+            <div>
+              <h2 className="text-base font-bold text-slate-900">Danh sách tài khoản</h2>
+              <p className="text-xs text-slate-400">
+                {filteredUsers.length} tài khoản · phân quyền theo chi nhánh
+              </p>
+            </div>
+          </div>
+          <DataTable
+            columns={columns}
+            data={paginatedData}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredUsers.length}
+            pageSize={pageSize}
+            onPageChange={(page) => setCurrentPage(page)}
+            isLoading={isLoading}
+            getRowKey={(item) => item._id}
+          />
+        </div>
 
         {/* SIDE DRAWER FORM */}
         <SideDrawer

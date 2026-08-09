@@ -159,6 +159,14 @@ function OrderDetailDrawer({
                     <p className="text-xs font-semibold text-gray-800 truncate">
                       {item.nameSnapshot}
                     </p>
+                    {item.toppings && item.toppings.length > 0 && (
+                      <p className="text-[10px] text-cerulean-blue-600 truncate">
+                        + {item.toppings.map((t) => t.name).join(', ')}
+                      </p>
+                    )}
+                    {item.note && (
+                      <p className="text-[10px] text-amber-600 truncate">Ghi chú: {item.note}</p>
+                    )}
                     <p className="text-[10px] text-gray-400">SL: x{item.quantity}</p>
                   </div>
                   <p className="text-xs font-bold text-gray-800 shrink-0">
