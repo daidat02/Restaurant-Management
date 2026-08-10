@@ -22,11 +22,10 @@ import { extractId } from '@/utils/helpers';
 import type { IRestaurant } from '@/types/restaurant.type';
 
 interface SideBarProps {
-  onOpenSetting: () => void;
   onOpenMessage: () => void;
 }
 
-export default function SidebarApp({ onOpenSetting, onOpenMessage }: SideBarProps) {
+export default function SidebarApp({ onOpenMessage }: SideBarProps) {
   const { user, logout } = useAuth();
   const activeRestaurantId = useActiveRestaurantId();
 
@@ -88,8 +87,6 @@ export default function SidebarApp({ onOpenSetting, onOpenMessage }: SideBarProp
       navigate(item.path);
     } else if (item.action === 'message') {
       onOpenMessage();
-    } else if (item.action === 'setting') {
-      onOpenSetting();
     }
   };
 

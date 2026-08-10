@@ -15,7 +15,6 @@ import { AlertDialogCustom } from '@/components/AlertDialog';
 import { FilterToolbar } from '../OrderPage/management-order';
 import FormCreateRestaurant from './components/FormCreateRestaurant';
 import { PayForNewRestaurantModal } from './components/PayForNewRestaurantModal';
-import SettingModal from '../SettingPage/SettingModal';
 import { format } from 'date-fns';
 
 export default function RestaurantsPage() {
@@ -26,9 +25,6 @@ export default function RestaurantsPage() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isPayModalOpen, setIsPayModalOpen] = useState(false);
   const [editingRestaurant, setEditingRestaurant] = useState<IRestaurant | null>(null);
-
-  // Ticket 09: id chi nhánh đang mở Cài Đặt (admin) → SettingModal dùng restaurantIdOverride
-  const [settingsRestaurantId, setSettingsRestaurantId] = useState<string | null>(null);
 
   // Các State quản lý bộ lọc & tìm kiếm
   const [searchTerm, setSearchTerm] = useState('');
@@ -154,7 +150,7 @@ export default function RestaurantsPage() {
             size="icon"
             className="h-8 w-8 text-cerulean-blue-600 hover:bg-cerulean-blue-50 rounded-lg"
             title="Cài đặt chi nhánh"
-            onClick={() => setSettingsRestaurantId(item._id)}
+            onClick={() => navigate(`/admin/settings?restaurant=${item._id}`)}
           >
             <Settings className="h-4 w-4" />
           </Button>
@@ -323,14 +319,6 @@ export default function RestaurantsPage() {
           open={isPayModalOpen}
           onOpenChange={setIsPayModalOpen}
           onSuccess={() => fetchRestaurants()}
-        />
-
-        {/* TICKET 09: CÀI ĐẶT CHI NHÁNH (admin) — key remount để reset state khi đổi chi nhánh */}
-        <SettingModal
-          key={settingsRestaurantId ?? 'none'}
-          isOpen={!!settingsRestaurantId}
-          onChangeOpenModal={() => setSettingsRestaurantId(null)}
-          restaurantIdOverride={settingsRestaurantId || undefined}
         />
       </div>
     </div>

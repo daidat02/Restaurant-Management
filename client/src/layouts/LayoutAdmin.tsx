@@ -6,12 +6,10 @@ import Header from '@/components/Header';
 import { LoadingProvider } from '@/components/LoadingOverlay';
 import SidebarApp from '@/components/Sidebar';
 import UpsellSubscriptionModal from '@/components/UpsellSubscriptionModal';
-import SettingModal from '@/pages/Admin/SettingPage/SettingModal';
 import MessageModal from '@/pages/Admin/MessageModal/MessageModal';
 import { MessagingProvider } from '@/hooks/use-messaging';
 
 export default function LayoutAdmin() {
-  const [isOpenSetting, setIsOpenSetting] = useState(false);
   const [isOpenMessage, setIsOpenMessage] = useState(false);
   // Signal mở modal tại đúng hội thoại (từ MailBoxPopover); null = mở bình thường không chọn conv.
   const [openMessageWithConv, setOpenMessageWithConv] = useState<string | null>(null);
@@ -26,11 +24,6 @@ export default function LayoutAdmin() {
       <MessagingProvider>
         <SidebarProvider>
           <Toaster />
-          <SettingModal
-            key={isOpenSetting ? 'open' : 'closed'}
-            isOpen={isOpenSetting}
-            onChangeOpenModal={() => setIsOpenSetting(false)}
-          />
           <MessageModal
             isOpen={isOpenMessage}
             onChangeOpenModal={() => setIsOpenMessage(false)}
@@ -40,7 +33,6 @@ export default function LayoutAdmin() {
           {/* CONTAINER LAYOUT GỐC */}
           <div className="flex h-screen w-full overflow-hidden bg-neutral-50 relative">
             <SidebarApp
-              onOpenSetting={() => setIsOpenSetting(true)}
               onOpenMessage={handleOpenMessage}
             />
 

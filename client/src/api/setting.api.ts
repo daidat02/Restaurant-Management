@@ -25,8 +25,7 @@ export const createSetting = async (data: Partial<ISetting>) => {
 };
 
 /**
- * 2. Tải nhanh hoặc tự động khởi tạo cấu hình dựa trên scope và targetId khi mở giao diện cài đặt
- * API chiến lược phục vụ luồng load data cho SettingModal khi manager click mở tab
+ * 2. Tải nhanh hoặc tự động khởi tạo cấu hình dựa trên scope và targetId khi mở SettingsPage
  */
 export const getOrCreateSetting = async (
   scope: 'admin' | 'restaurant',

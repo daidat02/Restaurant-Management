@@ -63,7 +63,7 @@ export const cancelPayOsUrl = async (orderId: string) => {
   const res = await axiosClient.post<any, ApiResponse<any>>(PAYMENTS.CANCEL_PAYOS(orderId));
   return res.data;
 };
-interface ICheckPayOSPayload {
+export interface ICheckPayOSPayload {
   clientId: string;
   apiKey: string;
   checksumKey: string;

@@ -39,12 +39,26 @@ export interface IBankAccountConfig {
   fixedQrUrl?: string;
 }
 
+/** Giờ mở cửa theo nhóm ngày (theo preview settings). */
+export interface IOperatingHoursByDay {
+  /** Thứ 2 – Thứ 6. */
+  weekdays: {
+    open: string;
+    close: string;
+  };
+  /** Thứ 7 & Chủ nhật. */
+  weekend: {
+    open: string;
+    close: string;
+  };
+}
+
 export interface IPayOSConfig {
   clientId: string;
   apiKey: string;
   checksumKey: string;
-  hasApiKey: string;
-  hasChecksumKey: string;
+  hasApiKey?: string;
+  hasChecksumKey?: string;
 }
 
 export interface IThirdPartyIntegration {
@@ -116,13 +130,14 @@ export interface ISetting {
   paymentMethodType: 'none' | 'bank_transfer' | 'payos';
 
   // Các khối dữ liệu cấu hình
-  integrations?: IThirdPartyIntegration;
+  integrations?: IThirdPartyIntegration | null;
   bankAccount?: IBankAccountConfig;
   tableConfig: ITableConfig;
   menuConfig?: IMenuConfig;
   receiptConfig?: IReceiptConfig;
   payOSConfig?: IPayOSConfig;
   systemConfig?: ISystemConfig;
+  operatingHoursByDay?: IOperatingHoursByDay;
 
   createdAt?: Date;
   updatedAt?: Date;

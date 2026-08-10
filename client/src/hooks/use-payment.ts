@@ -14,6 +14,8 @@ import {
   createPayOsUrl,
   cancelPayOsUrl,
   updatePaymentMethod,
+  checkConectPayOS,
+  type ICheckPayOSPayload,
 } from '@/api/payment.api';
 
 import { useGlobalLoading } from '@/components/LoadingOverlay';
@@ -245,6 +247,28 @@ export const usePayment = () => {
     }
   };
 
+  const checkPayOSConnection = useCallback(async (payload: ICheckPayOSPayload) => {
+    setError(null);
+    try {
+      const result = await checkConectPayOS(payload);
+      console.log('Kết quả kiểm tra kết nối PayOS:', result);
+      if (result) {
+        toast.success(result?.message || 'Kết nối tới cổng PayOS thành công!', {
+          position: 'top-right',
+        });
+        return true;
+      }
+      toast.error(result?.message || 'Kết nối tới cổng PayOS thất bại.', {
+        position: 'top-right',
+      });
+      return false;
+    } catch (err: any) {
+      setError(err?.message || 'Kết nối tới cổng PayOS thất bại');
+      toast.error(err?.message || 'Kết nối tới cổng PayOS thất bại', { position: 'top-right' });
+      return false;
+    }
+  }, []);
+
   return {
     // State
     currentPayment,
@@ -268,5 +292,6 @@ export const usePayment = () => {
 
     createPaymentPayOsUrl,
     cancelPaymentPayOsUrl,
+    checkPayOSConnection,
   };
 };

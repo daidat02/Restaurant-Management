@@ -49,6 +49,7 @@ import { useDispatch } from 'react-redux';
 import { login, logout } from './redux/slices/authSlice';
 import BillingPage from './pages/Admin/BillingPage/billing';
 import LogsPage from './pages/Admin/LogsPage/logs';
+import SettingsPage from './pages/Admin/SettingPage/SettingsPage';
 import type { IUser } from '@/types/user.type';
 
 /**
@@ -202,6 +203,7 @@ export default function App() {
           <Route path="pricing" element={<SuperAdminPricing />} />
           <Route path="transactions" element={<SuperAdminTransactions />} />
           <Route path="audit" element={<SuperAdminAudit />} />
+          <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Route>
 
@@ -227,6 +229,7 @@ export default function App() {
           <Route path="orders" element={<Order />} />
           <Route path="reports" element={<AnalyticsPage />} />
           <Route path="logs" element={<LogsPage />} />
+          <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Route>
 
@@ -267,6 +270,7 @@ export default function App() {
           <Route path="orders" element={<Order />} />
           <Route path="orders/management" element={<OrderManagerment />} />
           <Route path="orders/edit/:id" element={<OrderDetail />} />
+          <Route path="settings" element={<SettingsPage />} />
         </Route>
 
         {/* POS toàn màn hình (không sidebar/header admin) */}
@@ -295,6 +299,7 @@ export default function App() {
           <Route path="orders/management" element={<OrderManagerment />} />
           <Route path="orders/edit/:id" element={<OrderDetail />} />
           <Route path="reservations" element={<ReservationPage />} />
+          <Route path="settings" element={<SettingsPage />} />
         </Route>
 
         {/* POS toàn màn hình (không sidebar/header admin) */}

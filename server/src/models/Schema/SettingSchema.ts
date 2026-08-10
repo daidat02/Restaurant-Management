@@ -38,6 +38,20 @@ export interface IBankAccountConfig {
   fixedQrUrl: string;
 }
 
+/** Giờ mở cửa theo nhóm ngày (theo preview settings). */
+export interface IOperatingHoursByDay {
+  /** Thứ 2 – Thứ 6. */
+  weekdays: {
+    open: string;
+    close: string;
+  };
+  /** Thứ 7 & Chủ nhật. */
+  weekend: {
+    open: string;
+    close: string;
+  };
+}
+
 export interface IPayOSConfig {
   clientId: string;
   apiKey: string;
@@ -107,6 +121,7 @@ export interface ISetting extends Document {
   receiptConfig: IReceiptConfig;
   payOSConfig: IPayOSConfig;
   systemConfig: ISystemConfig;
+  operatingHoursByDay?: IOperatingHoursByDay;
 
   createdAt: Date;
   updatedAt: Date;
@@ -214,6 +229,16 @@ const SettingSchema = new Schema<ISetting>(
       requireOtpForVoid: { type: Boolean, default: true },
       // Mã bảo vệ màn hình bếp (KDS): tạo mới mã sẽ vô hiệu hóa mã cũ
       kitchenCode: { type: String, trim: true, default: '' },
+    },
+    operatingHoursByDay: {
+      weekdays: {
+        open: { type: String, trim: true, default: '09:00' },
+        close: { type: String, trim: true, default: '22:00' },
+      },
+      weekend: {
+        open: { type: String, trim: true, default: '10:00' },
+        close: { type: String, trim: true, default: '23:00' },
+      },
     },
   },
   {

@@ -14,15 +14,11 @@ import {
   SidebarMenuItem,
 } from '@/components/ui/sidebar';
 
-import { Moon, LogOut, ChevronDown } from 'lucide-react';
+import { Moon, LogOut } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { getMenuForRole, getRoleLabel, type MenuItem } from '@/configs/adminMenu';
 
-interface SidebarSuperAdminProps {
-  onOpenSetting?: () => void;
-}
-
-export default function SidebarSuperAdmin({ onOpenSetting }: SidebarSuperAdminProps) {
+export default function SidebarSuperAdmin() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -35,8 +31,6 @@ export default function SidebarSuperAdmin({ onOpenSetting }: SidebarSuperAdminPr
   const handleItemClick = (item: MenuItem) => {
     if (item.path) {
       navigate(item.path);
-    } else if (item.action === 'setting') {
-      onOpenSetting?.();
     }
   };
 

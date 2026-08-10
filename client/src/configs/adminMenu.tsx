@@ -30,7 +30,7 @@ export type MenuItem = {
   path?: string;
   children?: { title: string; path: string }[];
   /** Hành động mở modal thay vì điều hướng. Component Sidebar sẽ gắn handler thật. */
-  action?: 'message' | 'setting';
+  action?: 'message';
 };
 
 export type MenuGroup = {
@@ -75,7 +75,7 @@ const ADMIN_MENU: MenuGroup[] = [
     items: [
       { title: 'Tin Nhắn', icon: MessageCircle, action: 'message' },
       { title: 'Nhật Ký Hệ Thống', icon: History, path: '/admin/logs' },
-      { title: 'Cài Đặt Chung', icon: Settings, action: 'setting' },
+      { title: 'Cài Đặt Chung', icon: Settings, path: '/admin/settings' },
     ],
   },
 ];
@@ -102,7 +102,7 @@ const MANAGER_MENU: MenuGroup[] = [
     label: 'Công cụ',
     items: [
       { title: 'Tin Nhắn', icon: MessageCircle, action: 'message' },
-      { title: 'Cài Đặt Chung', icon: Settings, action: 'setting' },
+      { title: 'Cài Đặt Chung', icon: Settings, path: '/manager/settings' },
       { title: 'Trợ Giúp', icon: HelpCircle, path: '/manager/help' },
     ],
   },
@@ -121,7 +121,7 @@ const STAFF_MENU: MenuGroup[] = [
     label: 'Công cụ',
     items: [
       { title: 'Tin Nhắn', icon: MessageCircle, action: 'message' },
-      { title: 'Cài Đặt Chung', icon: Settings, action: 'setting' },
+      { title: 'Cài Đặt Chung', icon: Settings, path: '/staff/settings' },
     ],
   },
 ];
@@ -140,7 +140,7 @@ const SUPER_ADMIN_MENU: MenuGroup[] = [
     label: 'Công cụ',
     items: [
       { title: 'Nhật Ký Hệ Thống', icon: ScrollText, path: '/super-admin/audit' },
-      { title: 'Cài Đặt Chung', icon: Settings, action: 'setting' },
+      { title: 'Cài Đặt Chung', icon: Settings, path: '/super-admin/settings' },
     ],
   },
 ];

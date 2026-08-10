@@ -30,7 +30,7 @@ router.post(
 router.get(
   '/get-or-create/:scope/:model/:targetId',
   verifyToken,
-  verifyRole(['admin']),
+  verifyRole(['admin', 'manager']),
   verifyTenant,
   SettingController.getOrCreateSetting,
 );
