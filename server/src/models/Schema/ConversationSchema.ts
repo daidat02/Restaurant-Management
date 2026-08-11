@@ -19,6 +19,8 @@ export interface IConversation extends Document {
     senderId: Types.ObjectId;
     createdAt: Date;
   };
+  /** Thời điểm tin nhắn cuối (dùng sort danh sách hội thoại, mới nhất lên đầu). */
+  lastMessageAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -48,6 +50,7 @@ const ConversationSchema = new Schema<IConversation>(
       },
       _id: false,
     },
+    lastMessageAt: { type: Date, index: true },
   },
   { timestamps: true },
 );

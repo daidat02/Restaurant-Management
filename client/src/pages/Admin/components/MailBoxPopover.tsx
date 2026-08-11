@@ -1,11 +1,8 @@
 import { PopoverCustom } from '@/components/PopoverCusom';
 import { Mail } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useMessaging } from '@/hooks/use-messaging';
-
-interface MailBoxPopoverProps {
-  /** Callback khi bấm 1 hội thoại — mở MessageModal tại đúng conv. */
-  onOpenConversation?: (conversationId: string) => void;
-}
+import { useAuth } from '@/hooks/use-auth';
 
 const formatTime = (value?: string) => {
   if (!value) return '';
@@ -22,11 +19,34 @@ const convDisplayName = (
   c: ReturnType<typeof useMessaging>['conversations'][number],
 ) => (c.type === 'group' ? c.name || 'Nhóm' : c.otherMember?.name || 'Thành viên');
 
-export function MailBoxPopover({ onOpenConversation }: MailBoxPopoverProps) {
+/**
+ * Popover "Tin nội bộ quán" — bấm 1 hội thoại sẽ điều hướng sang trang nhắn tin
+ * riêng (theo base path của role) và mở đúng hội thoại đó qua ?conv=.
+ */
+export function MailBoxPopover() {
   const { conversations, unreadMap, totalUnread } = useMessaging();
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   // 3–5 hội thoại gần nhất (server đã sort updatedAt desc)
   const recent = conversations.slice(0, 5);
+
+  const messagesPath = (() => {
+    switch (user?.role) {
+      case 'manager':
+        return '/manager/messages';
+      case 'staff':
+        return '/staff/messages';
+      case 'super-admin':
+        return '/super-admin/messages';
+      default:
+        return '/admin/messages';
+    }
+  })();
+
+  const openConversation = (convId: string) => {
+    navigate(`${messagesPath}?conv=${convId}`);
+  };
 
   return (
     <PopoverCustom
@@ -61,7 +81,7 @@ export function MailBoxPopover({ onOpenConversation }: MailBoxPopoverProps) {
             return (
               <button
                 key={chat._id}
-                onClick={() => onOpenConversation?.(chat._id)}
+                onClick={() => openConversation(chat._id)}
                 className={`w-full p-3 flex gap-3 hover:bg-gray-50 transition-colors cursor-pointer text-left ${
                   unread > 0 ? 'bg-blue-550/5' : ''
                 }`}
@@ -89,6 +109,14 @@ export function MailBoxPopover({ onOpenConversation }: MailBoxPopoverProps) {
               </button>
             );
           })}
+        </div>
+        <div className="p-2 border-t border-gray-100">
+          <button
+            onClick={() => navigate(messagesPath)}
+            className="w-full text-center text-[11px] font-semibold text-cerulean-blue-600 hover:text-cerulean-blue-700 py-1"
+          >
+            Xem tất cả tin nhắn
+          </button>
         </div>
       </div>
     </PopoverCustom>

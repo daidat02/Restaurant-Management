@@ -8,6 +8,10 @@ export interface IMember {
   role: 'admin' | 'member';
   joinedAt: string;
   lastReadAt?: string;
+  /** Thông tin user được populate (có từ service view) — dùng cho panel quản lý thành viên. */
+  name?: string;
+  avatar?: string;
+  userRole?: string;
 }
 
 /** Metadata tin cuối (denormalized trên Conversation). */
@@ -57,6 +61,7 @@ export interface IConversationView {
     role?: string;
   };
   unreadCount: number;
+  lastMessageAt?: string;
   updatedAt?: string;
 }
 

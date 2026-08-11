@@ -14,6 +14,7 @@ class SubscriptionService {
     restaurantId: string,
     cycleMonths: number,
     actorUserId: string | undefined,
+    planId?: string,
   ): Promise<ServiceResponse<any>> {
     if (!restaurantId || !VALID_CYCLES.includes(cycleMonths)) {
       return { message: 'Thiếu thông tin hoặc chu kỳ không hợp lệ!', code: 400 };
@@ -32,10 +33,14 @@ class SubscriptionService {
       return { message: 'Bạn không sở hữu nhà hàng này!', code: 403 };
     }
 
-    const price = await pricingService.getPriceForCycle(cycleMonths);
+    // Giá theo gói đã chọn (planId), fallback về giá chu kỳ mặc định.
+    const price = planId
+      ? await pricingService.getPlanPriceForCycle(planId, cycleMonths)
+      : await pricingService.getPriceForCycle(cycleMonths);
     if (!price) {
-      return { message: 'Chu kỳ thanh toán không hợp lệ!', code: 400 };
+      return { message: 'Chu kỳ thanh toán hoặc gói dịch vụ không hợp lệ!', code: 400 };
     }
+    const planName = planId ? await pricingService.getPlanName(planId) : null;
 
     const now = new Date();
     const wasLocked = restaurant.subscription === 'locked';
@@ -45,6 +50,26 @@ class SubscriptionService {
       : now;
     const paidUntil = new Date(base.getTime() + cycleMonths * 30 * 24 * 3600 * 1000);
 
+    // Còn hạn (active + chưa hết hạn) thì KHÔNG được hạ xuống gói thấp hơn gói hiện tại.
+    // Nếu chưa rõ gói hiện tại → mặc định gói thấp nhất (an toàn: không chặn nhầm).
+    const currentPlanKey = restaurant.currentPlanKey || (await pricingService.getDefaultPlanKey());
+    if (
+      planId &&
+      currentPlanKey &&
+      restaurant.subscription === 'active' &&
+      restaurant.paidUntil &&
+      restaurant.paidUntil.getTime() > now.getTime()
+    ) {
+      const currentSort = await pricingService.getPlanSortOrder(currentPlanKey);
+      const newSort = await pricingService.getPlanSortOrder(planId);
+      if (newSort < currentSort) {
+        return {
+          message: 'Không thể hạ gói khi còn hạn! Bạn có thể nâng cấp gói cao hơn hoặc chờ hết hạn để đổi gói.',
+          code: 400,
+        };
+      }
+    }
+
     const transaction = await DB_Connection.Transaction.create({
       restaurant: restaurant._id,
       ownerId: restaurant.ownerId,
@@ -53,11 +78,16 @@ class SubscriptionService {
       type: 'restaurant-fee',
       status: 'paid',
       paidUntil,
+      planKey: planId ?? undefined,
+      planName: planName ?? undefined,
     });
 
     restaurant.subscription = 'active';
     restaurant.paidUntil = paidUntil;
     restaurant.trialEndsAt = undefined;
+    // Cập nhật gói hiện tại: theo gói đã chọn, hoặc gói mặc định nếu thanh toán legacy không có gói.
+    const resolvedPlanKey = planId || (await pricingService.getDefaultPlanKey());
+    if (resolvedPlanKey) restaurant.currentPlanKey = resolvedPlanKey;
     await restaurant.save();
 
     await writeAuditLog({
@@ -100,6 +130,7 @@ class SubscriptionService {
       subscription: r.subscription,
       trialEndsAt: r.trialEndsAt,
       paidUntil: r.paidUntil,
+      currentPlanKey: r.currentPlanKey ?? undefined,
       daysLeft: r.subscription === 'trial' && r.trialEndsAt
         ? Math.ceil((r.trialEndsAt.getTime() - now) / (24 * 3600 * 1000))
         : r.subscription === 'active' && r.paidUntil

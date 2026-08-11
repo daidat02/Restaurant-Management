@@ -265,7 +265,7 @@ function KitchenDashboard({
             Làm mới
           </button>
 
-          <div className="bg-gray-50 p-0.5 rounded-lg border border-gray-200">
+          <div className="bg-gray-50 p-0.5 rounded-lg ">
             <CustomTabs
               tabs={[
                 { id: 'all', label: 'Tất cả', count: getTabCount('all') },

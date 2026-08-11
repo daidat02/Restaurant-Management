@@ -28,6 +28,14 @@ router.post(
   conversationController.createConversation,
 );
 
+// Tìm hội thoại 1-1 với 1 user (chưa có thì trả null — client mới POST tạo)
+router.get(
+  "/direct/:userId",
+  verifyToken,
+  verifyTenant,
+  conversationController.getDirectConversation,
+);
+
 // Lịch sử tin nhắn (phân trang) — ownership tenant qua requireResourceTenant
 router.get(
   "/:id/messages",

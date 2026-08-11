@@ -23,8 +23,12 @@ export interface IRestaurant {
   trialEndsAt?: Date | string;
   /** Thanh toán tới ngày (nhà hàng active). */
   paidUntil?: Date | string;
+  /** Gói dịch vụ hiện tại (key) — làm mốc so sánh khi gia hạn/chuyển gói. */
+  currentPlanKey?: string;
   /** Chu kỳ thanh toán khi mở nhà hàng 2+ (1/3/6/12 tháng). */
   cycleMonths?: 1 | 3 | 6 | 12;
+  /** Gói dịch vụ chọn khi mở nhà hàng 2+. */
+  planId?: string;
   createdAt: Date;
   updatedAt: Date;
 }

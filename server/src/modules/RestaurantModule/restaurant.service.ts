@@ -32,15 +32,18 @@ class RestaurantSerice {
     let subscription: 'trial' | 'active' = 'trial';
     let trialEndsAt: Date | undefined;
     let paidUntil: Date | undefined;
+    const planId = restaurantData?.planId || restaurantData?.planKey;
 
     if (isFirstRestaurant) {
       // Nhà hàng đầu tiên: trial 30 ngày
       subscription = 'trial';
       trialEndsAt = new Date(now.getTime() + TRIAL_DAYS * 24 * 3600 * 1000);
     } else {
-      // Nhà hàng 2+: bắt buộc trả trước theo chu kỳ (mặc định 1 tháng)
+      // Nhà hàng 2+: bắt buộc trả trước theo chu kỳ + gói (mặc định gói rẻ nhất, chu kỳ 1 tháng)
       const cycleMonths = Number(restaurantData?.cycleMonths ?? restaurantData?.cycle ?? 1);
-      const price = await pricingService.getPriceForCycle(cycleMonths);
+      const price = planId
+        ? await pricingService.getPlanPriceForCycle(planId, cycleMonths)
+        : await pricingService.getPriceForCycle(cycleMonths);
       if (!price) {
         return {
           message: `Chu kỳ thanh toán không hợp lệ! Chỉ hỗ trợ 1/3/6/12 tháng.`,
@@ -51,19 +54,27 @@ class RestaurantSerice {
       paidUntil = new Date(now.getTime() + cycleMonths * 30 * 24 * 3600 * 1000);
     }
 
+    // Gói chính thức của nhà hàng mới: theo gói đã chọn, nếu không chọn thì gói rẻ nhất.
+    const assignedPlanKey = planId || (await pricingService.getDefaultPlanKey());
+
     const restaurant = await restaurantRepository.createRestaurant({
       ...restaurantData,
       ownerId: owner._id,
       subscription,
       trialEndsAt,
       paidUntil,
+      // Mọi nhà hàng đều có gói mặc định (thấp nhất) làm mốc so sánh khi chuyển gói.
+      currentPlanKey: assignedPlanKey ?? undefined,
     });
 
-    // Nhà hàng 2+: ghi giao dịch thanh toán
+    // Nhà hàng 2+: ghi giao dịch thanh toán (kèm gói)
     let transaction: any;
     if (!isFirstRestaurant && paidUntil && restaurant?._id) {
       const cycleMonths = Number(restaurantData?.cycleMonths ?? restaurantData?.cycle ?? 1);
-      const price = (await pricingService.getPriceForCycle(cycleMonths)) as number;
+      const price = planId
+        ? ((await pricingService.getPlanPriceForCycle(planId, cycleMonths)) as number)
+        : ((await pricingService.getPriceForCycle(cycleMonths)) as number);
+      const planName = planId ? await pricingService.getPlanName(planId) : null;
       transaction = await DB_Connection.Transaction.create({
         restaurant: restaurant._id,
         ownerId: owner._id,
@@ -72,6 +83,8 @@ class RestaurantSerice {
         type: 'restaurant-fee',
         status: 'paid',
         paidUntil,
+        planKey: planId ?? undefined,
+        planName: planName ?? undefined,
       });
     }
 

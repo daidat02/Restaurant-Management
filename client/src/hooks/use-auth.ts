@@ -1,7 +1,7 @@
 import { useAppDispatch, useAppSelector } from './redux-hook'; // Hook của Redux ta đã tạo ở bước trước
-import { loginUser, registerOwner, registerUser } from '@/api/auth.api'; // Đường dẫn tới file chứa hàm loginUser bạn vừa viết
-import { logout } from '@/redux/slices/authSlice';
-import type { RegisterCredentials } from '@/types/user.type';
+import { loginUser, changePassword as changePasswordApi, registerOwner, registerUser, updateProfileMe } from '@/api/auth.api'; // Đường dẫn tới file chứa hàm loginUser bạn vừa viết
+import { logout, updateUserInfo } from '@/redux/slices/authSlice';
+import type { IUser, RegisterCredentials } from '@/types/user.type';
 import { useNavigate } from 'react-router-dom';
 
 // Khai báo lại type nội bộ cho params (hoặc bạn có thể import UserCredentials từ file api sang)
@@ -36,6 +36,20 @@ export const useAuth = () => {
     return result;
   };
 
+  // Cập nhật thông tin cá nhân (Settings → Tài khoản) rồi đồng bộ vào Redux
+  const handleUpdateProfile = async (updateData: Partial<IUser>) => {
+    const result = await updateProfileMe(updateData);
+    if (result.success) {
+      dispatch(updateUserInfo(result.user));
+    }
+    return result;
+  };
+
+  // Đổi mật khẩu (Settings → Tài khoản)
+  const handleChangePassword = async (currentPassword: string, newPassword: string) => {
+    return changePasswordApi(currentPassword, newPassword);
+  };
+
   // Hàm bọc logic xử lý đăng xuất
   const handleLogout = () => {
     dispatch(logout());
@@ -53,5 +67,7 @@ export const useAuth = () => {
     logout: handleLogout,
     register: handleRegister,
     registerOwner: handleRegisterOwner,
+    updateProfile: handleUpdateProfile,
+    changePassword: handleChangePassword,
   };
 };

@@ -29,8 +29,6 @@ export type MenuItem = {
   icon: LucideIcon;
   path?: string;
   children?: { title: string; path: string }[];
-  /** Hành động mở modal thay vì điều hướng. Component Sidebar sẽ gắn handler thật. */
-  action?: 'message';
 };
 
 export type MenuGroup = {
@@ -73,7 +71,7 @@ const ADMIN_MENU: MenuGroup[] = [
   {
     label: 'Công cụ',
     items: [
-      { title: 'Tin Nhắn', icon: MessageCircle, action: 'message' },
+      { title: 'Tin Nhắn', icon: MessageCircle, path: '/admin/messages' },
       { title: 'Nhật Ký Hệ Thống', icon: History, path: '/admin/logs' },
       { title: 'Cài Đặt Chung', icon: Settings, path: '/admin/settings' },
     ],
@@ -101,7 +99,7 @@ const MANAGER_MENU: MenuGroup[] = [
   {
     label: 'Công cụ',
     items: [
-      { title: 'Tin Nhắn', icon: MessageCircle, action: 'message' },
+      { title: 'Tin Nhắn', icon: MessageCircle, path: '/manager/messages' },
       { title: 'Cài Đặt Chung', icon: Settings, path: '/manager/settings' },
       { title: 'Trợ Giúp', icon: HelpCircle, path: '/manager/help' },
     ],
@@ -120,7 +118,7 @@ const STAFF_MENU: MenuGroup[] = [
   {
     label: 'Công cụ',
     items: [
-      { title: 'Tin Nhắn', icon: MessageCircle, action: 'message' },
+      { title: 'Tin Nhắn', icon: MessageCircle, path: '/staff/messages' },
       { title: 'Cài Đặt Chung', icon: Settings, path: '/staff/settings' },
     ],
   },

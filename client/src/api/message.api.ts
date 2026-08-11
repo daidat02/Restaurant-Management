@@ -17,6 +17,14 @@ export const getConversations = async (): Promise<IConversationView[]> => {
   return res.data;
 };
 
+// Tìm hội thoại 1-1 sẵn có với 1 user (server trả null nếu chưa có → client mới POST tạo)
+export const getDirectConversation = async (userId: string): Promise<IConversation | null> => {
+  const res = await axiosClient.get<unknown, ApiResponse<IConversation | null>>(
+    CONVERSATIONS.DIRECT(userId),
+  );
+  return res.data;
+};
+
 // Tạo hội thoại direct/group. Group chỉ manager/admin. Body: { type, name?, memberIds[], restaurantId? }
 export const createConversation = async (
   payload: {

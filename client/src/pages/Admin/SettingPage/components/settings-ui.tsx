@@ -77,7 +77,7 @@ export function TextArea({
       <label className="text-xs font-medium text-slate-600">{label}</label>
       <textarea
         {...props}
-        className="mt-1.5 block h-20 w-full resize-none rounded-[10px] border border-slate-200 bg-slate-50/70 px-3 py-2.5 text-sm text-slate-900 outline-none transition-all focus:border-cerulean-blue-500 focus:bg-white focus:ring-3 focus:ring-cerulean-blue-100"
+        className="mt-1.5 block h-20 w-full resize-none rounded-[10px] border border-slate-200 bg-slate-50/70 px-3 py-2.5 text-sm text-slate-900 outline-none transition-all focus:border-cerulean-blue-500 focus:bg-white focus:ring-3 focus:ring-cerulean-blue-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
       />
     </div>
   );

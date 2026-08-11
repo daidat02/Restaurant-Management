@@ -23,8 +23,8 @@ interface MessagingContextValue {
   conversations: IConversationView[];
   /** Hội thoại sau khi lọc theo tab (Tất cả / Nhóm). */
   visibleConversations: IConversationView[];
-  activeTab: 'tat-ca' | 'nhom';
-  setActiveTab: (tab: 'tat-ca' | 'nhom') => void;
+  activeTab: 'tat-ca' | 'nhom' | 'noi-bo';
+  setActiveTab: (tab: 'tat-ca' | 'nhom' | 'noi-bo') => void;
   activeConversationId: string | null;
   messagesMap: Record<string, IMessage[]>;
   unreadMap: Record<string, number>;
@@ -34,6 +34,7 @@ interface MessagingContextValue {
   isLoadingMore: boolean;
   hasMoreMap: Record<string, boolean>;
   totalUnread: number;
+  isMessageLoading: (conversationId: string) => boolean;
   loadConversations: () => Promise<void>;
   openConversation: (conversationId: string) => void;
   setActiveConversationId: (id: string | null) => void;
@@ -51,7 +52,7 @@ export const MessagingProvider = ({ children }: { children: ReactNode }) => {
   const currentUserId = useAppSelector((state) => state.auth.user?._id ?? '');
 
   const [conversations, setConversations] = useState<IConversationView[]>([]);
-  const [activeTab, setActiveTab] = useState<'tat-ca' | 'nhom'>('tat-ca');
+  const [activeTab, setActiveTab] = useState<'tat-ca' | 'nhom' | 'noi-bo'>('tat-ca');
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [messagesMap, setMessagesMap] = useState<Record<string, IMessage[]>>({});
   const [unreadMap, setUnreadMap] = useState<Record<string, number>>({});
@@ -60,6 +61,7 @@ export const MessagingProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMoreMap, setHasMoreMap] = useState<Record<string, boolean>>({});
+  const [messageLoadingMap, setMessageLoadingMap] = useState<Record<string, boolean>>({});
 
   const pageRef = useRef<Record<string, number>>({});
   const activeConversationIdRef = useRef<string | null>(null);
@@ -104,6 +106,7 @@ export const MessagingProvider = ({ children }: { children: ReactNode }) => {
   // ---------- Load messages (phân trang ngược) ----------
   const loadMessages = useCallback(async (conversationId: string, page = 1) => {
     try {
+      setMessageLoadingMap((prev) => ({ ...prev, [conversationId]: true }));
       setIsLoadingMore(true);
       const result = await getMessages(conversationId, page, 20);
       setMessagesMap((prev) => {
@@ -120,6 +123,7 @@ export const MessagingProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
       console.error('[useMessaging] Lỗi lấy tin nhắn:', error);
     } finally {
+      setMessageLoadingMap((prev) => ({ ...prev, [conversationId]: false }));
       setIsLoadingMore(false);
     }
   }, []);
@@ -250,19 +254,30 @@ export const MessagingProvider = ({ children }: { children: ReactNode }) => {
         ),
       );
       // Toast + âm thanh + tăng unread nếu KHÔNG phải conv đang mở và không phải tin của mình
-      if (!isActive && !isOwnMessage) {
-        setUnreadMap((prev) => ({
-          ...prev,
-          [msg.conversationId]: (prev[msg.conversationId] ?? 0) + 1,
-        }));
-        const conv = conversations.find((c) => c._id === msg.conversationId);
-        const displayName =
-          conv?.type === 'group'
-            ? conv.name ?? 'Nhóm'
-            : conv?.otherMember?.name ?? 'Tin nhắn mới';
-        toast.info(`💬 ${displayName}: ${msg.text.slice(0, 60)}`);
-        playMessageSound();
+      if (isActive) {
+        // Đang mở hội thoại này: đánh dấu đã đọc ngay (không đẩy popup/âm thanh)
+        if (!isOwnMessage) {
+          markConversationRead(msg.conversationId)
+            .then(() => {
+              setUnreadMap((prev) => ({ ...prev, [msg.conversationId]: 0 }));
+            })
+            .catch(() => {});
+        }
+        return;
       }
+      // Tin của chính mình (gửi từ tab khác) → không bao giờ hiện popup/âm thanh
+      if (isOwnMessage) return;
+      setUnreadMap((prev) => ({
+        ...prev,
+        [msg.conversationId]: (prev[msg.conversationId] ?? 0) + 1,
+      }));
+      const conv = conversations.find((c) => c._id === msg.conversationId);
+      const displayName =
+        conv?.type === 'group'
+          ? conv.name ?? 'Nhóm'
+          : conv?.otherMember?.name ?? 'Tin nhắn mới';
+      toast.info(`💬 ${displayName}: ${msg.text.slice(0, 60)}`);
+      playMessageSound();
     };
 
     const handleConversationUpdated = (payload: {
@@ -336,6 +351,19 @@ export const MessagingProvider = ({ children }: { children: ReactNode }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversations, currentUserId]);
 
+  // Presence: yêu cầu snapshot danh sách user đang online khi socket connect
+  // (vì presence chỉ đẩy qua event, reload page sẽ mất trạng thái cũ).
+  useEffect(() => {
+    const requestPresence = () => {
+      if (socket.connected) socket.emit('get_online_presence');
+    };
+    socket.on('connect', requestPresence);
+    if (socket.connected) requestPresence();
+    return () => {
+      socket.off('connect', requestPresence);
+    };
+  }, []);
+
   // ---------- Typing emit (debounce) ----------
   const typingTimeoutRef = useRef<Record<string, ReturnType<typeof setTimeout> | null>>({});
   const emitTyping = useCallback((conversationId: string, isTyping: boolean) => {
@@ -368,9 +396,14 @@ export const MessagingProvider = ({ children }: { children: ReactNode }) => {
     [typingMap],
   );
 
+  const isMessageLoading = useCallback(
+    (conversationId: string) => messageLoadingMap[conversationId] ?? false,
+    [messageLoadingMap],
+  );
+
   const totalUnread = Object.values(unreadMap).reduce((sum, n) => sum + n, 0);
 
-  // Hội thoại theo tab: "Tất cả" giữ nguyên, "Nhóm" chỉ hiện group.
+  // Hội thoại theo tab: "Tất cả" giữ nguyên, "Nhóm" chỉ hiện group, "Nội Bộ" hiển thị danh bạ.
   const visibleConversations = useMemo(() => {
     if (activeTab === 'nhom') return conversations.filter((c) => c.type === 'group');
     return conversations;
@@ -390,6 +423,7 @@ export const MessagingProvider = ({ children }: { children: ReactNode }) => {
     isLoadingMore,
     hasMoreMap,
     totalUnread,
+    isMessageLoading,
     loadConversations,
     openConversation,
     setActiveConversationId,

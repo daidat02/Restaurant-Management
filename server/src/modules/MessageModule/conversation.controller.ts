@@ -46,6 +46,25 @@ class ConversationController {
     }
   }
 
+  // [GET] /api/conversations/direct/:userId — tìm hội thoại 1-1 với user (trả null nếu chưa có)
+  async getDirectConversation(req: AuthRequest, res: Response) {
+    try {
+      const userId = String(req.user?.userId ?? "");
+      const role = String(req.user?.role ?? "");
+      const restaurantId = req.tenantId ?? "";
+
+      const result = await conversationService.getDirectConversation(
+        userId,
+        role,
+        req.params.userId ?? "",
+        restaurantId,
+      );
+      return res.status(result.code).json(result);
+    } catch (error) {
+      return res.status(500).json({ code: 500, message: "Lỗi máy chủ nội bộ", error });
+    }
+  }
+
   // [GET] /api/conversations/:id/messages — phân trang tin nhắn
   async getMessages(req: AuthRequest, res: Response) {
     try {

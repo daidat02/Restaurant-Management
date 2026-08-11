@@ -44,6 +44,52 @@ describe('T5 — Thanh toán mock + khoá đơn/món khi locked', () => {
     expect(res.status).toBe(403);
   });
 
+  it('POST /api/subscriptions/pay — chặn hạ gói khi còn hạn (Pro → Cơ bản): 400', async () => {
+    await DB_Connection.Restaurant.findByIdAndUpdate(SEED_IDS.tenantX, {
+      subscription: 'active',
+      paidUntil: new Date(Date.now() + 30 * day),
+      currentPlanKey: 'pro',
+    });
+    const res = await request
+      .post('/api/subscriptions/pay')
+      .set('Authorization', `Bearer ${adminXToken}`)
+      .send({ restaurantId: SEED_IDS.tenantX.toString(), cycleMonths: 1, planId: 'basic' });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain('Không thể hạ gói');
+  });
+
+  it('POST /api/subscriptions/pay — nâng cấp gói khi còn hạn (Cơ bản → Pro): 200 + currentPlanKey cập nhật', async () => {
+    await DB_Connection.Restaurant.findByIdAndUpdate(SEED_IDS.tenantX, {
+      subscription: 'active',
+      paidUntil: new Date(Date.now() + 30 * day),
+      currentPlanKey: 'basic',
+    });
+    const res = await request
+      .post('/api/subscriptions/pay')
+      .set('Authorization', `Bearer ${adminXToken}`)
+      .send({ restaurantId: SEED_IDS.tenantX.toString(), cycleMonths: 1, planId: 'pro' });
+    expect(res.status).toBe(200);
+    expect(res.body.data.restaurant.currentPlanKey).toBe('pro');
+    const rest = await DB_Connection.Restaurant.findById(SEED_IDS.tenantX);
+    expect(rest?.currentPlanKey).toBe('pro');
+  });
+
+  it('POST /api/subscriptions/pay — đã hết hạn thì được nhận gói thấp hơn: 200', async () => {
+    await DB_Connection.Restaurant.findByIdAndUpdate(SEED_IDS.tenantX, {
+      subscription: 'locked',
+      paidUntil: new Date(Date.now() - day),
+      currentPlanKey: 'pro',
+    });
+    const res = await request
+      .post('/api/subscriptions/pay')
+      .set('Authorization', `Bearer ${adminXToken}`)
+      .send({ restaurantId: SEED_IDS.tenantX.toString(), cycleMonths: 1, planId: 'basic' });
+    expect(res.status).toBe(200);
+    const rest = await DB_Connection.Restaurant.findById(SEED_IDS.tenantX);
+    expect(rest?.subscription).toBe('active');
+    expect(rest?.currentPlanKey).toBe('basic');
+  });
+
   it('GET /api/subscriptions/me — trả trạng thái các nhà hàng của chủ', async () => {
     const res = await request
       .get('/api/subscriptions/me')

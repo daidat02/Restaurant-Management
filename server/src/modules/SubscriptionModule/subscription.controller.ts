@@ -6,11 +6,12 @@ class SubscriptionController {
   /** POST /api/subscriptions/pay — thanh toán / gia hạn mock. */
   async pay(req: AuthRequest, res: Response) {
     try {
-      const { restaurantId, cycleMonths } = req.body;
+      const { restaurantId, cycleMonths, planId } = req.body;
       const result = await subscriptionService.payService(
         restaurantId,
         Number(cycleMonths),
         req.user?.userId,
+        planId,
       );
       return res.status(result.code).json(result);
     } catch (error) {

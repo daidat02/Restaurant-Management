@@ -69,9 +69,9 @@ export const useSubscription = () => {
    * Trả về { success, message, data } để màn hình hiển thị.
    */
   const pay = useCallback(
-    async (restaurantId: string, cycleMonths: number) => {
+    async (restaurantId: string, cycleMonths: number, planId?: string) => {
       try {
-        const result = await paySubscription(restaurantId, cycleMonths);
+        const result = await paySubscription(restaurantId, cycleMonths, planId);
         await fetchSubscriptions();
         await fetchTransactions();
         return { success: true, message: result.message, data: result.data };

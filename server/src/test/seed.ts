@@ -114,6 +114,7 @@ async function seedRestaurants(): Promise<void> {
       ownerId: SEED_IDS.adminX,
       subscription: 'active',
       paidUntil: new Date(now.getTime() + 30 * 24 * 3600 * 1000),
+      currentPlanKey: 'pro',
     },
     {
       _id: SEED_IDS.tenantY,
@@ -123,6 +124,7 @@ async function seedRestaurants(): Promise<void> {
       ownerId: SEED_IDS.adminX,
       subscription: 'active',
       paidUntil: new Date(now.getTime() + 30 * 24 * 3600 * 1000),
+      currentPlanKey: 'pro',
     },
     // Chủ test subscription (T7): 3 nhà hàng ở 3 trạng thái
     {
@@ -133,6 +135,7 @@ async function seedRestaurants(): Promise<void> {
       ownerId: SEED_IDS.ownerSub,
       subscription: 'trial',
       trialEndsAt: new Date(now.getTime() + 10 * 24 * 3600 * 1000),
+      currentPlanKey: 'basic',
     },
     {
       _id: SEED_IDS.tenantSubExpiring,
@@ -142,6 +145,7 @@ async function seedRestaurants(): Promise<void> {
       ownerId: SEED_IDS.ownerSub,
       subscription: 'trial',
       trialEndsAt: new Date(now.getTime() + 3 * 24 * 3600 * 1000),
+      currentPlanKey: 'basic',
     },
     {
       _id: SEED_IDS.tenantSubLocked,
@@ -151,6 +155,7 @@ async function seedRestaurants(): Promise<void> {
       ownerId: SEED_IDS.ownerSub,
       subscription: 'locked',
       paidUntil: new Date(now.getTime() - 5 * 24 * 3600 * 1000),
+      currentPlanKey: 'pro',
     },
   ]);
 }

@@ -1,8 +1,10 @@
 import type { Types } from "mongoose";
+import type { Server as SocketServerIO } from "socket.io";
 import { getIO } from "../../configs/socketsConfig.js";
 import type { ServiceResponse } from "../../shared/type.js";
 import type { IConversation } from "../../models/Schema/ConversationSchema.js";
 import type { IMessage } from "../../models/Schema/MessageSchema.js";
+import type { SocketCustom } from "../../middlewares/auth.middleware.js";
 import conversationRepository from "./conversation.repository.js";
 import messageRepository from "./message.repository.js";
 
@@ -66,10 +68,16 @@ class MessageService {
     // conversation_updated tới từng member (trừ sender) — cập nhật lastMessage + unreadCount
     if (updatedConversation) {
       const convPlain = updatedConversation.toObject();
+      // Những user đang mở hội thoại này (join room conversation_<id>) → coi là ĐÃ ĐỌC ngay
+      const inRoomUserIds = this.socketsInRoom(io, `conversation_${conversationId}`);
       for (const member of updatedConversation.members) {
         const memberId = String(member.userId);
         if (memberId === senderId) continue;
-        const baseline = member.lastReadAt ?? member.joinedAt ?? new Date();
+        let baseline = member.lastReadAt ?? member.joinedAt ?? new Date();
+        if (inRoomUserIds.has(memberId)) {
+          baseline = message.createdAt ?? new Date();
+          await conversationRepository.touchLastReadAt(conversationId, memberId, baseline);
+        }
         const unreadCount = await messageRepository.countUnread(
           conversationId,
           memberId,
@@ -87,6 +95,20 @@ class MessageService {
       data: { message, conversation: updatedConversation },
       message: "Đã gửi tin nhắn",
     };
+  }
+
+  // Danh sách userId của các socket đang joined trong 1 room (kèm thông tin từ authenticateToken)
+  private socketsInRoom(io: SocketServerIO, room: string): Set<string> {
+    const userIds = new Set<string>();
+    const socketIds = io.sockets.adapter.rooms.get(room);
+    if (socketIds) {
+      for (const socketId of socketIds) {
+        const sock = io.sockets.sockets.get(socketId) as SocketCustom | undefined;
+        const uid = sock?.user?.userId;
+        if (uid) userIds.add(String(uid));
+      }
+    }
+    return userIds;
   }
 }
 

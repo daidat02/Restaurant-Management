@@ -11,6 +11,9 @@ export interface ITransaction extends Document {
   type: TransactionType;
   status: 'paid';
   paidUntil: Date;
+  /** Gói dịch vụ đã thanh toán (nếu chủ chọn gói cụ thể). */
+  planKey?: string;
+  planName?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -28,6 +31,8 @@ const TransactionSchema = new Schema<ITransaction>(
     type: { type: String, enum: ['restaurant-fee', 'trial-expire'], default: 'restaurant-fee' },
     status: { type: String, enum: ['paid'], default: 'paid' },
     paidUntil: { type: Date, required: true },
+    planKey: { type: String, default: undefined },
+    planName: { type: String, default: undefined },
   },
   { timestamps: true },
 );

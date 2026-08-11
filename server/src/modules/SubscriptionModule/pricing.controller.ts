@@ -18,7 +18,7 @@ class PricingController {
   /** PUT /api/admin/pricing — super-admin chỉnh giá. */
   async updatePricing(req: AuthRequest, res: Response) {
     try {
-      const result = await pricingService.updatePricing((req.body as any)?.cycles);
+      const result = await pricingService.updatePricing(req.body as any);
       if (result.code === 200) {
         await writeAuditLog({
           action: 'pricing.update',
@@ -26,7 +26,9 @@ class PricingController {
           actorInfo: { name: req.user?.name, role: req.user?.role },
           targetType: 'pricing',
           targetId: null,
-          summary: 'Cập nhật giá chu kỳ thanh toán',
+          summary: (req.body as any)?.plans
+            ? 'Cập nhật danh sách gói dịch vụ'
+            : 'Cập nhật giá chu kỳ thanh toán',
           meta: result.data,
         });
       }

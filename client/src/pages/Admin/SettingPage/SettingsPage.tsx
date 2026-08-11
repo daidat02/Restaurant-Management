@@ -1,7 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Bell, CreditCard, Globe, Layers, Save, ShieldCheck, Store, UserRound } from 'lucide-react';
+import {
+  Bell,
+  CreditCard,
+  Globe,
+  Layers,
+  LayoutGrid,
+  Save,
+  ShieldCheck,
+  Store,
+  Tags,
+  UserRound,
+} from 'lucide-react';
 
 import { useAuth } from '@/hooks/use-auth';
 import { useRestaurant } from '@/hooks/use-restaurant';
@@ -14,11 +25,23 @@ import TabPayment from './components/TabPayment';
 import TabNotifyAppearance from './components/TabNotifyAppearance';
 import TabRoles from './components/TabRoles';
 import TabAccount from './components/TabAccount';
+import TabTables from './components/TabTables';
+import TabMenuCategories from './components/TabMenuCategories';
 import TabPlatform from './components/TabPlatform';
 import TabInfrastructure from './components/TabInfrastructure';
 import { cn } from '@/lib/utils';
+import type { IRestaurant } from '@/types/restaurant.type';
 
-type SettingTabKey = 'store' | 'payment' | 'notify' | 'roles' | 'account' | 'platform' | 'infra';
+type SettingTabKey =
+  | 'store'
+  | 'tables'
+  | 'menu'
+  | 'payment'
+  | 'notify'
+  | 'roles'
+  | 'account'
+  | 'platform'
+  | 'infra';
 
 interface SettingTab {
   key: SettingTabKey;
@@ -38,9 +61,16 @@ const TABS: SettingTab[] = [
     key: 'store',
     label: 'Cửa hàng & Hệ thống',
     icon: Store,
-    roles: ['admin', 'manager'],
+    roles: ['manager'],
   },
-  { key: 'payment', label: 'Thanh toán', icon: CreditCard, roles: ['admin', 'manager'] },
+  {
+    key: 'payment',
+    label: 'Thanh toán',
+    icon: CreditCard,
+    roles: ['manager'],
+  },
+  { key: 'tables', label: 'Sơ đồ bàn', icon: LayoutGrid, roles: ['manager'] },
+  { key: 'menu', label: 'Danh mục món ăn', icon: Tags, roles: ['manager'] },
   {
     key: 'notify',
     label: 'Thông báo & Giao diện',
@@ -69,7 +99,7 @@ type TabSaveHandler = () => Promise<boolean>;
 export default function SettingsPage() {
   const { user } = useAuth();
   const role = user?.role || 'staff';
-  const { restaurants, fetchRestaurants } = useRestaurant();
+  const { restaurants, updateRestaurant, fetchRestaurants } = useRestaurant();
   const {
     currentSetting,
     isLoading,
@@ -77,6 +107,7 @@ export default function SettingsPage() {
     fetchOrCreateSetting,
     editSetting,
     changePaymentMethodType,
+    generateKitchenCode,
   } = useSetting();
   const activeRestaurantId = useActiveRestaurantId();
 
@@ -95,8 +126,9 @@ export default function SettingsPage() {
     fetchRestaurants();
   }, [fetchRestaurants]);
 
-  // Chỉ admin/manager mới có tab cấu hình theo nhà hàng (scope restaurant).
-  const canLoadSetting = role === 'admin' || role === 'manager';
+  // Chỉ manager mới có tab cấu hình theo nhà hàng (scope restaurant).
+  // Admin dùng trang Chi Nhánh riêng (/admin/restaurants/:id) để cấu hình từng cơ sở.
+  const canLoadSetting = role === 'manager';
   const targetId =
     overrideRestaurantId ||
     activeRestaurantId ||
@@ -120,6 +152,13 @@ export default function SettingsPage() {
     if (!overrideRestaurantId) return undefined;
     return restaurants.find((r) => String(r._id) === overrideRestaurantId);
   }, [restaurants, overrideRestaurantId]);
+
+  // Nhà hàng đang được cấu hình — dữ liệu thật, phục vụ tab Cửa hàng & Hệ thống.
+  const resolvedRestaurant = useMemo<IRestaurant | undefined>(() => {
+    if (overrideRestaurant) return overrideRestaurant;
+    if (!targetId) return undefined;
+    return restaurants.find((r) => String(r._id) === String(targetId));
+  }, [overrideRestaurant, targetId, restaurants]);
 
   const registerSave = useCallback((key: string, handler?: TabSaveHandler) => {
     saveHandlers.current[key as SettingTabKey] = handler;
@@ -146,11 +185,19 @@ export default function SettingsPage() {
           <TabStoreSystem
             key={currentSetting?._id || 'store'}
             setting={currentSetting}
+            restaurant={resolvedRestaurant}
+            isAdmin={role === 'admin'}
             editSetting={editSetting}
+            updateRestaurant={updateRestaurant}
+            generateKitchenCode={generateKitchenCode}
             registerSave={registerSave}
             onDirty={markDirty}
           />
         );
+      case 'tables':
+        return <TabTables key={String(targetId)} restaurantId={String(targetId || '')} />;
+      case 'menu':
+        return <TabMenuCategories key={String(targetId)} restaurantId={String(targetId || '')} />;
       case 'payment':
         return (
           <TabPayment
@@ -167,7 +214,13 @@ export default function SettingsPage() {
       case 'roles':
         return <TabRoles onDirty={markDirty} />;
       case 'account':
-        return <TabAccount isSuperAdmin={role === 'super-admin'} onDirty={markDirty} />;
+        return (
+          <TabAccount
+            isSuperAdmin={role === 'super-admin'}
+            onDirty={markDirty}
+            registerSave={registerSave}
+          />
+        );
       case 'platform':
         return <TabPlatform onDirty={markDirty} />;
       case 'infra':
@@ -192,14 +245,16 @@ export default function SettingsPage() {
           </div>
 
           {/* Badge chi nhánh đang được cấu hình */}
-          {overrideRestaurant && (
+          {canLoadSetting && resolvedRestaurant && (
             <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
               <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-cerulean-blue-100 text-xs font-extrabold text-cerulean-blue-700">
-                {(overrideRestaurant.name || '?').charAt(0).toUpperCase()}
+                {(resolvedRestaurant.name || '?').charAt(0).toUpperCase()}
               </span>
               <div className="leading-tight">
-                <p className="text-[11px] font-medium text-slate-400">Đang cấu hình chi nhánh</p>
-                <p className="text-sm font-bold text-gray-900">{overrideRestaurant.name}</p>
+                <p className="text-[11px] font-medium text-slate-400">
+                  {overrideRestaurantId ? 'Đang cấu hình chi nhánh' : 'Chi nhánh đang cấu hình'}
+                </p>
+                <p className="text-sm font-bold text-gray-900">{resolvedRestaurant.name}</p>
               </div>
             </div>
           )}
@@ -216,7 +271,7 @@ export default function SettingsPage() {
                 type="button"
                 onClick={() => setActiveTab(tab.key)}
                 className={cn(
-                  'flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition',
+                  'flex shrink-0 items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-medium transition',
                   isActive
                     ? 'bg-cerulean-blue-50 text-cerulean-blue-700'
                     : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700',
@@ -237,6 +292,11 @@ export default function SettingsPage() {
         {canLoadSetting && error && !currentSetting && (
           <div className="mt-6 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
             Không tải được cấu hình: {error}
+          </div>
+        )}
+        {canLoadSetting && !targetId && (
+          <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+            Không xác định được nhà hàng đang cấu hình. Hãy chọn chi nhánh để mở cài đặt.
           </div>
         )}
 

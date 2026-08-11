@@ -14,7 +14,7 @@ class ConversationRepository {
     })
       .populate("members.userId", "name avatar role")
       .populate("restaurantId", "name")
-      .sort({ updatedAt: -1 })
+      .sort({ lastMessageAt: -1, updatedAt: -1 })
       .exec();
   }
 
@@ -54,11 +54,11 @@ class ConversationRepository {
 
   async updateLastMessage(
     conversationId: string,
-    lastMessage: IConversation["lastMessage"],
+    lastMessage: NonNullable<IConversation["lastMessage"]>,
   ): Promise<IConversation | null> {
     return DB_Connection.Conversation.findByIdAndUpdate(
       conversationId,
-      { lastMessage },
+      { lastMessage, lastMessageAt: lastMessage.createdAt },
       { new: true },
     ).exec();
   }
@@ -73,6 +73,18 @@ class ConversationRepository {
       { $set: { "members.$.lastReadAt": lastReadAt } as UpdateQuery<IConversation> },
     ).exec();
     return this.findById(conversationId);
+  }
+
+  // Chỉ cập nhật lastReadAt của 1 member (không refetch) — dùng khi tự đánh dấu đã đọc
+  async touchLastReadAt(
+    conversationId: string,
+    userId: string,
+    lastReadAt: Date,
+  ): Promise<void> {
+    await DB_Connection.Conversation.updateOne(
+      { _id: conversationId, "members.userId": userId },
+      { $set: { "members.$.lastReadAt": lastReadAt } as UpdateQuery<IConversation> },
+    ).exec();
   }
 
   async addMembers(

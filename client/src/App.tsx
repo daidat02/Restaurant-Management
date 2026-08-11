@@ -35,6 +35,9 @@ import HomePage from './pages/Admin/AnalyticsPage/home';
 import ReservationPage from './pages/Admin/ReservationPage/reservation';
 import POS from './pages/Admin/PosPage/pos';
 import RestaurantsPage from './pages/Admin/RestaurantPage/restaurants';
+import CreateRestaurantPage from './pages/Admin/RestaurantPage/create-restaurant';
+import RestaurantDetailPage from './pages/Admin/RestaurantPage/restaurant-detail';
+import MessagePage from './pages/Admin/MessageModal/MessagePage';
 import OnboardingWizard from './pages/Admin/Onboarding/onboarding';
 import Table from './pages/Admin/TablePage/table';
 import Users from './pages/Admin/UserPage/users';
@@ -203,6 +206,7 @@ export default function App() {
           <Route path="pricing" element={<SuperAdminPricing />} />
           <Route path="transactions" element={<SuperAdminTransactions />} />
           <Route path="audit" element={<SuperAdminAudit />} />
+          <Route path="messages" element={<MessagePage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Route>
@@ -223,12 +227,15 @@ export default function App() {
         <Route path="/admin" element={<LayoutAdmin />}>
           <Route index element={<HomePage />} />
           <Route path="restaurants" element={<RestaurantsPage />} />
+          <Route path="restaurants/new" element={<CreateRestaurantPage />} />
+          <Route path="restaurants/:id" element={<RestaurantDetailPage />} />
           <Route path="billing" element={<BillingPage />} />
           <Route path="customers" element={<Users />} />
           <Route path="products" element={<Product />} />
           <Route path="orders" element={<Order />} />
           <Route path="reports" element={<AnalyticsPage />} />
           <Route path="logs" element={<LogsPage />} />
+          <Route path="messages" element={<MessagePage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Route>
@@ -270,6 +277,7 @@ export default function App() {
           <Route path="orders" element={<Order />} />
           <Route path="orders/management" element={<OrderManagerment />} />
           <Route path="orders/edit/:id" element={<OrderDetail />} />
+          <Route path="messages" element={<MessagePage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
 
@@ -299,6 +307,7 @@ export default function App() {
           <Route path="orders/management" element={<OrderManagerment />} />
           <Route path="orders/edit/:id" element={<OrderDetail />} />
           <Route path="reservations" element={<ReservationPage />} />
+          <Route path="messages" element={<MessagePage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
 

@@ -27,6 +27,8 @@ export interface IRestaurant extends Document {
   trialEndsAt?: Date;
   /** Hạn thanh toán hiện tại — quá hạn là locked. */
   paidUntil?: Date;
+  /** Gói dịch vụ hiện tại của nhà hàng (key trong PricingConfig.plans) — dùng để so sánh khi gia hạn/chuyển gói. */
+  currentPlanKey?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -53,6 +55,7 @@ const RestaurantSchema = new Schema<IRestaurant>(
     },
     trialEndsAt: { type: Date },
     paidUntil: { type: Date, index: true },
+    currentPlanKey: { type: String, index: true },
   },
   { timestamps: true },
 );

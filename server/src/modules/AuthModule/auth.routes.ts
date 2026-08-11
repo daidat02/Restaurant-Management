@@ -33,7 +33,7 @@ router.get(
 router.get(
   '/',
   verifyToken,
-  verifyRole(['manager', 'admin']),
+  verifyRole(['staff', 'manager', 'admin']),
   intersectRestaurantIds,
   authController.getUsersWithFilter,
 );

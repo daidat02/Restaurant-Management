@@ -60,11 +60,11 @@ export const getPricingConfig = async () => {
   return res.data;
 };
 
-/** PUT /api/admin/pricing — super-admin chỉnh giá chu kỳ. */
-export const updatePricingConfig = async (cycles: Record<string, number>) => {
-  const res = await axiosClient.put<any, ApiResponse<IPricingConfig>>(SUBSCRIPTION.PRICING_ADMIN, {
-    cycles,
-  });
+/** PUT /api/admin/pricing — super-admin cập nhật giá chu kỳ hoặc danh sách gói. */
+export const updatePricingConfig = async (
+  payload: { cycles?: Record<string, number> } | { plans?: import('@/types/subscription.type').IPlan[] },
+) => {
+  const res = await axiosClient.put<any, ApiResponse<IPricingConfig>>(SUBSCRIPTION.PRICING_ADMIN, payload);
   return res.data;
 };
 

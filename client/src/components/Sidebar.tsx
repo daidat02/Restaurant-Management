@@ -21,11 +21,7 @@ import { getMenuForRole, getRoleLabel, type MenuItem } from '@/configs/adminMenu
 import { extractId } from '@/utils/helpers';
 import type { IRestaurant } from '@/types/restaurant.type';
 
-interface SideBarProps {
-  onOpenMessage: () => void;
-}
-
-export default function SidebarApp({ onOpenMessage }: SideBarProps) {
+export default function SidebarApp() {
   const { user, logout } = useAuth();
   const activeRestaurantId = useActiveRestaurantId();
 
@@ -85,8 +81,6 @@ export default function SidebarApp({ onOpenMessage }: SideBarProps) {
       setOpenMenu(openMenu === item.title ? null : item.title);
     } else if (item.path) {
       navigate(item.path);
-    } else if (item.action === 'message') {
-      onOpenMessage();
     }
   };
 

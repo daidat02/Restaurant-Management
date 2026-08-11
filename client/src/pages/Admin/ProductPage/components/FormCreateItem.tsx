@@ -435,7 +435,7 @@ const FormMenuItem = () => {
                   </div>
 
                   <div>
-                    <label className="mb-1.5 block text-sm font-semibold text-gray-700">
+                    <label className="block text-sm font-semibold text-gray-700">
                       Danh mục <span className="text-red-500">*</span>
                     </label>
                     <FormSelect

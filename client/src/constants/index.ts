@@ -60,6 +60,7 @@ export const API_ENDPOINTS = {
   // --- PHÂN HỆ NHẮN TIN NỘI BỘ (CONVERSATIONS) ---
   CONVERSATIONS: {
     BASE: `${API_BASE_URL}/conversations`,
+    DIRECT: (userId: string) => `${API_BASE_URL}/conversations/direct/${userId}`,
     MESSAGES: (conversationId: string) =>
       `${API_BASE_URL}/conversations/${conversationId}/messages`,
     READ: (conversationId: string) => `${API_BASE_URL}/conversations/${conversationId}/read`,

@@ -58,6 +58,37 @@ export const createStaffUser = async (userData: {
   return res.data;
 };
 
+// Cập nhật thông tin cá nhân của chính mình (Settings → Tab Tài khoản)
+export const updateProfileMe = async (updateData: {
+  name?: string;
+  phone?: string;
+  address?: string;
+  avatar?: string;
+  notificationEnabled?: boolean;
+}) => {
+  try {
+    const res = await axiosClient.patch<any, ApiResponse<any>>(AUTH.UPDATE_ME, updateData);
+    return { success: true, message: res.message, user: res.data };
+  } catch (error: any) {
+    const message = error?.response?.data?.message || 'Cập nhật thông tin thất bại!!!';
+    return { success: false, message };
+  }
+};
+
+// Đổi mật khẩu có xác thực mật khẩu hiện tại (Settings → Tab Tài khoản)
+export const changePassword = async (currentPassword: string, newPassword: string) => {
+  try {
+    const res = await axiosClient.post<any, ApiResponse<any>>(AUTH.CHANGE_PASSWORD, {
+      currentPassword,
+      newPassword,
+    });
+    return { success: true, message: res.message };
+  } catch (error: any) {
+    const message = error?.response?.data?.message || 'Đổi mật khẩu thất bại!!!';
+    return { success: false, message };
+  }
+};
+
 // Đổi nhà hàng đang làm việc (tenant switcher): server cấp access token mới, cập nhật ngay vào Redux
 export const switchTenant = async (restaurantId: string, dispatch: any) => {
   try {

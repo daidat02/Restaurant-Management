@@ -25,8 +25,13 @@ interface ConversationView {
     role: "admin" | "member";
     joinedAt: string;
     lastReadAt?: string;
+    /** Thông tin user được populate (dùng cho panel quản lý thành viên). */
+    name?: string;
+    avatar?: string;
+    userRole?: string;
   }[];
   lastMessage: IConversation["lastMessage"];
+  lastMessageAt: Date | undefined;
   memberCount: number;
   otherMember:
     | {
@@ -58,12 +63,19 @@ const toSocketPayload = (conv: IConversation) => {
     createdBy: String(conv.createdBy),
     restaurantId: String(restaurantId),
     restaurantName: (conv.restaurantId as any)?.name ?? "",
+    lastMessageAt: conv.lastMessageAt,
     members: conv.members.map((m) => {
+      const memberUser = m.userId as unknown as
+        | { name?: string; avatar?: string; role?: string }
+        | undefined;
       const member: Record<string, unknown> = {
         userId: userIdOf(m),
         role: m.role,
         joinedAt: m.joinedAt,
       };
+      if (memberUser?.name) member.name = memberUser.name;
+      if (memberUser?.avatar) member.avatar = memberUser.avatar;
+      if (memberUser?.role) member.userRole = memberUser.role;
       if (m.lastReadAt) member.lastReadAt = m.lastReadAt;
       return member;
     }),
@@ -123,25 +135,35 @@ class ConversationService {
         name: conv.name,
         createdBy: String(conv.createdBy),
         members: conv.members.map((m) => {
-          const member: {
-            userId: string;
-            role: "admin" | "member";
-            joinedAt: string;
-            lastReadAt?: string;
-          } = {
-            userId: userIdOf(m),
-            role: m.role,
-            joinedAt: m.joinedAt.toISOString(),
-          };
-          if (m.lastReadAt) member.lastReadAt = m.lastReadAt.toISOString();
-          return member;
-        }),
+      const memberUser = m.userId as unknown as
+        | { name?: string; avatar?: string; role?: string }
+        | undefined;
+      const member: {
+        userId: string;
+        role: "admin" | "member";
+        joinedAt: string;
+        lastReadAt?: string;
+        name?: string;
+        avatar?: string;
+        userRole?: string;
+      } = {
+        userId: userIdOf(m),
+        role: m.role,
+        joinedAt: m.joinedAt.toISOString(),
+      };
+      if (memberUser?.name) member.name = memberUser.name;
+      if (memberUser?.avatar) member.avatar = memberUser.avatar;
+      if (memberUser?.role) member.userRole = memberUser.role;
+      if (m.lastReadAt) member.lastReadAt = m.lastReadAt.toISOString();
+      return member;
+    }),
         lastMessage: conv.lastMessage,
+        lastMessageAt: conv.lastMessageAt,
         memberCount: conv.members.length,
         otherMember:
           conv.type === "direct"
             ? {
-                userId: String(other?.userId),
+                userId: other ? userIdOf(other) : "",
                 name: otherUser?.name || "Thành viên",
                 avatar: otherUser?.avatar || "",
                 role: otherUser?.role || "",
@@ -224,6 +246,7 @@ class ConversationService {
           type: "direct",
           restaurantId: targetRestaurantId as unknown as Types.ObjectId,
           createdBy: actorUserId as unknown as Types.ObjectId,
+          lastMessageAt: new Date(),
           members: [
             { userId: actorUserId as unknown as Types.ObjectId, role: "admin", joinedAt: new Date() },
             { userId: targetUserId as unknown as Types.ObjectId, role: "member", joinedAt: new Date() },
@@ -246,6 +269,7 @@ class ConversationService {
         type: "direct",
         restaurantId: restaurantId as unknown as Types.ObjectId,
         createdBy: actorUserId as unknown as Types.ObjectId,
+        lastMessageAt: new Date(),
         members: [
           { userId: actorUserId as unknown as Types.ObjectId, role: "admin", joinedAt: new Date() },
           { userId: targetUserId as unknown as Types.ObjectId, role: "member", joinedAt: new Date() },
@@ -267,6 +291,7 @@ class ConversationService {
       restaurantId: restaurantId as unknown as Types.ObjectId,
       name: body.name.trim(),
       createdBy: actorUserId as unknown as Types.ObjectId,
+      lastMessageAt: new Date(),
       members: [
         { userId: actorUserId as unknown as Types.ObjectId, role: "admin", joinedAt: new Date() },
         ...memberIds.map((id) => ({
@@ -277,6 +302,51 @@ class ConversationService {
       ],
     });
     return { code: 201, data: conversation, message: "Tạo hội thoại nhóm thành công" };
+  }
+
+  // [GET] /api/conversations/direct/:userId — tìm hội thoại 1-1 sẵn có (null nếu chưa tạo)
+  async getDirectConversation(
+    actorUserId: string,
+    actorRole: string,
+    targetUserId: string,
+    restaurantId: string,
+  ): Promise<ServiceResponse<IConversation | null>> {
+    if (!ALLOWED_ROLES.includes(actorRole)) {
+      return { code: 403, message: "Tài khoản không được phép nhắn tin nội bộ" };
+    }
+    const targetId = String(targetUserId ?? "");
+    if (!targetId) {
+      return { code: 400, message: "Thiếu thông tin người nhận" };
+    }
+    if (targetId === String(actorUserId)) {
+      return { code: 400, message: "Không thể nhắn tin với chính mình" };
+    }
+
+    const targetUser = await DB_Connection.User.findById(targetId)
+      .select("name avatar role restaurantIds restaurant isActive")
+      .exec();
+    if (!targetUser) {
+      return { code: 400, message: "Người nhận không tồn tại trong hệ thống" };
+    }
+    if (!isEmployeeUser(targetUser)) {
+      return { code: 403, message: "Người nhận không hợp lệ" };
+    }
+    if (actorRole !== "admin" && !belongsToRestaurant(targetUser, restaurantId)) {
+      return { code: 403, message: "Người nhận không thuộc nhà hàng này" };
+    }
+
+    // Admin: tìm theo cặp user (bất kể nhà hàng) — khớp logic createConversation.
+    // Manager/Staff: chỉ tìm trong nhà hàng đang chọn.
+    const existing =
+      actorRole === "admin"
+        ? await conversationRepository.findDirectByPair(actorUserId, targetId)
+        : await conversationRepository.findDirect(restaurantId, actorUserId, targetId);
+
+    return {
+      code: 200,
+      data: existing ?? null,
+      message: existing ? "Đã có hội thoại 1-1" : "Chưa có hội thoại 1-1",
+    };
   }
 
   // Kiểm tra user có phải member + thuộc tenant của conv không (dùng chung các route có :id)

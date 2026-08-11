@@ -11,11 +11,6 @@ import { Search, ChevronDown } from 'lucide-react';
 import { extractId } from '@/utils/helpers';
 import { getPageTitle, getRoleLabel } from '@/configs/adminMenu';
 
-interface HeaderProps {
-  /** Mở MessageModal tại đúng hội thoại khi bấm item trong MailBoxPopover. */
-  onOpenConversation?: (conversationId: string) => void;
-}
-
 const ROLE_BADGE: Record<string, { label: string; cls: string }> = {
   admin: { label: 'Admin', cls: 'bg-cerulean-blue-50 text-cerulean-blue-700' },
   manager: { label: 'Quản lý', cls: 'bg-emerald-50 text-emerald-700' },
@@ -23,7 +18,7 @@ const ROLE_BADGE: Record<string, { label: string; cls: string }> = {
   'super-admin': { label: 'Super Admin', cls: 'bg-amber-50 text-amber-700' },
 };
 
-export default function Header({ onOpenConversation }: HeaderProps) {
+export default function Header() {
   const { user } = useAuth();
   const activeRestaurantId = useActiveRestaurantId();
   const { notifications, startLiseningNotification, markReadNoti, markReadAllNoti } =
@@ -75,7 +70,7 @@ export default function Header({ onOpenConversation }: HeaderProps) {
       <div className="flex items-center gap-1 sm:gap-3">
         <div className="flex items-center gap-2 sm:gap-3">
           {/* 1. Nhóm Hộp Thư */}
-          <MailBoxPopover onOpenConversation={onOpenConversation} />
+          <MailBoxPopover />
 
           {/* 2. Nhóm Thông Báo (Chuyển đổi sang Realtime Component) */}
           <NotificationPopover

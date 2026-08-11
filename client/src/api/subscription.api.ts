@@ -12,11 +12,11 @@ export const getMySubscriptions = async (): Promise<ISubscriptionInfo[]> => {
   return res.data ?? [];
 };
 
-/** Thanh toán / gia hạn mock cho 1 nhà hàng. */
-export const paySubscription = async (restaurantId: string, cycleMonths: number) => {
+/** Thanh toán / gia hạn mock cho 1 nhà hàng (tuỳ chọn theo gói đã chọn). */
+export const paySubscription = async (restaurantId: string, cycleMonths: number, planId?: string) => {
   const res = await axiosClient.post<any, ApiResponse<{ restaurant: IRestaurant; transaction: ITransaction; paidUntil: string }>>(
     SUB.PAY,
-    { restaurantId, cycleMonths },
+    { restaurantId, cycleMonths, planId },
   );
   return res;
 };

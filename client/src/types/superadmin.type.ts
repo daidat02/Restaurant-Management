@@ -104,6 +104,8 @@ export interface ITenantDetail {
 export interface IPricingConfig {
   cycles: Record<string, number>;
   currency: string;
+  /** Danh sách gói dịch vụ (nếu backend đã seed). */
+  plans?: import('./subscription.type').IPlan[];
 }
 
 /** Bản ghi audit log. */
