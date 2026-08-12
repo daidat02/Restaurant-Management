@@ -173,17 +173,17 @@ class SubscriptionPayosService {
    * Webhook PayOS cho gói cước: verify chữ ký → tìm Transaction theo orderCode
    * → nếu code='00' hoàn tất thanh toán; CANCELLED → đánh dấu cancelled.
    */
-  async handleWebhook(webhookData: any): Promise<PayosServiceResult> {
+  async handleWebhook(webhookData: any): Promise<any> {
     try {
       const payos = await this.getPlatformPayos();
-      const verified = await payos.webhooks.verify(webhookData);
-      const { orderCode, status } = verified;
-      const code = verified?.code ?? (verified as any)?.data?.code;
+      const { orderCode: incomingOrderCode } = webhookData?.data || webhookData;
 
-      const transaction = await DB_Connection.Transaction.findOne({ orderCode });
+      const transaction = await DB_Connection.Transaction.findOne({ orderCode: incomingOrderCode });
       if (!transaction) {
         throw new Error('Không tìm thấy giao dịch từ webhook');
       }
+      const verified = await payos.webhooks.verify(webhookData);
+      const code = verified?.code ?? (verified as any)?.data?.code;
 
       if (code === '00' || status === 'PAID') {
         const restaurant = await DB_Connection.Restaurant.findById(transaction.restaurant).exec();
@@ -205,12 +205,7 @@ class SubscriptionPayosService {
           transaction.planKey,
           transaction._id.toString(),
         );
-        this.emitPaymentEvent(
-          String(restaurant._id),
-          String(transaction._id),
-          'success',
-          verified,
-        );
+        this.emitPaymentEvent(String(restaurant._id), String(transaction._id), 'success', verified);
         return {
           success: true,
           message: 'Thanh toán gói cước thành công',
@@ -243,7 +238,6 @@ class SubscriptionPayosService {
         success: false,
         message: 'Xử lý webhook PayOS gói cước thất bại',
         error: error?.message || error,
-        code: 500,
       };
     }
   }
