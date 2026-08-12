@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Store, Armchair, Utensils, Users } from 'lucide-react';
+import { Search, Armchair, Plus, Utensils, Users } from 'lucide-react';
 
 import { useRestaurant } from '@/hooks/use-restaurant';
 import { useSubscription } from '@/hooks/use-subscription';
@@ -9,23 +9,12 @@ import { getAllItems } from '@/api/category.api';
 import type { IRestaurant } from '@/types/restaurant.type';
 
 import { SubscriptionBadge } from '@/components/SubscriptionBadge';
-import { cn } from '@/lib/utils';
 
 type RestaurantWithExtra = IRestaurant & {
   _daysLeft?: number;
   _tableCount?: number;
   _menuItemCount?: number;
 };
-
-// Gradient xen kẽ cho phần header mỗi card (đồng phong cách preview restaurants.html)
-const GRADIENTS = [
-  'from-cerulean-blue-600 to-cerulean-blue-800',
-  'from-emerald-500 to-teal-700',
-  'from-violet-500 to-purple-700',
-  'from-amber-500 to-orange-700',
-  'from-rose-500 to-red-700',
-  'from-cyan-500 to-sky-700',
-];
 
 export default function RestaurantsPage() {
   const navigate = useNavigate();
@@ -125,9 +114,8 @@ export default function RestaurantsPage() {
           <div className="mt-6 text-sm text-slate-400">Đang tải danh sách nhà hàng...</div>
         ) : (
           <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {filteredRestaurants.map((item, index) => {
+            {filteredRestaurants.map((item) => {
               const sub = item as RestaurantWithExtra;
-              const gradient = GRADIENTS[index % GRADIENTS.length];
               const tableCount = sub._tableCount ?? counts[String(item._id)]?.tables ?? 0;
               const menuItemCount = sub._menuItemCount ?? counts[String(item._id)]?.items ?? 0;
               const staffCount = item.staffCount ?? 0;
@@ -136,50 +124,62 @@ export default function RestaurantsPage() {
                 <div
                   key={item._id}
                   onClick={() => navigate(`/admin/restaurants/${item._id}`)}
-                  className="cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover"
+                  className="group cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card transition-all duration-300 hover:-translate-y-1 hover:border-cerulean-blue-200 hover:shadow-card-hover"
                 >
-                  <div
-                    className={cn(
-                      'relative flex h-32 items-center justify-center bg-gradient-to-br',
-                      gradient,
-                    )}
-                  >
-                    <Store className="h-12 w-12 text-white/70" />
-                    <span className="absolute right-3 top-3">
-                      <SubscriptionBadge subscription={sub.subscription} />
+                  <div className="flex items-center justify-between gap-3 px-5 pt-5">
+                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cerulean-blue-600 to-cerulean-blue-800 text-lg font-bold uppercase text-white shadow-md shadow-cerulean-blue-200">
+                      {(item.name || '?').charAt(0)}
                     </span>
+                    <SubscriptionBadge subscription={sub.subscription} />
                   </div>
-                  <div className="p-5">
-                    <h3 className="font-bold text-gray-900">{item.name}</h3>
-                    <p className="mt-1 text-sm text-slate-500">
+
+                  <div className="px-5 pb-5 pt-4">
+                    <h3 className="truncate text-base font-bold text-slate-900">{item.name}</h3>
+                    <p className="mt-1 line-clamp-2 text-sm text-slate-500">
                       {[item.address, item.phone].filter(Boolean).join(' · ') || 'Chưa cập nhật'}
                     </p>
-                    <div className="mt-4 flex items-center gap-4 text-xs text-slate-500">
-                      <span className="flex items-center gap-1">
-                        <Armchair className="h-3.5 w-3.5" /> {tableCount} bàn
+
+                    <div className="mt-4 flex items-center gap-4 rounded-xl bg-slate-50 px-3 py-2.5 text-xs font-medium text-slate-600">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Armchair className="h-3.5 w-3.5 text-cerulean-blue-500" /> {tableCount} bàn
                       </span>
-                      <span className="flex items-center gap-1">
-                        <Utensils className="h-3.5 w-3.5" /> {menuItemCount} món
+                      <span className="inline-flex items-center gap-1.5">
+                        <Utensils className="h-3.5 w-3.5 text-cerulean-blue-500" /> {menuItemCount} món
                       </span>
-                      <span className="flex items-center gap-1">
-                        <Users className="h-3.5 w-3.5" /> {staffCount} NV
+                      <span className="inline-flex items-center gap-1.5">
+                        <Users className="h-3.5 w-3.5 text-cerulean-blue-500" /> {staffCount} NV
                       </span>
                     </div>
-                    <div className="mt-4 flex gap-2 border-t border-slate-100 pt-4">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/admin/restaurants/${item._id}?tab=store`);
-                        }}
-                        className="flex-1 rounded-xl bg-cerulean-blue-600 py-2 text-xs font-semibold text-white transition hover:bg-cerulean-blue-700"
-                      >
-                        Quản lý chi nhánh
-                      </button>
-                    </div>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/admin/restaurants/${item._id}?tab=store`);
+                      }}
+                      className="mt-4 w-full rounded-xl bg-cerulean-blue-600 py-2 text-xs font-semibold text-white transition hover:bg-cerulean-blue-700"
+                    >
+                      Quản lý chi nhánh
+                    </button>
                   </div>
                 </div>
               );
             })}
+
+            {/* Card thêm nhà hàng mới (luôn ở cuối lưới) */}
+            <button
+              type="button"
+              onClick={() => navigate('/admin/restaurants/new')}
+              className="group flex min-h-[250px] flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-slate-300 bg-white/60 p-6 text-center transition-all duration-300 hover:-translate-y-1 hover:border-cerulean-blue-400 hover:bg-cerulean-blue-50/40"
+            >
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400 transition-colors group-hover:bg-white group-hover:text-cerulean-blue-600">
+                <Plus className="h-6 w-6" />
+              </span>
+              <span className="text-sm font-semibold text-slate-700 transition-colors group-hover:text-cerulean-blue-600">
+                Thêm nhà hàng
+              </span>
+              <span className="text-xs text-slate-400">Mở chi nhánh mới trong cùng gói</span>
+            </button>
           </div>
         )}
       </div>

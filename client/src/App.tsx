@@ -41,6 +41,7 @@ import MessagePage from './pages/Admin/MessageModal/MessagePage';
 import OnboardingWizard from './pages/Admin/Onboarding/onboarding';
 import Table from './pages/Admin/TablePage/table';
 import Users from './pages/Admin/UserPage/users';
+import UserFormPage from './pages/Admin/UserPage/user-form';
 import FormMenuItem from './pages/Admin/ProductPage/components/FormCreateItem';
 import SuperAdminDashboard from './pages/SuperAdmin/Dashboard';
 import SuperAdminTenants from './pages/SuperAdmin/Tenants';
@@ -231,6 +232,8 @@ export default function App() {
           <Route path="restaurants/:id" element={<RestaurantDetailPage />} />
           <Route path="billing" element={<BillingPage />} />
           <Route path="customers" element={<Users />} />
+          <Route path="customers/new" element={<UserFormPage />} />
+          <Route path="customers/edit/:id" element={<UserFormPage />} />
           <Route path="products" element={<Product />} />
           <Route path="orders" element={<Order />} />
           <Route path="reports" element={<AnalyticsPage />} />
@@ -271,6 +274,8 @@ export default function App() {
           <Route path="menu/items/edit/:id" element={<FormMenuItem />} />
           <Route path="reservations" element={<ReservationPage />} />
           <Route path="staff" element={<Users />} />
+          <Route path="staff/new" element={<UserFormPage />} />
+          <Route path="staff/edit/:id" element={<UserFormPage />} />
 
           {/* KHU VỰC DÙNG CHUNG VỚI STAFF (Manager vẫn có quyền thao tác) */}
           <Route path="tables" element={<Table />} />

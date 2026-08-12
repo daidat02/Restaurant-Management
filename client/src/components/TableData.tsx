@@ -45,6 +45,8 @@ interface DataTableProps<T> {
   getRowKey?: (item: T) => string | number;
   /** Hiển thị nền đan xen giữa các dòng (zebra). */
   striped?: boolean;
+  /** Click vào cả hàng (dùng để mở trang chi tiết / cập nhật). */
+  onRowClick?: (item: T) => void;
 }
 
 /** Số dòng skeleton hiển thị khi đang tải. */
@@ -63,6 +65,7 @@ export function DataTable<T>({
   minWidth = '1000px',
   getRowKey,
   striped = false,
+  onRowClick,
 }: DataTableProps<T>) {
   const safeCurrentPage = currentPage || 1;
   const safeTotalPages = totalPages || 1;
@@ -176,9 +179,11 @@ export function DataTable<T>({
               data?.map((item, rowIndex) => (
                 <TableRow
                   key={getRowKey ? getRowKey(item) : rowIndex}
+                  onClick={onRowClick ? () => onRowClick(item) : undefined}
                   className={cn(
                     'group transition-colors hover:bg-cerulean-blue-50/40',
                     striped && rowIndex % 2 === 1 && 'bg-slate-50/40',
+                    onRowClick && 'cursor-pointer',
                   )}
                 >
                   {columns.map((col, colIndex) => (

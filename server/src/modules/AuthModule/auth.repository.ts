@@ -46,7 +46,8 @@ class AuthRepository {
   }
 
   /**
-   * Cập nhật mật khẩu mới (Đã băm password)
+   * Cập nhật mật khẩu mới (Đã băm password).
+   * Đồng thời đánh dấu `passwordChangedAt` + tăng `tokenVersion` để vô hiệu token cũ.
    */
   async updatePassword(
     id: string,
@@ -56,7 +57,10 @@ class AuthRepository {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     return await DB_Connection.User.findByIdAndUpdate(
       id,
-      { $set: { password: hashedPassword } },
+      {
+        $set: { password: hashedPassword, passwordChangedAt: new Date() },
+        $inc: { tokenVersion: 1 },
+      },
       {
         new: true,
         session: options?.session ?? null,
@@ -65,7 +69,8 @@ class AuthRepository {
   }
 
   /**
-   * Xóa mềm người dùng khỏi hệ thống (Chuyển isActive thành false)
+   * Xóa mềm người dùng khỏi hệ thống (Đặt isActive = false + deletedAt = now).
+   * Giữ lại doc để lịch sử order/reservation không bị đứt tham chiếu.
    */
   async deleteUser(
     id: string,
@@ -73,7 +78,7 @@ class AuthRepository {
   ): Promise<IUserDocument | null> {
     return await DB_Connection.User.findByIdAndUpdate(
       id,
-      { $set: { isActive: false } },
+      { $set: { isActive: false, deletedAt: new Date() } },
       {
         new: true,
         session: options?.session ?? null,
@@ -86,11 +91,13 @@ class AuthRepository {
   // ==========================================
 
   /**
-   * Hàm Query tổng lực: Tìm kiếm danh sách hoặc một User linh hoạt theo mọi bộ lọc (Filter)
-   * Thay thế hoàn toàn cho: findAllUsers, findUserByEmail, findUserByPhone
+   * Hàm Query tổng lực: Tìm kiếm danh sách User linh hoạt theo mọi bộ lọc (Filter).
+   * Luôn loại trừ user đã soft-delete (deletedAt != null).
    */
   async findUsers(filter: FilterQuery<IUserDocument>): Promise<IUserDocument[]> {
-    return await DB_Connection.User.find(filter).sort({ createdAt: -1 }).exec();
+    return await DB_Connection.User.find({ ...filter, deletedAt: null })
+      .sort({ createdAt: -1 })
+      .exec();
   }
 
   /**
@@ -98,6 +105,35 @@ class AuthRepository {
    */
   async findOneUser(filter: FilterQuery<IUserDocument>): Promise<IUserDocument | null> {
     return await DB_Connection.User.findOne(filter).exec();
+  }
+
+  /**
+   * Ghi nhận đăng nhập thành công: reset đếm sai + xóa lock, cập nhật lastLoginAt.
+   */
+  async updateLoginSuccess(id: string): Promise<IUserDocument | null> {
+    return await DB_Connection.User.findByIdAndUpdate(
+      id,
+      {
+        $set: { loginAttempts: 0, lastLoginAt: new Date() },
+        $unset: { lockUntil: 1 },
+      },
+      { new: true },
+    ).exec();
+  }
+
+  /**
+   * Ghi nhận đăng nhập thất bại: tăng loginAttempts, tùy chọn đặt lockUntil.
+   */
+  async updateLoginFailure(
+    id: string,
+    attempts: number,
+    lockUntil?: Date,
+  ): Promise<IUserDocument | null> {
+    const update: Record<string, unknown> = { $set: { loginAttempts: attempts } };
+    if (lockUntil) {
+      (update.$set as Record<string, unknown>).lockUntil = lockUntil;
+    }
+    return await DB_Connection.User.findByIdAndUpdate(id, update, { new: true }).exec();
   }
 
   /**

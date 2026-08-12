@@ -24,6 +24,10 @@ order-detail-orders.png
 test-results/
 playwright-report/
 
+# Build artifact của tsc
+server/tsconfig.tsbuildinfo
+*.tsbuildinfo
+
 # Build tsc sinh ra từ vitest.config.ts (rootDir khác)
 server/vitest.config.js
 server/vitest.config.js.map

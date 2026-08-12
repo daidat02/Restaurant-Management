@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Search, Download, Plus, Edit2, Trash2, Eye, Users, UserCog } from 'lucide-react';
+import { Search, Download, Plus, ChevronRight, Users, UserCog } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 // Import hook và type của User
 import { useUser } from '@/hooks/use-user';
@@ -8,8 +9,6 @@ import { type IUser } from '@/types/user.type';
 import { Button } from '@/components/ui/button';
 import { DataTable, type ColumnDef } from '@/components/TableData';
 import { StatusTag } from '@/components/StatusTag';
-import SideDrawer from '@/components/SideDrawer';
-import { AlertDialogCustom } from '@/components/AlertDialog';
 import { useAuth } from '@/hooks/use-auth';
 import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
 
@@ -22,26 +21,55 @@ import {
 } from '@/components/ui/select';
 import { useRestaurant } from '@/hooks/use-restaurant';
 import { FilterToolbar } from '../OrderPage/management-order';
-import FormUser from './components/FormCreateUser';
+import { getTimeAgo } from '@/utils/helpers';
+
+/** Avatar chữ cái đầu của tên (giống SuperAdmin Dashboard). */
+function NameAvatar({ name }: { name: string }) {
+  const initial = name.trim().charAt(0).toUpperCase() || '?';
+  return (
+    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-cerulean-blue-50 text-sm font-bold text-cerulean-blue-600">
+      {initial}
+    </span>
+  );
+}
+
+/** Badge tên nhà hàng từ map. */
+function RestaurantBadge({ restaurantIds, restaurantNameMap }: { restaurantIds?: (string | { _id: string; name: string })[]; restaurantNameMap: Record<string, string> }) {
+  if (!restaurantIds || restaurantIds.length === 0) {
+    return <span className="text-xs text-slate-400">—</span>;
+  }
+  // Lấy nhà hàng đầu tiên (primary)
+  const first = restaurantIds[0];
+  const rid = typeof first === 'string' ? first : first._id;
+  const name = restaurantNameMap[rid];
+  if (!name) return <span className="text-xs text-slate-400">—</span>;
+  return (
+    <span className="inline-flex min-w-6 items-center justify-center rounded-lg bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+      {name}
+    </span>
+  );
+}
 
 export default function UsersPage() {
-  // 🌟 ĐÃ LOẠI BỎ: fetchCustomer và fetchStaff khỏi Hook hook useUser
-  const { users, isLoading, fetchUsersWithFilter, removeUser } = useUser();
+  const navigate = useNavigate();
+  const { users, isLoading, fetchUsersWithFilter } = useUser();
   const { user } = useAuth();
   const activeRestaurantId = useActiveRestaurantId();
   const { restaurants, fetchRestaurants } = useRestaurant();
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<IUser | null>(null);
 
   // State quản lý bộ lọc & tìm kiếm
   const [searchTerm, setSearchTerm] = useState('');
-
-  // State quản lý bộ lọc nhà hàng cho Admin
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<string>('all');
 
   // State quản lý phân trang
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
+
+  // Map restaurantId -> tên nhà hàng (cho admin hiển thị badge)
+  const restaurantNameMap = useMemo(
+    () => Object.fromEntries(restaurants.map((r) => [r._id, r.name])),
+    [restaurants],
+  );
 
   // Hàm helper dùng chung để bóc tách/chuẩn bị tham số Filter hiện tại trước khi gọi API
   const getCurrentFilterParams = () => {
@@ -51,11 +79,9 @@ export default function UsersPage() {
     if (!user?.role) return { rolesToFetch, restaurantId };
 
     if (user.role === 'manager') {
-      // Manager /manager/staff: chỉ staff + manager của chi nhánh mình
       rolesToFetch = ['staff', 'manager'];
       restaurantId = activeRestaurantId;
     } else if (user.role === 'admin') {
-      // Admin /admin/customers: manager + chính admin, lọc theo chi nhánh (hoặc toàn chuỗi)
       rolesToFetch = ['manager', 'admin'];
       restaurantId = selectedRestaurantId !== 'all' ? selectedRestaurantId : undefined;
     }
@@ -76,7 +102,7 @@ export default function UsersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRestaurantId, user, fetchUsersWithFilter]);
 
-  // 2. Lọc + phân trang dựa trên dữ liệu đã fetch (derived state — không dùng effect)
+  // 2. Lọc + phân trang dựa trên dữ liệu đã fetch (derived state)
   const filteredUsers = useMemo(() => {
     const currentRawData = users;
     if (!currentRawData) return [];
@@ -104,33 +130,54 @@ export default function UsersPage() {
 
   const totalPages = Math.ceil(filteredUsers.length / pageSize) || 1;
 
-  // Cấu hình các cột hiển thị trong bảng dữ liệu người dùng
+  // Navigate to form page
+  const handleCreateNew = () => {
+    navigate(user?.role === 'admin' ? '/admin/customers/new' : '/manager/staff/new');
+  };
+
+  const handleEdit = (id: string) => {
+    navigate(user?.role === 'admin' ? `/admin/customers/edit/${id}` : `/manager/staff/edit/${id}`);
+  };
+
+  // Cấu hình các cột hiển thị trong bảng dữ liệu người dùng (style "Người thuê gần đây")
   const columns: ColumnDef<IUser>[] = [
     {
-      header: 'User Info',
+      header: 'Người dùng',
+      className: 'min-w-[260px]',
       render: (item) => (
-        <div className="flex flex-col">
-          <span className="font-semibold text-xs text-slate-900">{item.name}</span>
-          <span className="text-xs text-slate-500 mt-0.5">{item.email}</span>
+        <div className="flex items-center gap-3">
+          <NameAvatar name={item.name} />
+          <div className="flex flex-col min-w-0">
+            <span className="font-semibold text-xs text-slate-900 truncate max-w-[200px]">
+              {item.name}
+            </span>
+            <span className="mt-0.5 block max-w-[240px] truncate text-xs text-slate-500">
+              {item.email}
+            </span>
+          </div>
         </div>
       ),
     },
     {
-      header: 'Phone',
+      header: 'SĐT',
+      className: 'hidden md:table-cell',
       render: (item) => (
         <span className="text-xs font-medium text-slate-600">{item.phone || '---'}</span>
       ),
     },
     {
-      header: 'Role',
+      header: 'Vai trò',
+      className: 'w-[120px]',
       render: (item) => (
         <span
-          className={`px-2 py-0.5 rounded-lg text-[11px] font-semibold tracking-wider ${
+          className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-semibold tracking-wider ${
             item.role === 'admin'
               ? 'bg-purple-50 text-purple-600 border border-purple-100'
+              : item.role === 'manager'
+              ? 'bg-amber-50 text-amber-600 border border-amber-100'
               : item.role === 'staff'
-                ? 'bg-cerulean-blue-50 text-cerulean-blue-600 border border-cerulean-blue-100'
-                : 'bg-slate-50 text-slate-600 border border-slate-100'
+              ? 'bg-cerulean-blue-50 text-cerulean-blue-600 border border-cerulean-blue-100'
+              : 'bg-slate-50 text-slate-600 border border-slate-100'
           }`}
         >
           {item.role ? item.role.toUpperCase() : 'CUSTOMER'}
@@ -138,53 +185,47 @@ export default function UsersPage() {
       ),
     },
     {
-      header: 'Status',
+      header: 'Trạng thái',
+      className: 'w-[110px]',
       render: (item) => <StatusTag status={item?.isActive ? 'Active' : 'Inactive'} />,
     },
     {
-      header: 'Action',
-      className: 'text-right',
+      header: 'Nhà hàng',
+      className: 'hidden lg:table-cell',
       render: (item) => (
-        <div className="flex justify-end gap-1.5">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-blue-600 hover:bg-slate-100 rounded-lg"
-            onClick={() => {
-              setEditingUser(item);
-              setIsDrawerOpen(true);
-            }}
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 text-amber-600 hover:bg-slate-100 rounded-lg"
-            onClick={() => {
-              setEditingUser(item);
-              setIsDrawerOpen(true);
-            }}
-          >
-            <Edit2 className="h-4 w-4" />
-          </Button>
-          <AlertDialogCustom
-            title="Xác nhận xóa"
-            description={`Bạn có chắc muốn xóa người dùng "${item.name}" không? Hành động này không thể hoàn tác.`}
-            actionText="Xóa"
-            onConfirm={() => {
-              removeUser(item._id);
-            }}
-          >
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-red-600 hover:bg-slate-100 rounded-lg"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </AlertDialogCustom>
-        </div>
+        <RestaurantBadge restaurantIds={item.restaurantIds} restaurantNameMap={restaurantNameMap} />
+      ),
+    },
+    {
+      header: 'Ngày tạo',
+      className: 'w-[130px] hidden sm:table-cell',
+      render: (item) => (
+        <span className="text-xs text-slate-500">
+          {item.createdAt ? new Date(item.createdAt).toLocaleDateString('vi-VN') : '---'}
+        </span>
+      ),
+    },
+    {
+      header: 'Đăng nhập gần',
+      className: 'w-[140px] hidden md:table-cell',
+      render: (item) => (
+        <span className="text-xs text-slate-500">
+          {item.lastLoginAt ? getTimeAgo(item.lastLoginAt) : 'Chưa bao giờ'}
+        </span>
+      ),
+    },
+    {
+      header: 'Mở',
+      className: 'w-[70px] text-right',
+      render: (item) => (
+        <button
+          type="button"
+          onClick={() => handleEdit(item._id)}
+          aria-label={`Mở tài khoản ${item.name}`}
+          className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition-all hover:bg-cerulean-blue-50 hover:text-cerulean-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cerulean-blue-500/40"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
       ),
     },
   ];
@@ -230,10 +271,7 @@ export default function UsersPage() {
 
               <Button
                 className="bg-cerulean-blue-600 hover:bg-cerulean-blue-700 text-white h-9 rounded-xl text-sm shadow-sm font-medium"
-                onClick={() => {
-                  setEditingUser(null);
-                  setIsDrawerOpen(true);
-                }}
+                onClick={handleCreateNew}
               >
                 Thêm nhân viên <Plus className="ml-2 h-4 w-4" />
               </Button>
@@ -243,10 +281,7 @@ export default function UsersPage() {
           <div className="flex flex-wrap items-center gap-3 flex-1">
             {/* Ô TÌM KIẾM */}
             <div className="relative flex-1 min-w-[240px]">
-              <Search
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                size={18}
-              />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input
                 type="text"
                 placeholder="Tìm kiếm tên, email, sđt nhân viên..."
@@ -300,37 +335,12 @@ export default function UsersPage() {
             totalItems={filteredUsers.length}
             pageSize={pageSize}
             onPageChange={(page) => setCurrentPage(page)}
+            onRowClick={(item) => handleEdit(item._id)}
             isLoading={isLoading}
             getRowKey={(item) => item._id}
+            striped
           />
         </div>
-
-        {/* SIDE DRAWER FORM */}
-        <SideDrawer
-          isOpen={isDrawerOpen}
-          onClose={() => {
-            setIsDrawerOpen(false);
-            setEditingUser(null);
-          }}
-          title={editingUser ? 'Chỉnh sửa thông tin' : 'Thêm nhân viên mới'}
-          description="Điền thông tin bên dưới để lưu vào hệ thống."
-          className="w-[90vw] !max-w-[600px]"
-        >
-          <FormUser
-            key={editingUser?._id ?? 'new'}
-            initialData={editingUser}
-            onSuccess={() => {
-              setIsDrawerOpen(false);
-              setEditingUser(null);
-
-              // 🌟 ĐÃ CẬP NHẬT: Tự động chạy lại hàm gộp tổng lực để cập nhật dữ liệu mới sau khi tạo/sửa thành công
-              const { rolesToFetch, restaurantId } = getCurrentFilterParams();
-              if (rolesToFetch.length > 0) {
-                fetchUsersWithFilter(rolesToFetch, restaurantId);
-              }
-            }}
-          />
-        </SideDrawer>
       </div>
     </div>
   );

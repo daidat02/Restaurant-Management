@@ -1,19 +1,11 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import {
-  Check,
-  CheckCircle2,
-  CreditCard,
-  Crown,
-  Loader2,
-  ReceiptText,
-  RotateCcw,
-  X,
-} from 'lucide-react';
+import { Check, CheckCircle2, CreditCard, Crown, Loader2, ReceiptText, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useSubscription } from '@/hooks/use-subscription';
+import { useSetting } from '@/hooks/use-setting';
 import type { IPlan, ITransaction } from '@/types/subscription.type';
 
 import { Button } from '@/components/ui/button';
@@ -25,6 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { PaymentDialog } from './PaymentDialog';
 
 const CYCLE_MONTHS: (1 | 3 | 6 | 12)[] = [1, 3, 6, 12];
 
@@ -37,18 +30,26 @@ const STATE_LABEL: Record<string, { text: string; className: string }> = {
   locked: { text: 'Bị khoá', className: 'bg-rose-50 text-rose-700' },
 };
 
+/** Sinh mã thanh toán (nội dung chuyển khoản) dạng NHOS-XXXXXX. */
+const genPaymentCode = () => {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  return `NHOS-${Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')}`;
+};
+
 export default function BillingPage() {
   const { subscriptions, transactions, pricing, isLoading, pay, refresh } = useSubscription();
+  const { currentSetting, fetchOrCreateSetting } = useSetting();
 
   const [restaurantId, setRestaurantId] = useState('');
   const [cycleMonths, setCycleMonths] = useState<1 | 3 | 6 | 12>(1);
   const [paying, setPaying] = useState(false);
   // Gói đang được chọn để thanh toán ('' = chưa chọn).
-  const [selectedPlanKey, setSelectedPlanKey] = useState<string | undefined>(undefined);
+  const [paymentPlan, setPaymentPlan] = useState<IPlan | undefined>(undefined);
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [paymentCode, setPaymentCode] = useState('');
   const [lastPayment, setLastPayment] = useState<{ restaurantName: string; amount: number; paidUntil: string } | null>(null);
-  const historyRef = useRef<HTMLDivElement>(null);
-  const checkoutRef = useRef<HTMLDivElement>(null);
   const plansRef = useRef<HTMLDivElement>(null);
+  const historyRef = useRef<HTMLDivElement>(null);
 
   const plans = useMemo(() => pricing?.plans ?? [], [pricing]);
 
@@ -78,10 +79,13 @@ export default function BillingPage() {
     return plans.find((p) => p.isPopular) ?? plans[0];
   }, [selected, transactions, plans]);
 
-  const selectedPlan = plans.find((p) => p.key === selectedPlanKey);
+  // Tải cấu hình (thông tin chuyển khoản nhận tiền) theo nhà hàng đang chọn
+  useEffect(() => {
+    if (!selected) return;
+    void fetchOrCreateSetting('restaurant', 'Restaurant', selected._id);
+  }, [selected, fetchOrCreateSetting]);
 
-  // Giá chu kỳ của gói đang chọn (không dùng cycles legacy nữa)
-  const price = selectedPlan ? selectedPlan.cycles[cycleMonths] : 0;
+  const bankAccount = currentSetting?.bankAccount;
 
   // Còn hạn (active + chưa hết hạn) → không được hạ gói.
   const inTerm = useMemo(
@@ -89,7 +93,7 @@ export default function BillingPage() {
       !!selected &&
       selected.subscription === 'active' &&
       !!selected.paidUntil &&
-      new Date(selected.paidUntil).getTime() > Date.now(),
+      new Date(selected.paidUntil).getTime() > new Date().getTime(),
     [selected],
   );
 
@@ -100,62 +104,52 @@ export default function BillingPage() {
     inTerm &&
     (currentPlan.sortOrder ?? 0) > (plan.sortOrder ?? 0);
 
-  const newPaidUntil = useMemo(() => {
-    const base = selected?.paidUntil && new Date(selected.paidUntil).getTime() > Date.now()
-      ? new Date(selected.paidUntil)
-      : new Date();
-    return new Date(base.getTime() + cycleMonths * 30 * 24 * 3600 * 1000);
-  }, [selected, cycleMonths]);
+  // Mức giảm so với trả theo tháng (chỉ hiển thị khi thực sự rẻ hơn)
+  const cycleSavingPct = (months: number, p: number) => {
+    if (!selectedPlanForPrice || selectedPlanForPrice.priceMonthly <= 0) return 0;
+    const monthlyRate = p / months;
+    return Math.max(0, Math.round((1 - monthlyRate / selectedPlanForPrice.priceMonthly) * 100));
+  };
 
-  const openPayDialog = (planKey?: string) => {
-    setSelectedPlanKey(planKey);
-    setCycleMonths(1);
-    checkoutRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const selectedPlanForPrice = paymentPlan ?? currentPlan;
+  const cycleText = cycleMonths === 1 ? '1 tháng' : `${cycleMonths} tháng`;
+
+  const openPayDialog = (plan?: IPlan) => {
+    if (!plan) {
+      toast.info('Hãy chọn một gói ở phần Nâng cấp gói', { position: 'top-right' });
+      plansRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    if (plan.contactOnly) {
+      toast.info('Vui lòng liên hệ bán hàng để được tư vấn gói này', { position: 'top-right' });
+      return;
+    }
+    setPaymentPlan(plan);
+    setPaymentCode(genPaymentCode());
+    setPaymentOpen(true);
   };
 
   const handlePay = async () => {
-    if (!selected) return;
+    if (!selected || !paymentPlan) return;
     setPaying(true);
     try {
-      const result = await pay(selected._id, cycleMonths, selectedPlanKey);
+      const result = await pay(selected._id, cycleMonths, paymentPlan.key);
       if (result.success && result.data) {
         setLastPayment({
           restaurantName: selected.name,
           amount: result.data.transaction.amount,
           paidUntil: result.data.paidUntil,
         });
-        setSelectedPlanKey(undefined);
+        setPaymentOpen(false);
+        setPaymentPlan(undefined);
       } else {
+        setPaymentOpen(false);
+        setPaymentPlan(undefined);
         await refresh();
       }
     } finally {
       setPaying(false);
     }
-  };
-
-  const handleChoosePlan = (plan: IPlan) => {
-    if (plan.contactOnly) {
-      toast.info('Vui lòng liên hệ bán hàng để được tư vấn gói này', { position: 'top-right' });
-      return;
-    }
-    if (isDowngrade(plan)) {
-      toast.error('Không thể hạ gói khi còn hạn. Bạn có thể nâng cấp gói cao hơn hoặc chờ hết hạn để đổi gói.', {
-        position: 'top-right',
-      });
-      return;
-    }
-    if (selectedPlanKey === plan.key) {
-      setSelectedPlanKey(undefined);
-      return;
-    }
-    openPayDialog(plan.key);
-  };
-
-  // Mức giảm so với trả theo tháng (chỉ hiển thị khi thực sự rẻ hơn)
-  const cycleSavingPct = (months: number, p: number) => {
-    if (!selectedPlan || selectedPlan.priceMonthly <= 0) return 0;
-    const monthlyRate = p / months;
-    return Math.max(0, Math.round((1 - monthlyRate / selectedPlan.priceMonthly) * 100));
   };
 
   // ---- Màn hình thanh toán thành công ----
@@ -167,7 +161,7 @@ export default function BillingPage() {
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
               <CheckCircle2 className="h-9 w-9 text-emerald-600" />
             </div>
-            <h1 className="mt-4 text-2xl font-extrabold text-slate-900">Thanh toán thành công</h1>
+            <h1 className="mt-4 text-2xl font-extrabold text-gray-900">Thanh toán thành công</h1>
             <p className="mt-1 text-sm text-slate-500">
               {lastPayment.restaurantName} đã được mở lại và hoạt động bình thường.
             </p>
@@ -191,7 +185,7 @@ export default function BillingPage() {
                   setLastPayment(null);
                   void refresh();
                 }}
-                className="h-11 w-full rounded-xl bg-cerulean-blue-600 hover:bg-cerulean-blue-700 text-white font-semibold"
+                className="h-11 w-full rounded-xl bg-cerulean-blue-600 text-white hover:bg-cerulean-blue-700"
               >
                 Xem lịch sử hoá đơn
               </Button>
@@ -209,24 +203,31 @@ export default function BillingPage() {
     );
   }
 
-  const currentState = selected?.subscription ?? 'trial';
-  const stateBadge = STATE_LABEL[currentState] ?? STATE_LABEL.trial;
   const renewDate = selected
     ? selected.subscription === 'trial'
       ? selected.trialEndsAt
       : selected.paidUntil
     : undefined;
 
+  const activeCount = subscriptions.filter((s) => s.subscription === 'active').length;
+  const now = new Date();
+  const currentMonthBilling = transactions
+    .filter((t) => {
+      const d = new Date(t.createdAt);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    })
+    .reduce((sum, t) => sum + t.amount, 0);
+
   return (
     <div className="h-full overflow-y-auto">
-      <div className="min-h-screen bg-slate-50 text-slate-800 p-4 md:p-8">
+      <div className="min-h-screen bg-slate-50 p-4 text-slate-800 md:p-8">
         {/* Header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight text-gray-900 md:text-3xl">
               Thanh Toán &amp; Gói Dịch Vụ
             </h1>
-            <p className="mt-1 text-sm text-slate-500">Quản lý gói dịch vụ và hoá đơn</p>
+            <p className="mt-1 text-sm text-slate-500">Quản lý gói đang dùng, nâng cấp và xem lịch sử thanh toán.</p>
           </div>
           <Button
             onClick={() => plansRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
@@ -237,33 +238,37 @@ export default function BillingPage() {
         </div>
 
         <div className="mt-6 space-y-6">
-          {/* GÓI HIỆN TẠI */}
-          <div className="rounded-2xl border-2 border-cerulean-blue-200 bg-gradient-to-br from-cerulean-blue-50 via-white to-white p-6 shadow-card">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-cerulean-blue-600 text-white shadow-lg shadow-cerulean-blue-200">
-                  <Crown className="h-7 w-7" />
+          {/* GÓI ĐANG SỬ DỤNG + THÔNG TIN CHUYỂN KHOẢN */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            {/* Gói đang sử dụng */}
+            <div className="rounded-2xl border-2 border-cerulean-blue-200 bg-white p-6 shadow-card">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-bold text-gray-900">Gói đang sử dụng</h3>
+                {selected && (
+                  <span className={cn('rounded-full px-2.5 py-1 text-[11px] font-bold', STATE_LABEL[selected.subscription]?.className ?? 'bg-slate-100 text-slate-600')}>
+                    {STATE_LABEL[selected.subscription]?.text ?? selected.subscription}
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-4 flex items-center gap-4">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-cerulean-blue-600 text-white shadow-lg shadow-cerulean-blue-200">
+                  <Crown className="h-6 w-6" />
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-extrabold text-gray-900">
-                      {currentPlan?.name ?? 'Chưa chọn gói'}
-                    </h3>
-                    <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-bold', stateBadge.className)}>
-                      {stateBadge.text}
-                    </span>
-                  </div>
+                <div className="min-w-0">
+                  <p className="truncate text-lg font-extrabold text-gray-900">
+                    {currentPlan?.name ?? 'Chưa chọn gói'}
+                  </p>
                   <p className="mt-0.5 text-sm text-slate-500">
                     {currentPlan && !currentPlan.contactOnly ? (
                       <>
-                        Chi phí tháng này:{' '}
-                        <span className="font-bold text-gray-900">{fmtVND(currentPlan.priceMonthly || price || 0)}</span>
+                        {fmtVND(currentPlan.priceMonthly)}/tháng
                         {renewDate ? (
                           <>
-                            {' '}
-                            ·{' '}
-                            {selected?.subscription === 'trial' ? 'Hết hạn dùng thử' : 'Gia hạn'}{' '}
-                            <span className="font-semibold text-gray-800">{fmtDate(renewDate)}</span>
+                            {' · '}
+                            <span className="font-semibold text-gray-800">
+                              {selected?.subscription === 'trial' ? 'Hết hạn dùng thử' : 'Gia hạn'} {fmtDate(renewDate)}
+                            </span>
                           </>
                         ) : null}
                       </>
@@ -273,254 +278,233 @@ export default function BillingPage() {
                   </p>
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  onClick={() => openPayDialog(currentPlan?.key)}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-cerulean-blue-600 px-4 text-sm font-semibold text-white shadow-lg shadow-cerulean-blue-200 transition hover:bg-cerulean-blue-700"
-                >
-                  <RotateCcw className="h-4 w-4" /> Gia hạn gói
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => historyRef.current?.scrollIntoView({ behavior: 'smooth' })}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 shadow-sm transition hover:border-cerulean-blue-200 hover:text-cerulean-blue-600"
-                >
-                  <ReceiptText className="h-4 w-4" /> Xem hoá đơn
-                </Button>
+
+              <div className="mt-5 grid grid-cols-2 gap-3">
+                <div className="rounded-xl bg-slate-50 p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Nhà hàng</p>
+                  <p className="mt-1 text-xl font-extrabold text-gray-900">
+                    {activeCount} <span className="text-sm font-semibold text-slate-400">/ {subscriptions.length}</span>
+                  </p>
+                  <p className="text-xs text-emerald-600">đang hoạt động</p>
+                </div>
+                <div className="rounded-xl bg-slate-50 p-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Hoá đơn tháng này</p>
+                  <p className="mt-1 text-xl font-extrabold text-cerulean-blue-600">{fmtVND(currentMonthBilling)}</p>
+                  <p className="text-xs text-slate-400">{transactions.length} giao dịch</p>
+                </div>
               </div>
+
+              <div className="mt-5 space-y-3 border-t border-slate-100 pt-4">
+                <div className="space-y-1.5">
+                  <p className="text-xs font-semibold text-slate-600">Nhà hàng thanh toán</p>
+                  {subscriptions.length > 0 ? (
+                    <Select value={String(selected?._id ?? '')} onValueChange={setRestaurantId}>
+                      <SelectTrigger className="h-10 w-full">
+                        <SelectValue placeholder="Chọn nhà hàng" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {subscriptions.map((s) => (
+                          <SelectItem key={s._id} value={s._id}>
+                            {s.name} —{' '}
+                            {s.subscription === 'locked'
+                              ? 'Bị khoá'
+                              : s.subscription === 'trial'
+                                ? `Trial còn ${s.daysLeft} ngày`
+                                : 'Đang hoạt động'}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">
+                      Bạn chưa có nhà hàng nào để thanh toán.
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    onClick={() => openPayDialog(currentPlan && !currentPlan.contactOnly ? currentPlan : undefined)}
+                    className="inline-flex h-10 items-center gap-2 rounded-xl bg-cerulean-blue-600 px-4 text-sm font-semibold text-white shadow-lg shadow-cerulean-blue-200 transition hover:bg-cerulean-blue-700"
+                  >
+                    <RotateCcw className="h-4 w-4" /> Gia hạn gói
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => historyRef.current?.scrollIntoView({ behavior: 'smooth' })}
+                    className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 shadow-sm transition hover:border-cerulean-blue-200 hover:text-cerulean-blue-600"
+                  >
+                    <ReceiptText className="h-4 w-4" /> Xem hoá đơn
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Thông tin chuyển khoản */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
+              <h3 className="text-sm font-bold text-gray-900">Thông tin chuyển khoản</h3>
+              <div className="mt-4 space-y-2.5">
+                {[
+                  { label: 'Ngân hàng', value: bankAccount?.bankName || '—' },
+                  { label: 'Số tài khoản', value: bankAccount?.accountNumber || '—' },
+                  { label: 'Chủ tài khoản', value: bankAccount?.accountName || '—' },
+                ].map((row) => (
+                  <div key={row.label} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3">
+                    <span className="text-xs font-semibold text-slate-400">{row.label}</span>
+                    <span className={cn('text-sm font-bold', row.value === '—' ? 'text-slate-300' : 'text-slate-800')}>
+                      {row.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-4 rounded-xl bg-cerulean-blue-50 p-3.5 text-xs leading-relaxed text-cerulean-blue-700">
+                Bắt buộc ghi đúng <strong>nội dung chuyển khoản</strong> hiển thị khi bạn chọn gói. Nếu
+                nhập sai hoặc thêm, bớt ký tự, giao dịch sẽ không được tự động ghi nhận.
+              </p>
             </div>
           </div>
 
-          {/* CÁC GÓI */}
+          {/* NÂNG CẤP GÓI */}
           <div ref={plansRef} className="scroll-mt-24">
-            <h3 className="mb-3 text-sm font-bold text-gray-900">Chọn gói dịch vụ</h3>
+            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+              <div>
+                <h3 className="text-base font-bold text-gray-900">Nâng cấp gói</h3>
+                <p className="mt-0.5 text-sm text-slate-500">Chọn gói phù hợp hơn với quy mô hiện tại của nhà hàng.</p>
+              </div>
+              <div className="inline-flex flex-wrap gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+                {CYCLE_MONTHS.map((months) => {
+                  const active = cycleMonths === months;
+                  const p = selectedPlanForPrice?.cycles[months] ?? 0;
+                  const saving = selectedPlanForPrice ? cycleSavingPct(months, p) : 0;
+                  return (
+                    <button
+                      key={months}
+                      type="button"
+                      onClick={() => setCycleMonths(months)}
+                      className={cn(
+                        'flex flex-col items-start rounded-lg px-3 py-1.5 text-left transition-colors',
+                        active ? 'bg-cerulean-blue-600 text-white' : 'text-slate-600 hover:bg-slate-50',
+                      )}
+                    >
+                      <span className={cn('text-xs font-bold', active ? 'text-white' : 'text-slate-700')}>
+                        {months} tháng
+                        {saving > 0 && months > 1 && (
+                          <span className={cn('ml-1 text-[10px] font-semibold', active ? 'text-cerulean-blue-100' : 'text-emerald-600')}>
+                            −{saving}%
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {isLoading ? (
-              <div className="flex h-32 items-center justify-center text-sm text-slate-500">
-                Đang tải danh sách gói...
+              <div className="mt-4 flex h-32 items-center justify-center text-sm text-slate-500">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang tải danh sách gói...
               </div>
             ) : plans.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-400">
+              <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-400">
                 Chưa có gói dịch vụ nào được cấu hình.
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
                   {plans.map((plan) => {
-                  const isCurrent = currentPlan?.key === plan.key;
-                  const isPopularNow = plan.isPopular && !isCurrent;
-                  const isSelected = selectedPlanKey === plan.key;
-                  const blockedDowngrade = isDowngrade(plan);
-                  return (
-                    <div
-                      key={plan._id ?? plan.key}
-                      className={cn(
-                        'relative rounded-2xl bg-white p-6 shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover',
-                        isSelected
-                          ? 'border-2 border-cerulean-blue-600 ring-2 ring-cerulean-blue-100'
-                          : isPopularNow
-                            ? 'border-2 border-cerulean-blue-500'
-                            : 'border border-slate-200',
-                        isCurrent && 'border-2 border-emerald-300 bg-emerald-50/40',
-                      )}
-                    >
-                      {isCurrent && (
-                        <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-bold text-white">
-                          GÓI HIỆN TẠI
-                        </span>
-                      )}
-                      {isPopularNow && (
-                        <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-cerulean-blue-600 px-3 py-1 text-[11px] font-bold text-white">
-                          {plan.badge || 'PHỔ BIẾN NHẤT'}
-                        </span>
-                      )}
-                      <p className={cn('text-sm font-bold', isPopularNow ? 'text-cerulean-blue-700' : 'text-gray-900')}>
-                        {plan.name}
-                      </p>
-                      <p className="mt-1 text-3xl font-extrabold text-gray-900">
-                        {plan.contactOnly ? (
-                          'Liên hệ'
-                        ) : (
-                          <>
-                            {fmtVND(plan.priceMonthly)}
-                            <span className="text-sm font-medium text-slate-400">/tháng</span>
-                          </>
-                        )}
-                      </p>
-                      <ul className="mt-4 flex flex-col gap-2 text-sm text-slate-600">
-                        {plan.features.map((f) => (
-                          <li key={f} className="flex items-center gap-2">
-                            <Check className="h-4 w-4 shrink-0 text-emerald-500" /> {f}
-                          </li>
-                        ))}
-                      </ul>
-                      <Button
-                        disabled={isCurrent || blockedDowngrade}
-                        onClick={() => handleChoosePlan(plan)}
+                    const isCurrent = currentPlan?.key === plan.key;
+                    const isPopularNow = plan.isPopular && !isCurrent;
+                    const blockedDowngrade = isDowngrade(plan);
+                    const price = plan.cycles[cycleMonths];
+                    const saving = cycleSavingPct(cycleMonths, price);
+                    return (
+                      <div
+                        key={plan._id ?? plan.key}
                         className={cn(
-                          'mt-5 w-full rounded-xl text-sm font-semibold',
-                          isCurrent || blockedDowngrade
-                            ? 'border border-slate-200 bg-white text-slate-400'
-                            : isSelected
-                              ? 'bg-cerulean-blue-600 text-white shadow-lg shadow-cerulean-blue-200 hover:bg-cerulean-blue-700'
-                              : isPopularNow
-                                ? 'bg-cerulean-blue-600 text-white shadow-lg shadow-cerulean-blue-200 hover:bg-cerulean-blue-700'
-                                : 'border border-slate-200 bg-white text-slate-600 hover:border-cerulean-blue-300 hover:text-cerulean-blue-600',
+                          'relative flex flex-col rounded-2xl bg-white p-6 shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-card-hover',
+                          isCurrent
+                            ? 'border-2 border-emerald-300 bg-emerald-50/40'
+                            : isPopularNow
+                              ? 'border-2 border-cerulean-blue-500'
+                              : 'border border-slate-200',
                         )}
-                        variant={isCurrent || blockedDowngrade ? 'outline' : isSelected || isPopularNow ? 'default' : 'outline'}
                       >
-                        {isCurrent
-                          ? 'Gói hiện tại'
-                          : plan.contactOnly
-                            ? 'Liên hệ bán hàng'
-                            : blockedDowngrade
-                              ? 'Còn hạn — không hạ gói'
-                              : isSelected
-                                ? 'Đã chọn'
-                                : 'Chọn gói & thanh toán'}
-                      </Button>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* CHECKOUT: hiện khi đã chọn 1 gói */}
-              {selectedPlan && price > 0 && (
-                <div ref={checkoutRef} className="mt-5 scroll-mt-24 rounded-2xl border-2 border-cerulean-blue-200 bg-white p-6 shadow-card">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-cerulean-blue-600">
-                        Hoàn tất thanh toán
-                      </p>
-                      <h4 className="mt-1 flex flex-wrap items-center gap-2 text-lg font-extrabold text-gray-900">
-                        {selectedPlan.name}
-                        {!selectedPlan.contactOnly && (
-                          <span className="text-sm font-medium text-slate-400">
-                            · {fmtVND(selectedPlan.priceMonthly)}/tháng
+                        {isCurrent && (
+                          <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-bold text-white">
+                            ĐANG DÙNG
                           </span>
                         )}
-                      </h4>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedPlanKey(undefined);
-                        setCycleMonths(1);
-                      }}
-                      className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-500 hover:border-cerulean-blue-300 hover:text-cerulean-blue-600"
-                    >
-                      <X className="h-4 w-4" /> Đổi gói
-                    </Button>
-                  </div>
-
-                  <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_1.1fr]">
-                    {/* Chọn chu kỳ theo gói */}
-                    <div className="space-y-2">
-                      <p className="text-sm font-semibold text-slate-700">Chọn chu kỳ thanh toán</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        {CYCLE_MONTHS.map((months) => {
-                          const p = selectedPlan.cycles[months];
-                          const active = cycleMonths === months;
-                          const saving = months > 1 ? cycleSavingPct(months, p) : 0;
-                          return (
-                            <button
-                              key={months}
-                              type="button"
-                              onClick={() => setCycleMonths(months)}
-                              className={cn(
-                                'flex flex-col items-start rounded-xl border-2 p-3 text-left transition-colors',
-                                active
-                                  ? 'border-cerulean-blue-600 bg-cerulean-blue-50'
-                                  : 'border-slate-200 bg-white hover:border-cerulean-blue-300',
-                              )}
-                            >
-                              <span className={cn('text-sm font-bold', active ? 'text-cerulean-blue-700' : 'text-slate-800')}>
-                                {months} tháng
-                              </span>
-                              <span
-                                className={cn(
-                                  'mt-0.5 text-base font-extrabold',
-                                  active ? 'text-cerulean-blue-700' : 'text-slate-900',
-                                )}
-                              >
-                                {fmtVND(p)}
-                              </span>
-                              {saving > 0 && (
-                                <span className="mt-0.5 text-[11px] font-semibold text-emerald-600">
-                                  tiết kiệm {saving}%
-                                </span>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Nhà hàng + thanh toán */}
-                    <div className="space-y-4">
-                      <div className="space-y-1.5">
-                        <p className="text-sm font-semibold text-slate-700">Nhà hàng</p>
-                        {selected ? (
-                          <Select value={String(selected._id)} onValueChange={setRestaurantId}>
-                            <SelectTrigger className="h-11 w-full">
-                              <SelectValue placeholder="Chọn nhà hàng" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {subscriptions.map((s) => (
-                                <SelectItem key={s._id} value={s._id}>
-                                  {s.name} —{' '}
-                                  {s.subscription === 'locked'
-                                    ? 'Bị khoá'
-                                    : s.subscription === 'trial'
-                                      ? `Trial còn ${s.daysLeft} ngày`
-                                      : 'Đang hoạt động'}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <p className="rounded-xl bg-slate-50 p-3 text-sm text-slate-500">
-                            Bạn chưa có nhà hàng nào để thanh toán.
-                          </p>
+                        {isPopularNow && (
+                          <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-cerulean-blue-600 px-3 py-1 text-[11px] font-bold text-white">
+                            {plan.badge || 'PHỔ BIẾN NHẤT'}
+                          </span>
                         )}
-                      </div>
 
-                      {selected && (
-                        <div className="rounded-xl bg-slate-50 p-4">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-slate-500">Tổng tiền cần thanh toán</span>
-                            <span className="text-lg font-extrabold text-cerulean-blue-600">{fmtVND(price)}</span>
-                          </div>
-                          <div className="mt-2 flex items-center justify-between text-sm">
-                            <span className="text-slate-500">Thanh toán tới ngày</span>
-                            <span className="font-semibold text-slate-800">{fmtDate(newPaidUntil)}</span>
-                          </div>
+                        <p className={cn('text-sm font-bold', isPopularNow ? 'text-cerulean-blue-700' : 'text-gray-900')}>
+                          {plan.name}
+                        </p>
+                        {plan.description && <p className="mt-1 text-xs text-slate-500">{plan.description}</p>}
+
+                        <p className="mt-4 text-3xl font-extrabold text-gray-900">
+                          {plan.contactOnly ? (
+                            'Liên hệ'
+                          ) : (
+                            <>
+                              {fmtVND(price)}
+                              <span className="ml-1 text-sm font-medium text-slate-400">/{cycleText}</span>
+                            </>
+                          )}
+                        </p>
+                        {saving > 0 && !plan.contactOnly && cycleMonths > 1 && (
+                          <p className="mt-0.5 text-[11px] font-semibold text-emerald-600">Tiết kiệm {saving}%</p>
+                        )}
+
+                        <ul className="mt-4 flex flex-col gap-2 text-sm text-slate-600">
+                          {plan.features.map((f) => (
+                            <li key={f} className="flex items-center gap-2">
+                              <Check className="h-4 w-4 shrink-0 text-emerald-500" /> {f}
+                            </li>
+                          ))}
+                        </ul>
+
+                        <div className="mt-auto pt-5">
+                          <Button
+                            disabled={isCurrent || blockedDowngrade}
+                            onClick={() => openPayDialog(plan)}
+                            className={cn(
+                              'w-full rounded-xl text-sm font-semibold',
+                              isCurrent || blockedDowngrade
+                                ? 'border border-slate-200 bg-white text-slate-400'
+                                : isPopularNow
+                                  ? 'bg-cerulean-blue-600 text-white shadow-lg shadow-cerulean-blue-200 hover:bg-cerulean-blue-700'
+                                  : 'border border-slate-200 bg-white text-slate-600 hover:border-cerulean-blue-300 hover:text-cerulean-blue-600',
+                            )}
+                            variant={isCurrent || blockedDowngrade ? 'outline' : isPopularNow ? 'default' : 'outline'}
+                          >
+                            {isCurrent
+                              ? 'Gói hiện tại'
+                              : plan.contactOnly
+                                ? 'Liên hệ bán hàng'
+                                : blockedDowngrade
+                                  ? 'Còn hạn — không hạ gói'
+                                  : 'Nâng cấp'}
+                          </Button>
                         </div>
-                      )}
-
-                      <Button
-                        onClick={handlePay}
-                        disabled={!selected || paying}
-                        className="h-12 w-full rounded-xl bg-cerulean-blue-600 hover:bg-cerulean-blue-700 text-white font-semibold"
-                      >
-                        {paying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
-                        Thanh toán {fmtVND(price)}
-                      </Button>
-                      <p className="text-center text-[11px] text-slate-400">
-                        Thanh toán mô phỏng (mock) — chưa nối cổng thanh toán thật.
-                      </p>
-                    </div>
-                  </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
+                <p className="mt-3 text-center text-xs text-slate-400">
+                  Giá hiển thị theo chu kỳ đang chọn. Chọn gói để mở modal thanh toán chuyển khoản.
+                </p>
               </>
             )}
           </div>
 
-          {/* LỊCH SỬ HOÁ ĐƠN */}
-          <div ref={historyRef} className="rounded-2xl border border-slate-200 bg-white shadow-card">
+          {/* LỊCH SỬ THANH TOÁN */}
+          <div ref={historyRef} className="scroll-mt-24 rounded-2xl border border-slate-200 bg-white shadow-card">
             <div className="border-b border-slate-100 p-5">
-              <h3 className="text-sm font-bold text-gray-900">Lịch sử hoá đơn</h3>
+              <h3 className="text-sm font-bold text-gray-900">Lịch sử thanh toán</h3>
+              <p className="mt-0.5 text-xs text-slate-400">Toàn bộ giao dịch nâng cấp và gia hạn của nhà hàng</p>
             </div>
             {transactions.length === 0 ? (
               <p className="p-8 text-sm text-slate-400">Chưa có hoá đơn nào.</p>
@@ -529,12 +513,11 @@ export default function BillingPage() {
                 <table className="w-full min-w-[680px] text-sm">
                   <thead>
                     <tr className="border-b border-slate-100 bg-slate-50/60 text-left text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                      <th className="px-5 py-3">Hoá đơn</th>
-                      <th className="px-5 py-3">Ngày</th>
+                      <th className="px-5 py-3">Mã giao dịch</th>
                       <th className="px-5 py-3">Gói</th>
+                      <th className="px-5 py-3">Ngày tạo</th>
                       <th className="px-5 py-3">Số tiền</th>
                       <th className="px-5 py-3">Trạng thái</th>
-                      <th className="px-5 py-3 text-right">Tải xuống</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -544,23 +527,18 @@ export default function BillingPage() {
                       return (
                         <tr key={t._id} className="transition-colors hover:bg-cerulean-blue-50/60">
                           <td className="px-5 py-3.5 font-semibold text-cerulean-blue-700">{code}</td>
-                          <td className="px-5 py-3.5 text-slate-600">{fmtDate(t.createdAt)}</td>
                           <td className="px-5 py-3.5 text-slate-600">
-                            {t.planName ? `${t.planName} · Tháng ${new Date(t.createdAt).getMonth() + 1}` : `${t.cycleMonths} tháng`}
+                            {t.planName ? `${t.planName} (${t.cycleMonths === 1 ? 'tháng' : 'năm'})` : `${t.cycleMonths} tháng`}
+                          </td>
+                          <td className="px-5 py-3.5 text-slate-600">
+                            {fmtDate(t.createdAt)}
+                            <span className="text-slate-400">{format(new Date(t.createdAt), ' · HH:mm', { locale: vi })}</span>
                           </td>
                           <td className="px-5 py-3.5 font-bold text-gray-900">{fmtVND(t.amount)}</td>
                           <td className="px-5 py-3.5">
                             <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
                               Đã thanh toán
                             </span>
-                          </td>
-                          <td className="px-5 py-3.5 text-right">
-                            <button
-                              onClick={() => toast.info('Tính năng tải PDF sắp ra mắt', { position: 'top-right' })}
-                              className="rounded-lg bg-cerulean-blue-50 px-3 py-1.5 text-xs font-semibold text-cerulean-blue-700 transition hover:bg-cerulean-blue-600 hover:text-white"
-                            >
-                              PDF
-                            </button>
                           </td>
                         </tr>
                       );
@@ -571,6 +549,20 @@ export default function BillingPage() {
             )}
           </div>
         </div>
+
+        {/* MODAL THANH TOÁN */}
+        <PaymentDialog
+          open={paymentOpen}
+          onOpenChange={setPaymentOpen}
+          planName={paymentPlan?.name ?? currentPlan?.name ?? 'Gói dịch vụ'}
+          cycleText={cycleText}
+          restaurantName={selected?.name ?? ''}
+          price={paymentPlan?.cycles[cycleMonths] ?? currentPlan?.cycles[cycleMonths] ?? 0}
+          paymentCode={paymentCode}
+          bank={bankAccount}
+          paying={paying}
+          onConfirm={handlePay}
+        />
       </div>
     </div>
   );

@@ -5,7 +5,9 @@ import {
   ArrowLeft,
   CalendarClock,
   CreditCard,
+  Gem,
   LayoutGrid,
+  Mail,
   MapPin,
   Phone,
   Save,
@@ -16,7 +18,9 @@ import {
 
 import { useRestaurant } from '@/hooks/use-restaurant';
 import { useSetting } from '@/hooks/use-setting';
+import { useSubscription } from '@/hooks/use-subscription';
 import { SubscriptionBadge } from '@/components/SubscriptionBadge';
+import { Switch } from '@/components/ui/switch';
 import TabStoreSystem from '../SettingPage/components/TabStoreSystem';
 import TabTables from '../SettingPage/components/TabTables';
 import TabMenuCategories from '../SettingPage/components/TabMenuCategories';
@@ -42,17 +46,12 @@ type TabSaveHandler = () => Promise<boolean>;
 
 const fmtDate = (d?: Date | string) => {
   if (!d) return '—';
-  return new Date(d).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return new Date(d).toLocaleDateString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
 };
-
-const GRADIENTS = [
-  'from-cerulean-blue-600 to-cerulean-blue-800',
-  'from-emerald-500 to-teal-700',
-  'from-violet-500 to-purple-700',
-  'from-amber-500 to-orange-700',
-  'from-rose-500 to-red-700',
-  'from-cyan-500 to-sky-700',
-];
 
 /**
  * Trang chi tiết / cài đặt riêng của một chi nhánh.
@@ -96,9 +95,19 @@ export default function RestaurantDetailPage() {
     [restaurants, id],
   );
 
+  // Thông tin thuê bao + tên gói đang dùng của chi nhánh (GET /subscriptions/me + /pricing).
+  const { pricing, getStateForRestaurant } = useSubscription();
+  const subInfo = useMemo(() => getStateForRestaurant(String(id)), [getStateForRestaurant, id]);
+  const currentPlanKey = subInfo?.currentPlanKey ?? restaurant?.currentPlanKey;
+  const planName = useMemo(() => {
+    if (!currentPlanKey) return undefined;
+    return pricing?.plans?.find((p) => p.key === currentPlanKey)?.name;
+  }, [currentPlanKey, pricing]);
+
   // Hỗ trợ deep-link tab qua ?tab=store|tables|menu|payment
   const tabParam = searchParams.get('tab') as DetailTabKey | null;
-  const effectiveTab: DetailTabKey = (tabParam && TABS.some((t) => t.key === tabParam) ? tabParam : null) ?? activeTab;
+  const effectiveTab: DetailTabKey =
+    (tabParam && TABS.some((t) => t.key === tabParam) ? tabParam : null) ?? activeTab;
 
   const goTab = (key: DetailTabKey) => {
     setActiveTab(key);
@@ -126,19 +135,15 @@ export default function RestaurantDetailPage() {
     if (!restaurant) return;
     const ok = await updateRestaurant(String(restaurant._id), { status });
     if (ok) {
-      toast.success(status === 'active' ? 'Chi nhánh đã hoạt động trở lại.' : 'Chi nhánh đã ngưng hoạt động.', {
-        position: 'top-right',
-      });
+      toast.success(
+        status === 'active' ? 'Chi nhánh đã hoạt động trở lại.' : 'Chi nhánh đã ngưng hoạt động.',
+        {
+          position: 'top-right',
+        },
+      );
       fetchRestaurants();
     }
   };
-
-  const gradientIndex = useMemo(() => {
-    if (!restaurant?._id) return 0;
-    let hash = 0;
-    for (const ch of String(restaurant._id)) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
-    return hash % GRADIENTS.length;
-  }, [restaurant?._id]);
 
   if (isLoading) {
     return (
@@ -154,7 +159,9 @@ export default function RestaurantDetailPage() {
         <Store className="h-10 w-10 text-slate-300" />
         <div>
           <p className="text-lg font-bold text-gray-900">Không tìm thấy chi nhánh</p>
-          <p className="mt-1 text-sm text-slate-500">Chi nhánh này có thể đã bị xoá hoặc bạn không có quyền truy cập.</p>
+          <p className="mt-1 text-sm text-slate-500">
+            Chi nhánh này có thể đã bị xoá hoặc bạn không có quyền truy cập.
+          </p>
         </div>
         <button
           type="button"
@@ -222,86 +229,115 @@ export default function RestaurantDetailPage() {
         </div>
 
         {/* CARD THÔNG TIN CHI NHÁNH */}
-        <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-card">
-          <div className={cn('relative flex h-28 items-end bg-gradient-to-br p-5', GRADIENTS[gradientIndex])}>
-            <div className="absolute right-3 top-4 flex items-center gap-2">
-              {/* Trạng thái hoạt động hiện tại của chi nhánh */}
-              <div className="flex items-center gap-1 overflow-hidden rounded-full bg-white/95 shadow-sm backdrop-blur">
-                <span className="pl-3 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                  Trạng thái
-                </span>
-                <select
-                  value={restaurant.status || 'active'}
-                  onChange={(e) => handleStatusChange(e.target.value as 'active' | 'inactive')}
-                  className={cn(
-                    'cursor-pointer rounded-full border border-transparent py-1.5 pl-2 pr-3 text-xs font-bold outline-none transition',
-                    restaurant.status === 'inactive'
-                      ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                      : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200',
+        <div className="mt-6 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div className="flex min-w-0 items-center gap-4">
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-cerulean-blue-600 to-cerulean-blue-800 text-lg font-bold uppercase text-white shadow-lg shadow-cerulean-blue-200">
+                {(restaurant.name || '?').charAt(0)}
+              </span>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="truncate text-base font-bold text-slate-900">{restaurant.name}</h2>
+                  {planName && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-violet-700 ring-1 ring-violet-100">
+                      <Gem className="h-3 w-3" />
+                      {planName}
+                    </span>
                   )}
-                >
-                  <option value="active">Đang hoạt động</option>
-                  <option value="inactive">Ngưng hoạt động</option>
-                </select>
-              </div>
-              <span>
-                <SubscriptionBadge subscription={restaurant.subscription} />
-              </span>
-            </div>
-            <div className="flex items-center gap-4">
-              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 text-2xl font-extrabold text-white backdrop-blur">
-                {(restaurant.name || '?').charAt(0).toUpperCase()}
-              </span>
-              <div>
-                <h2 className="text-xl font-extrabold text-white drop-shadow-sm">{restaurant.name}</h2>
-                <p className="mt-0.5 text-sm text-white/80">
-                  {restaurant.email || restaurant.phone || 'Chưa cập nhật liên hệ'}
+                </div>
+                <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                  {restaurant.email && (
+                    <span className="inline-flex items-center gap-1">
+                      <Mail className="h-3.5 w-3.5 text-slate-400" />
+                      {restaurant.email}
+                    </span>
+                  )}
+                  {restaurant.phone && (
+                    <span className="inline-flex items-center gap-1">
+                      <Phone className="h-3.5 w-3.5 text-slate-400" />
+                      {restaurant.phone}
+                    </span>
+                  )}
                 </p>
               </div>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-3">
+              {/* Trạng thái hoạt động hiện tại của chi nhánh */}
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                Trạng thái
+              </span>
+              <span
+                className={cn(
+                  'text-xs font-semibold',
+                  restaurant.status === 'inactive' ? 'text-amber-600' : 'text-emerald-600',
+                )}
+              >
+                {restaurant.status === 'inactive' ? 'Ngưng hoạt động' : 'Đang hoạt động'}
+              </span>
+              <Switch
+                checked={restaurant.status !== 'inactive'}
+                onCheckedChange={(on) => handleStatusChange(on ? 'active' : 'inactive')}
+                aria-label="Cập nhật trạng thái chi nhánh"
+                className={cn(
+                  'data-[state=checked]:bg-emerald-500',
+                  restaurant.status === 'inactive' && 'data-[state=unchecked]:bg-amber-400',
+                )}
+              />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 p-5 md:grid-cols-2 xl:grid-cols-4">
-            <div className="flex items-start gap-3">
-              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Địa chỉ</p>
-                <p className="mt-0.5 text-sm text-gray-800">{restaurant.address || 'Chưa cập nhật'}</p>
-              </div>
+          <div className="mt-5 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3 text-xs sm:grid-cols-2 md:grid-cols-4">
+            <div className="flex flex-col items-center gap-1 rounded-lg bg-white px-3 py-2 ring-1 ring-slate-100">
+              <span className="inline-flex items-center gap-1.5 font-medium text-slate-500">
+                <MapPin className="h-3.5 w-3.5 text-cerulean-blue-500" />
+                Địa chỉ
+              </span>
+              <span className="max-w-44 truncate text-center text-slate-900">
+                {restaurant.address || 'Chưa cập nhật'}
+              </span>
             </div>
-            <div className="flex items-start gap-3">
-              <Phone className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Số điện thoại</p>
-                <p className="mt-0.5 text-sm text-gray-800">{restaurant.phone || 'Chưa cập nhật'}</p>
-              </div>
+            <div className="flex flex-col items-center gap-1 rounded-lg bg-white px-3 py-2 ring-1 ring-slate-100">
+              <span className="inline-flex items-center gap-1.5  text-slate-500">
+                <Phone className="h-3.5 w-3.5 text-cerulean-blue-500" />
+                Số điện thoại
+              </span>
+              <span className="max-w-44 truncate text-center  text-slate-900">
+                {restaurant.phone || 'Chưa cập nhật'}
+              </span>
             </div>
-            <div className="flex items-start gap-3">
-              <Users className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Quy mô</p>
-                <p className="mt-0.5 text-sm text-gray-800">
-                  {restaurant.capacity ? `${restaurant.capacity} khách · ${restaurant.operatingHours || '—'}` : (restaurant.operatingHours || 'Chưa cập nhật')}
-                </p>
-              </div>
+            <div className="flex flex-col items-center gap-1 rounded-lg bg-white px-3 py-2 ring-1 ring-slate-100">
+              <span className="inline-flex items-center gap-1.5 font-medium text-slate-500">
+                <Users className="h-3.5 w-3.5 text-cerulean-blue-500" />
+                Quy mô
+              </span>
+              <span className="max-w-44 truncate text-center  text-slate-900">
+                {restaurant.capacity
+                  ? `${restaurant.capacity} khách · ${restaurant.operatingHours || '—'}`
+                  : restaurant.operatingHours || 'Chưa cập nhật'}
+              </span>
             </div>
-            <div className="flex items-start gap-3">
-              <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Tình trạng thuê bao</p>
-                <p className="mt-0.5 text-sm text-gray-800">
+            <div className="col-span-2 flex flex-col items-center gap-1 rounded-lg bg-white px-3 py-2 ring-1 ring-slate-100 md:col-span-1">
+              <span className="inline-flex items-center gap-1.5 font-medium text-slate-500">
+                <CalendarClock className="h-3.5 w-3.5 text-cerulean-blue-500" />
+                Gói & Thuê bao
+              </span>
+              <span className="flex max-w-44 flex-col items-center gap-1">
+                <span className="truncate text-[10px] text-slate-400">
                   {restaurant.subscription === 'trial'
                     ? `Dùng thử đến ${fmtDate(restaurant.trialEndsAt)}`
                     : restaurant.subscription === 'active'
                       ? `Hoạt động đến ${fmtDate(restaurant.paidUntil)}`
                       : 'Đã khoá — cần gia hạn'}
-                </p>
-              </div>
+                </span>
+              </span>
             </div>
           </div>
 
           {restaurant.description && (
-            <p className="border-t border-slate-100 px-5 py-3 text-sm text-slate-500">{restaurant.description}</p>
+            <p className="mt-5 border-t border-slate-100 pt-3 text-sm text-slate-500">
+              {restaurant.description}
+            </p>
           )}
         </div>
 

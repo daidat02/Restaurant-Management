@@ -49,9 +49,11 @@ class AuthService {
   }
 
   /**
-   * Lấy nhà hàng đang hoạt động mặc định (phần tử đầu tiên của restaurantIds, fallback field legacy `restaurant`).
+   * Lấy nhà hàng đang hoạt động mặc định:
+   * ưu tiên `primaryRestaurantId` (field tường minh), fallback phần tử đầu restaurantIds, rồi legacy `restaurant`.
    */
   private getActiveRestaurantId(user: IUserDocument): string | undefined {
+    if (user.primaryRestaurantId) return user.primaryRestaurantId.toString();
     if (user.restaurantIds && user.restaurantIds.length > 0) {
       return user.restaurantIds[0]!.toString();
     }
@@ -130,14 +132,46 @@ class AuthService {
       return { message: 'Email hoặc số điện thoại không được tìm thấy!', code: 400 };
     }
 
+    // Chống brute-force: khóa tạm thời khi nhập sai quá nhiều lần (5 lần / 15 phút).
+    const now = Date.now();
+    if (exitUser.lockUntil && exitUser.lockUntil.getTime() > now) {
+      const minutesLeft = Math.ceil((exitUser.lockUntil.getTime() - now) / 60000);
+      return {
+        message: `Tài khoản đã bị khóa tạm thời. Vui lòng thử lại sau ${minutesLeft} phút!`,
+        code: 429,
+      };
+    }
+
     const isPasswordValid = await bcrypt.compare(userData.password, exitUser.password);
     if (!isPasswordValid) {
-      return { message: 'Mật khẩu không hợp lệ!', code: 400 };
+      const MAX_LOGIN_ATTEMPTS = 5;
+      const LOCKOUT_MS = 15 * 60 * 1000;
+      const attempts = (exitUser.loginAttempts ?? 0) + 1;
+      if (attempts >= MAX_LOGIN_ATTEMPTS) {
+        await authRepository.updateLoginFailure(
+          exitUser._id.toString(),
+          attempts,
+          new Date(now + LOCKOUT_MS),
+        );
+        return {
+          message: 'Quá nhiều lần đăng nhập sai. Tài khoản bị khóa 15 phút!',
+          code: 429,
+        };
+      }
+      await authRepository.updateLoginFailure(exitUser._id.toString(), attempts);
+      return {
+        message: `Mật khẩu không hợp lệ! (còn ${MAX_LOGIN_ATTEMPTS - attempts} lần thử)`,
+        code: 400,
+      };
     }
 
     if (!exitUser.isActive) {
       return { message: 'Tài khoản đã bị khóa!', code: 400 };
     }
+
+    // Đăng nhập thành công → reset đếm sai + ghi nhận lần đăng nhập gần nhất.
+    await authRepository.updateLoginSuccess(exitUser._id.toString());
+
     // Token cần restaurantId dạng id string thuần — lấy TRƯỚC khi populate,
     // vì sau populate restaurantIds[0] là document (toString() cho chuỗi không dùng được).
     const accessToken = generateAccessToken(
@@ -170,6 +204,8 @@ class AuthService {
     'address',
     'avatar',
     'notificationEnabled',
+    'gender',
+    'birthday',
   ];
 
   /**
@@ -225,7 +261,14 @@ class AuthService {
           }
         }
         const { restaurant: _legacyRestaurant, ...cleanUpdate } = updateData;
-        updateData = { ...cleanUpdate, restaurantIds: restaurantIds as unknown as ObjectId[] };
+        const restaurantUpdate: Partial<IUser> = {
+          restaurantIds: restaurantIds as unknown as ObjectId[],
+        };
+        // Đồng bộ nhà hàng chính theo lần gán mới (nếu có nhà hàng được gán)
+        if (restaurantIds[0]) {
+          restaurantUpdate.primaryRestaurantId = restaurantIds[0] as unknown as ObjectId;
+        }
+        updateData = { ...cleanUpdate, ...restaurantUpdate };
       }
     }
 
@@ -322,6 +365,9 @@ class AuthService {
       ...rest,
       role: userData.role,
       restaurantIds: restaurantIds as unknown as ObjectId[],
+      // Nhà hàng chính + thời điểm khởi tạo mật khẩu (nhân sự mới được admin/manager tạo)
+      primaryRestaurantId: restaurantIds[0] as unknown as ObjectId,
+      passwordChangedAt: new Date(),
     };
     const user = await authRepository.createUser(createData);
     return { message: 'Tạo nhân viên thành công!!!', data: this.serializeUser(user), code: 201 };
