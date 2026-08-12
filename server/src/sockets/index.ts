@@ -3,6 +3,7 @@ import { authenticateToken, canAccessTenant, type SocketCustom } from "../middle
 import { orderHandler } from "../modules/OrderModule/order.handler.js";
 import { paymentHandler } from "../modules/PaymentModule/payment.handler.js";
 import { messageHandler } from "../modules/MessageModule/message.handler.js";
+import { subscriptionPaymentHandler } from "./subscription.handler.js";
 import DB_Connection from "../models/DB_Connection.js";
 
 // Đếm số kết nối Socket đang active của từng user (chống mất trạng thái Online
@@ -92,6 +93,8 @@ export const ResgisterSocketIO = (io:SocketIOServer) =>{
         paymentHandler(io,socket);
 
         messageHandler(io, socket);
+
+        subscriptionPaymentHandler(io, socket);
 
         socket.on("disconnect", () => {
         console.log("User disconnected:", socket.id);

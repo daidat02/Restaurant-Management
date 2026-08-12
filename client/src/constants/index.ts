@@ -163,6 +163,8 @@ export const API_ENDPOINTS = {
     PRICING_ADMIN: `${API_BASE_URL}/admin/pricing`,
     ME: `${API_BASE_URL}/subscriptions/me`,
     PAY: `${API_BASE_URL}/subscriptions/pay`,
+    PAYOS_CREATE_URL: `${API_BASE_URL}/subscriptions/payos/create-url`,
+    VNPAY_CREATE_URL: `${API_BASE_URL}/subscriptions/vnpay/create-url`,
     TRANSACTIONS: `${API_BASE_URL}/subscriptions/transactions`,
   },
 

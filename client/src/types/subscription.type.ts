@@ -49,6 +49,8 @@ export interface ITransaction {
   _id: string;
   restaurant: string | { _id: string; name: string };
   ownerId: string;
+  /** Mã giao dịch dãy số hiển thị trên lịch sử. */
+  transactionId?: string;
   amount: number;
   cycleMonths: 1 | 3 | 6 | 12;
   type: 'restaurant-fee' | 'trial-expire';
@@ -59,4 +61,29 @@ export interface ITransaction {
   planName?: string;
   createdAt: Date | string;
   updatedAt: Date | string;
+}
+
+/** Phản hồi tạo link thanh toán gói cước bằng PayOS (POST /subscriptions/payos/create-url). */
+export interface IPayosCreateUrlResult {
+  transactionId: string;
+  orderCode: number;
+  checkoutUrl: string;
+  qrCodeData: string;
+  paymentLinkId: string;
+  amount: number;
+  planKey?: string | null;
+  planName?: string | null;
+  paidUntil: Date | string;
+}
+
+/** Phản hồi tạo link thanh toán gói cước bằng VNPay (POST /subscriptions/vnpay/create-url). */
+export interface IVnpayCreateUrlResult {
+  transactionId: string;
+  orderCode: number;
+  checkoutUrl: string;
+  paymentLinkId: string;
+  amount: number;
+  planKey?: string | null;
+  planName?: string | null;
+  paidUntil: Date | string;
 }

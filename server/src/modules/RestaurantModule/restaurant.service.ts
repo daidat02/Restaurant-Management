@@ -4,6 +4,7 @@ import authRepository from '../AuthModule/auth.repository.js';
 import pricingService from '../SubscriptionModule/pricing.service.js';
 import DB_Connection from '../../models/DB_Connection.js';
 import { TRIAL_DAYS } from '../../services/subscription.service.js';
+import { generateTransactionId } from '../../services/transaction-id.service.js';
 
 class RestaurantSerice {
   /**
@@ -78,6 +79,7 @@ class RestaurantSerice {
       transaction = await DB_Connection.Transaction.create({
         restaurant: restaurant._id,
         ownerId: owner._id,
+        transactionId: await generateTransactionId(),
         amount: price,
         cycleMonths,
         type: 'restaurant-fee',

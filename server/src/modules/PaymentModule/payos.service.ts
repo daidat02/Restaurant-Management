@@ -111,7 +111,6 @@ class PayOsService {
         throw new Error('Không tìm thấy đơn hàng từ webhook');
       }
 
-      // 🔥 Sửa 3: Thêm `await` và lấy đúng Id nhà hàng từ đơn hàng hiện tại để nạp Key webhook
       const payos = await this.getPayos(currentOrder.restaurant.toString());
 
       // Verify chữ ký từ PayOS

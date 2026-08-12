@@ -2,7 +2,7 @@ import DB_Connection from '../../models/DB_Connection.js'; // Giả định impo
 import type { ISetting, ISettingDocument } from '../../models/Schema/SettingSchema.js'; // Import interface hoặc loại document của bạn
 import type { ClientSession, FilterQuery } from 'mongoose';
 
-// ID cố định cho bản ghi cấu hình cổng thanh toán toàn hệ thống (scope='admin')
+// ID cố định cho bản ghi cấu hình cổng thanh toán toàn hệ thống (scope='platform')
 // Dùng ObjectId hợp lệ để tận dụng index unique { scope, targetId }
 export const PLATFORM_GATEWAY_TARGET_ID = '000000000000000000000001';
 
@@ -114,12 +114,12 @@ class SettingRepository {
   }
 
   /**
-   * Tìm bản ghi cấu hình cổng thanh toán hệ thống (scope='admin').
+   * Tìm bản ghi cấu hình cổng thanh toán hệ thống (scope='platform').
    * Query kèm key nhạy cảm (select:false) để service tính cờ hasApiKey — key KHÔNG bao giờ được serialize ra response
    */
   async findGatewaySetting(): Promise<ISettingDocument | null> {
     return await DB_Connection.Setting.findOne({
-      scope: 'admin',
+      scope: 'platform',
       targetId: PLATFORM_GATEWAY_TARGET_ID,
     })
       .select(
@@ -132,7 +132,7 @@ class SettingRepository {
    * Sử dụng cơ chế Upsert để phòng ngừa lỗi trùng lặp Index hỗn hợp { scope, targetId }
    */
   async getOrCreateSetting(
-    scope: 'admin' | 'restaurant',
+    scope: 'admin' | 'restaurant' | 'platform',
     targetModel: string,
     targetId: string,
     options?: { session?: ClientSession },

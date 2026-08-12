@@ -72,7 +72,7 @@ class SettingController {
       // Với setting của nhà hàng, targetId lấy từ ngữ cảnh tenant đã xác thực
       const effectiveTargetId = model === 'Restaurant' ? req.tenantId : targetId;
       const result = await settingService.getOrCreateSettingService(
-        scope as 'admin' | 'restaurant',
+        scope as 'admin' | 'restaurant' | 'platform',
         model as 'User' | 'Restaurant',
         effectiveTargetId || '',
       );

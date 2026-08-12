@@ -106,7 +106,7 @@ export interface ISystemConfig {
 
 // INTERFACE CHÍNH CHO SETTING
 export interface ISetting extends Document {
-  scope: 'admin' | 'restaurant';
+  scope: 'admin' | 'restaurant' | 'platform';
   targetModel: 'User' | 'Restaurant';
   targetId: Types.ObjectId | string;
 

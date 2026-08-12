@@ -92,7 +92,7 @@ class SettingService {
   }
 
   async getOrCreateSettingService(
-    scope: 'admin' | 'restaurant',
+    scope: 'admin' | 'restaurant' | 'platform',
     targetModel: 'User' | 'Restaurant',
     targetId: string,
   ): Promise<ServiceResponse<ISetting>> {
@@ -253,9 +253,9 @@ class SettingService {
    * Key mới được mã hóa (encryptKey); key trống/đã ẩn (••••) sẽ giữ nguyên key cũ trong DB.
    */
   async upsertGatewayConfigService(payload: any): Promise<ServiceResponse<IGatewaySanitized>> {
-    // 1. Đảm bảo bản ghi platform tồn tại (upsert theo scope='admin' + targetId cố định)
+    // 1. Đảm bảo bản ghi platform tồn tại (upsert theo scope='platform' + targetId cố định)
     const setting = await settingRepository.getOrCreateSetting(
-      'admin',
+      'platform',
       'User',
       PLATFORM_GATEWAY_TARGET_ID,
     );

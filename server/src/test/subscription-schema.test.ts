@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import DB_Connection from '../models/DB_Connection.js';
 import { SEED_IDS } from './seed.js';
+import { generateTransactionId } from '../services/transaction-id.service.js';
 
 describe('T1 — Data model subscription', () => {
   it('Restaurant có ownerId + subscription + trialEndsAt + paidUntil', async () => {
@@ -27,6 +28,7 @@ describe('T1 — Data model subscription', () => {
     const tx = await DB_Connection.Transaction.create({
       restaurant: SEED_IDS.tenantX,
       ownerId: SEED_IDS.adminX,
+      transactionId: await generateTransactionId(),
       amount: 299000,
       cycleMonths: 1,
       type: 'restaurant-fee',
@@ -36,6 +38,7 @@ describe('T1 — Data model subscription', () => {
     expect(tx.amount).toBe(299000);
     expect(tx.cycleMonths).toBe(1);
     expect(tx.status).toBe('paid');
+    expect(tx.transactionId).toMatch(/^\d{14}$/);
   });
 
   it('PricingConfig có 4 chu kỳ mặc định', async () => {

@@ -222,7 +222,7 @@ export default function SettingsPage() {
           />
         );
       case 'platform':
-        return <TabPlatform onDirty={markDirty} />;
+        return <TabPlatform onDirty={markDirty} registerSave={registerSave} />;
       case 'infra':
         return <TabInfrastructure onDirty={markDirty} />;
       default:

@@ -1,13 +1,29 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
+  createSubscriptionPayosUrl,
+  createSubscriptionVnpayUrl,
   getMySubscriptions,
   getMyTransactions,
   getPricing,
   paySubscription,
 } from '@/api/subscription.api';
-import type { IPricingConfig, ISubscriptionInfo, ITransaction } from '@/types/subscription.type';
+import type {
+  IPayosCreateUrlResult,
+  IPricingConfig,
+  ISubscriptionInfo,
+  ITransaction,
+  IVnpayCreateUrlResult,
+} from '@/types/subscription.type';
+import { socket } from '@/configs/socket.io';
 import { useAuth } from './use-auth';
+
+/** Kết quả thanh toán gói cước phát từ webhook/return qua socket. */
+export interface ISubscriptionPaymentEvent {
+  status: 'success' | 'cancelled';
+  transactionId: string;
+  data?: any;
+}
 
 /**
  * Hook dữ liệu subscription của chủ nhà hàng (role admin).
@@ -21,6 +37,27 @@ export const useSubscription = () => {
   const [transactions, setTransactions] = useState<ITransaction[]>([]);
   const [pricing, setPricing] = useState<IPricingConfig | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [paymentEvent, setPaymentEvent] = useState<ISubscriptionPaymentEvent | null>(null);
+  const [listeningTransactionId, setListeningTransactionId] = useState<string | null>(null);
+  // Callback được gọi khi có kết quả thanh toán (do component truyền khi bắt đầu lắng nghe).
+  const onResultRef = useRef<((ev: ISubscriptionPaymentEvent) => void) | null>(null);
+
+  /** Bật lắng nghe kết quả thanh toán cho 1 transactionId (mở dialog/redirect thanh toán). */
+  const listenPaymentResult = useCallback(
+    (transactionId: string, onResult?: (ev: ISubscriptionPaymentEvent) => void) => {
+      setPaymentEvent(null);
+      onResultRef.current = onResult ?? null;
+      setListeningTransactionId(transactionId);
+    },
+    [],
+  );
+
+  /** Tắt lắng nghe. */
+  const stopListeningPaymentResult = useCallback(() => {
+    setPaymentEvent(null);
+    onResultRef.current = null;
+    setListeningTransactionId(null);
+  }, []);
 
   const fetchSubscriptions = useCallback(async () => {
     if (!isOwner) return;
@@ -64,6 +101,33 @@ export const useSubscription = () => {
     refresh();
   }, [refresh]);
 
+  // Lắng nghe kết quả thanh toán gói cước từ webhook/return qua socket.
+  useEffect(() => {
+    if (!listeningTransactionId) return;
+
+    const handlePayment = (payload: ISubscriptionPaymentEvent) => {
+      setPaymentEvent(payload);
+      if (payload.status === 'success') {
+        toast.success('Thanh toán gói cước thành công — gói đã kích hoạt', {
+          position: 'top-right',
+        });
+        void fetchSubscriptions();
+        void fetchTransactions();
+      } else {
+        toast.error('Thanh toán gói cước bị hủy hoặc thất bại', { position: 'top-right' });
+      }
+      onResultRef.current?.(payload);
+    };
+
+    socket.emit('subscribe_subscription_payment', listeningTransactionId);
+    socket.on('subscription_payment_event', handlePayment);
+
+    return () => {
+      socket.off('subscription_payment_event', handlePayment);
+      socket.emit('unsubscribe_subscription_payment', listeningTransactionId);
+    };
+  }, [listeningTransactionId, fetchSubscriptions, fetchTransactions]);
+
   /**
    * Thanh toán / gia hạn mock. Sau khi thành công cập nhật lại danh sách + giao dịch.
    * Trả về { success, message, data } để màn hình hiển thị.
@@ -91,17 +155,69 @@ export const useSubscription = () => {
     [subscriptions],
   );
 
+  /**
+   * Tạo link thanh toán gói cước bằng PayOS cho 1 nhà hàng.
+   * Trả về { success, data } với checkoutUrl + qrCodeData để màn hình điều hướng/hiển thị.
+   */
+  const createPayosUrl = useCallback(
+    async (
+      restaurantId: string,
+      cycleMonths: number,
+      planId?: string,
+    ): Promise<{ success: boolean; data: IPayosCreateUrlResult | null; message: string }> => {
+      try {
+        const data = await createSubscriptionPayosUrl(restaurantId, cycleMonths, planId);
+        return { success: true, data, message: 'Tạo link thanh toán thành công' };
+      } catch (err) {
+        const msg =
+          (err as { message?: string })?.message || 'Không thể tạo link thanh toán PayOS, vui lòng thử lại';
+        toast.error(msg, { position: 'top-right' });
+        return { success: false, data: null, message: msg };
+      }
+    },
+    [],
+  );
+
+  /**
+   * Tạo link thanh toán gói cước bằng VNPay cho 1 nhà hàng.
+   * Trả về { success, data } với checkoutUrl để mở cổng VNPay.
+   */
+  const createVnpayUrl = useCallback(
+    async (
+      restaurantId: string,
+      cycleMonths: number,
+      planId?: string,
+    ): Promise<{ success: boolean; data: IVnpayCreateUrlResult | null; message: string }> => {
+      try {
+        const data = await createSubscriptionVnpayUrl(restaurantId, cycleMonths, planId);
+        return { success: true, data, message: 'Tạo link thanh toán VNPay thành công' };
+      } catch (err) {
+        const msg =
+          (err as { message?: string })?.message || 'Không thể tạo link thanh toán VNPay, vui lòng thử lại';
+        toast.error(msg, { position: 'top-right' });
+        return { success: false, data: null, message: msg };
+      }
+    },
+    [],
+  );
+
   return {
     subscriptions,
     transactions,
     pricing,
     isLoading,
     isOwner,
+    paymentEvent,
+    listeningTransactionId,
+    listenPaymentResult,
+    stopListeningPaymentResult,
     fetchSubscriptions,
     fetchTransactions,
     fetchPricing,
     refresh,
     pay,
+    createPayosUrl,
+    createVnpayUrl,
     getStateForRestaurant,
   };
 };

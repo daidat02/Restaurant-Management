@@ -1,6 +1,6 @@
 import axiosClient from '@/utils/configClient';
 import type { ApiResponse } from '@/types/api.type';
-import type { IPricingConfig, ISubscriptionInfo, ITransaction } from '@/types/subscription.type';
+import type { IPricingConfig, IPayosCreateUrlResult, ISubscriptionInfo, ITransaction, IVnpayCreateUrlResult } from '@/types/subscription.type';
 import type { IRestaurant } from '@/types/restaurant.type';
 import { API_ENDPOINTS } from '@/constants/index';
 
@@ -19,6 +19,34 @@ export const paySubscription = async (restaurantId: string, cycleMonths: number,
     { restaurantId, cycleMonths, planId },
   );
   return res;
+};
+
+/** Tạo link thanh toán gói cước bằng PayOS — trả checkoutUrl + qrCode. */
+export const createSubscriptionPayosUrl = async (
+  restaurantId: string,
+  cycleMonths: number,
+  planId?: string,
+): Promise<IPayosCreateUrlResult> => {
+  const res = await axiosClient.post<any, ApiResponse<IPayosCreateUrlResult>>(SUB.PAYOS_CREATE_URL, {
+    restaurantId,
+    cycleMonths,
+    planId,
+  });
+  return res.data;
+};
+
+/** Tạo link thanh toán gói cước bằng VNPay — trả checkoutUrl. */
+export const createSubscriptionVnpayUrl = async (
+  restaurantId: string,
+  cycleMonths: number,
+  planId?: string,
+): Promise<IVnpayCreateUrlResult> => {
+  const res = await axiosClient.post<any, ApiResponse<IVnpayCreateUrlResult>>(SUB.VNPAY_CREATE_URL, {
+    restaurantId,
+    cycleMonths,
+    planId,
+  });
+  return res.data;
 };
 
 /** Giá chu kỳ (đọc PricingConfig — mọi user có token). */

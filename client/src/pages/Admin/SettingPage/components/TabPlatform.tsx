@@ -1,32 +1,148 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Landmark, PlugZap, Zap } from 'lucide-react';
+import { toast } from 'sonner';
 import { SettingCard, Field, ToggleSwitch } from './settings-ui';
 import { usePayment } from '@/hooks/use-payment';
+import { getGatewayConfig, saveGatewayConfig } from '@/api/setting.api';
+
+/** Ký hiệu che key — server giữ nguyên key cũ khi nhận giá trị này. */
+const MASK = '••••••••••••••••';
+
+interface TabPlatformProps {
+  onDirty: () => void;
+  registerSave: (key: string, handler?: () => Promise<boolean>) => void;
+}
 
 /** Tab "Nền tảng" — super-admin. Cấu hình cổng thanh toán PayOS / VNPay. */
-export default function TabPlatform({ onDirty }: { onDirty: () => void }) {
+export default function TabPlatform({ onDirty, registerSave }: TabPlatformProps) {
   const { checkPayOSConnection } = usePayment();
+
+  const [loading, setLoading] = useState(true);
   const [payosEnabled, setPayosEnabled] = useState(true);
-  const [payosClientId, setPayosClientId] = useState('ac5f8d91-xxxx-xxxx-xxxx-3f3f7b2e1a11');
-  const [payosApiKey, setPayosApiKey] = useState('ak_live_xxxxxxxxxxxx');
-  const [payosChecksumKey, setPayosChecksumKey] = useState('sk_live_xxxxxxxxxxxx');
+  const [payosClientId, setPayosClientId] = useState('');
+  const [payosApiKey, setPayosApiKey] = useState('');
+  const [payosChecksumKey, setPayosChecksumKey] = useState('');
   const [payosConnected, setPayosConnected] = useState(false);
 
+  const [vnpayEnabled, setVnpayEnabled] = useState(false);
+  const [vnpayMerchant, setVnpayMerchant] = useState('');
+  const [vnpayAccountName, setVnpayAccountName] = useState('');
+  const [vnpayAccountNumber, setVnpayAccountNumber] = useState('');
+  const [vnpayApiKey, setVnpayApiKey] = useState('');
+  const [vnpayChecksumKey, setVnpayChecksumKey] = useState('');
+
+  // ---- TẢI cấu hình cổng thanh toán hệ thống từ server ----
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const gw = await getGatewayConfig();
+        if (cancelled || !gw) return;
+        // Key luôn được ẩn (••••) nếu đã có — người dùng nhập mới để thay đổi.
+        setPayosEnabled(!!gw.payos?.clientId);
+        setPayosClientId(gw.payos?.clientId ?? '');
+        setPayosApiKey(gw.payos?.hasApiKey ? MASK : '');
+        setPayosChecksumKey(gw.payos?.hasChecksumKey ? MASK : '');
+        setPayosConnected(!!gw.payos?.hasApiKey);
+        setVnpayEnabled(!!gw.vnpay?.merchant);
+        setVnpayMerchant(gw.vnpay?.merchant ?? '');
+        setVnpayAccountName(gw.vnpay?.accountName ?? '');
+        setVnpayAccountNumber(gw.vnpay?.accountNumber ?? '');
+        setVnpayApiKey(gw.vnpay?.hasApiKey ? MASK : '');
+        setVnpayChecksumKey(gw.vnpay?.hasChecksumKey ? MASK : '');
+      } catch (err) {
+        console.error('[TabPlatform] Lỗi tải cấu hình cổng thanh toán:', err);
+        toast.error('Không tải được cấu hình cổng thanh toán', { position: 'top-right' });
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // ---- LƯU ----
+  const handleSave = useCallback(async () => {
+    try {
+      const res = await saveGatewayConfig({
+        payos: {
+          clientId: payosClientId.trim(),
+          // Key đang ẩn (••••) → gửi giá trị ẩn để server giữ nguyên key cũ.
+          apiKey: payosApiKey,
+          checksumKey: payosChecksumKey,
+        },
+        vnpay: {
+          merchant: vnpayMerchant.trim(),
+          accountName: vnpayAccountName.trim(),
+          accountNumber: vnpayAccountNumber.trim(),
+          apiKey: vnpayApiKey,
+          checksumKey: vnpayChecksumKey,
+        },
+      });
+      // Cập nhật cờ sau khi lưu để placeholder che key đúng trạng thái.
+      setPayosApiKey(res.payos?.hasApiKey ? MASK : '');
+      setPayosChecksumKey(res.payos?.hasChecksumKey ? MASK : '');
+      setVnpayApiKey(res.vnpay?.hasApiKey ? MASK : '');
+      setVnpayChecksumKey(res.vnpay?.hasChecksumKey ? MASK : '');
+      toast.success('Đã lưu cấu hình cổng thanh toán hệ thống', { position: 'top-right' });
+      return true;
+    } catch (err) {
+      const msg = (err as { message?: string })?.message || 'Lưu cấu hình cổng thanh toán thất bại';
+      toast.error(msg, { position: 'top-right' });
+      return false;
+    }
+  }, [
+    payosClientId,
+    payosApiKey,
+    payosChecksumKey,
+    vnpayMerchant,
+    vnpayAccountName,
+    vnpayAccountNumber,
+    vnpayApiKey,
+    vnpayChecksumKey,
+  ]);
+
+  useEffect(() => {
+    registerSave('platform', handleSave);
+    return () => registerSave('platform', undefined);
+  }, [registerSave, handleSave]);
+
   const handleCheckConnection = async () => {
+    if (!payosClientId.trim()) {
+      toast.error('Vui lòng nhập Client ID', { position: 'top-right' });
+      return;
+    }
+    if (
+      !payosApiKey.trim() ||
+      !payosChecksumKey.trim() ||
+      payosApiKey.includes('•') ||
+      payosChecksumKey.includes('•')
+    ) {
+      toast.error(
+        'Vui lòng nhập đầy đủ API Key và Checksum Key để kiểm tra (key cũ đang được ẩn)',
+        {
+          position: 'top-right',
+        },
+      );
+      return;
+    }
     const ok = await checkPayOSConnection({
       clientId: payosClientId.trim(),
       apiKey: payosApiKey.trim(),
       checksumKey: payosChecksumKey.trim(),
     });
-    setPayosConnected(ok);
+    if (ok) setPayosConnected(true);
   };
 
-  const [vnpayEnabled, setVnpayEnabled] = useState(false);
-  const [vnpayMerchant, setVnpayMerchant] = useState('VNP00000001');
-  const [vnpayAccountName, setVnpayAccountName] = useState('CÔNG TY TNHH LÁ SEN');
-  const [vnpayAccountNumber, setVnpayAccountNumber] = useState('1012 3456 789');
-  const [vnpayApiKey, setVnpayApiKey] = useState('');
-  const [vnpayChecksumKey, setVnpayChecksumKey] = useState('');
+  if (loading) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500 shadow-card">
+        Đang tải cấu hình cổng thanh toán...
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
@@ -57,6 +173,7 @@ export default function TabPlatform({ onDirty }: { onDirty: () => void }) {
             label="Client ID"
             value={payosClientId}
             disabled={!payosEnabled}
+            placeholder="Nhập Client ID PayOS"
             onChange={(e) => {
               setPayosClientId(e.target.value);
               onDirty();
@@ -67,6 +184,9 @@ export default function TabPlatform({ onDirty }: { onDirty: () => void }) {
             type="password"
             value={payosApiKey}
             disabled={!payosEnabled}
+            placeholder={
+              payosApiKey === MASK ? '•••••••••••••••• (giữ nguyên)' : 'Nhập API Key PayOS'
+            }
             onChange={(e) => {
               setPayosApiKey(e.target.value);
               onDirty();
@@ -77,6 +197,11 @@ export default function TabPlatform({ onDirty }: { onDirty: () => void }) {
             type="password"
             value={payosChecksumKey}
             disabled={!payosEnabled}
+            placeholder={
+              payosChecksumKey === MASK
+                ? '•••••••••••••••• (giữ nguyên)'
+                : 'Nhập Checksum Key PayOS'
+            }
             onChange={(e) => {
               setPayosChecksumKey(e.target.value);
               onDirty();
@@ -133,6 +258,7 @@ export default function TabPlatform({ onDirty }: { onDirty: () => void }) {
             label="Merchant"
             value={vnpayMerchant}
             disabled={!vnpayEnabled}
+            placeholder="VD: VNP00000001"
             onChange={(e) => {
               setVnpayMerchant(e.target.value);
               onDirty();
@@ -142,6 +268,7 @@ export default function TabPlatform({ onDirty }: { onDirty: () => void }) {
             label="Số tài khoản"
             value={vnpayAccountNumber}
             disabled={!vnpayEnabled}
+            placeholder="VD: 10123456789"
             onChange={(e) => {
               setVnpayAccountNumber(e.target.value);
               onDirty();
@@ -151,6 +278,7 @@ export default function TabPlatform({ onDirty }: { onDirty: () => void }) {
             label="Chủ tài khoản"
             value={vnpayAccountName}
             disabled={!vnpayEnabled}
+            placeholder="Tên chủ tài khoản"
             onChange={(e) => {
               setVnpayAccountName(e.target.value);
               onDirty();
@@ -161,6 +289,9 @@ export default function TabPlatform({ onDirty }: { onDirty: () => void }) {
             type="password"
             value={vnpayApiKey}
             disabled={!vnpayEnabled}
+            placeholder={
+              vnpayApiKey === MASK ? '•••••••••••••••• (giữ nguyên)' : 'Nhập API Key VNPay'
+            }
             onChange={(e) => {
               setVnpayApiKey(e.target.value);
               onDirty();
@@ -172,6 +303,11 @@ export default function TabPlatform({ onDirty }: { onDirty: () => void }) {
               type="password"
               value={vnpayChecksumKey}
               disabled={!vnpayEnabled}
+              placeholder={
+                vnpayChecksumKey === MASK
+                  ? '•••••••••••••••• (giữ nguyên)'
+                  : 'Nhập Checksum Key VNPay'
+              }
               onChange={(e) => {
                 setVnpayChecksumKey(e.target.value);
                 onDirty();

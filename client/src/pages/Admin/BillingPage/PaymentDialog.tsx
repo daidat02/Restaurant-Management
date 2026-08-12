@@ -1,13 +1,19 @@
 import { QRCodeSVG } from 'qrcode.react';
-import { CheckCircle2, Copy, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { ExternalLink, Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
-import type { IBankAccountConfig } from '@/types/setting.type';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
 const fmtVND = (n: number) => `${n.toLocaleString('vi-VN')}đ`;
+
+export type PaymentMethod = 'payos' | 'vnpay';
 
 interface IPaymentDialogProps {
   open: boolean;
@@ -16,49 +22,17 @@ interface IPaymentDialogProps {
   cycleText: string;
   restaurantName: string;
   price: number;
-  paymentCode: string;
-  bank?: IBankAccountConfig;
+  /** Phương thức thanh toán đang chọn. */
+  method: PaymentMethod;
+  /** Link thanh toán (checkoutUrl) — chưa có nghĩa là đang tạo link. */
+  checkoutUrl?: string;
+  /** QR PayOS (qrCodeData) — chỉ có với PayOS. */
+  qrCodeData?: string;
   paying: boolean;
-  onConfirm: () => void;
+  onOpenCheckout: () => void;
 }
 
-function CopyRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(value);
-      toast.success(`Đã sao chép ${label}`, { position: 'top-right' });
-    } catch {
-      toast.error('Không thể sao chép, vui lòng thử lại', { position: 'top-right' });
-    }
-  };
-
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3">
-      <div className="min-w-0">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>
-        <p className="mt-0.5 truncate font-bold text-slate-800">{value}</p>
-      </div>
-      <button
-        type="button"
-        onClick={copy}
-        className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-cerulean-blue-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-cerulean-blue-700 transition hover:bg-cerulean-blue-50"
-      >
-        <Copy className="h-3.5 w-3.5" /> Sao chép
-      </button>
-    </div>
-  );
-}
-
-/**
- * Modal "Hoàn tất thanh toán" — hiển thị mã thanh toán và thông tin chuyển khoản,
- * cấu trúc tham khảo từ trang gói dịch vụ Uweb, giữ nguyên màu sắc của hệ thống.
- */
+/** Modal "Hoàn tất thanh toán" — PayOS (QR + mở trang) / VNPay (mở cổng thanh toán). */
 export function PaymentDialog({
   open,
   onOpenChange,
@@ -66,10 +40,11 @@ export function PaymentDialog({
   cycleText,
   restaurantName,
   price,
-  paymentCode,
-  bank,
+  method,
+  checkoutUrl,
+  qrCodeData,
   paying,
-  onConfirm,
+  onOpenCheckout,
 }: IPaymentDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -84,7 +59,9 @@ export function PaymentDialog({
               Hoàn tất thanh toán
             </DialogTitle>
             <DialogDescription className="mt-1.5 text-xs leading-relaxed text-slate-500">
-              Chuyển đúng số tiền và nội dung bên dưới để hệ thống tự động đối soát.
+              {method === 'payos'
+                ? 'Quét mã QR bằng app ngân hàng hoặc bấm mở trang thanh toán PayOS.'
+                : 'Bấm mở cổng thanh toán VNPay để hoàn tất giao dịch.'}
             </DialogDescription>
           </div>
           <DialogClose asChild>
@@ -102,7 +79,7 @@ export function PaymentDialog({
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
           <div className="rounded-xl bg-gradient-to-br from-cerulean-blue-600 to-cerulean-blue-800 p-5 text-white">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-cerulean-blue-100">
-              Số tiền cần chuyển
+              Số tiền cần thanh toán
             </p>
             <p className="mt-1 text-2xl font-extrabold tracking-tight">{fmtVND(price)}</p>
             <p className="mt-1 text-xs text-cerulean-blue-100/90">
@@ -110,57 +87,26 @@ export function PaymentDialog({
             </p>
           </div>
 
-          <div className="flex flex-col items-center rounded-xl border border-slate-100 bg-white p-4">
-            {bank?.fixedQrUrl ? (
-              <img
-                src={bank.fixedQrUrl}
-                alt="Mã QR chuyển khoản (VietQR)"
-                className="h-44 w-44 rounded-lg object-contain"
-              />
-            ) : (
+          {method === 'payos' && (
+            <div className="flex flex-col items-center rounded-xl border border-slate-100 bg-white p-4">
               <div className="rounded-lg border border-slate-100 p-2">
                 <QRCodeSVG
-                  value={paymentCode}
+                  value={qrCodeData || checkoutUrl || ''}
                   size={164}
                   style={{ borderRadius: '6px' }}
                   includeMargin={false}
                 />
               </div>
-            )}
-            <p className="mt-3 text-center text-xs leading-relaxed text-slate-500">
-              Quét mã bằng app ngân hàng — số tài khoản, số tiền và nội dung được điền sẵn. Vui
-              lòng kiểm tra lại trước khi xác nhận.
-            </p>
-          </div>
-
-          {/* Thông tin chuyển khoản */}
-          <div className="space-y-2">
-            <CopyRow
-              label="Ngân hàng"
-              value={bank?.bankName ? `${bank.bankName} · ${bank.accountName ?? ''}`.trim() : '—'}
-            />
-            <CopyRow label="Số tài khoản" value={bank?.accountNumber || '—'} />
-            <CopyRow label="Nội dung chuyển khoản" value={paymentCode} />
-          </div>
-
-          {/* Cảnh báo */}
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-3.5">
-            <p className="text-xs font-bold text-amber-800">Bắt buộc chuyển khoản đúng nội dung</p>
-            <p className="mt-1 text-xs leading-relaxed text-amber-700">
-              Chỉ chuyển khoản với nội dung <strong>{paymentCode}</strong>. Nếu nhập sai hoặc thêm,
-              bớt ký tự, giao dịch sẽ không được tự động ghi nhận và chúng tôi không chịu trách
-              nhiệm đối với sai sót này.
-            </p>
-          </div>
-
-          <p className="text-xs leading-relaxed text-slate-400">
-            Sau khi nhận đúng số tiền và nội dung, hệ thống sẽ tự động kích hoạt gói (thường dưới 2
-            phút). Nếu lâu hơn, vui lòng liên hệ hotline để được hỗ trợ.
-          </p>
+              <p className="mt-3 text-center text-xs leading-relaxed text-slate-500">
+                Số tiền và nội dung được điền sẵn theo link thanh toán. Thanh toán xong hệ thống tự
+                kích hoạt gói.
+              </p>
+            </div>
+          )}
 
           <Button
-            onClick={onConfirm}
-            disabled={paying}
+            onClick={onOpenCheckout}
+            disabled={paying || !checkoutUrl}
             className={cn(
               'h-12 w-full rounded-xl text-sm font-semibold text-white',
               paying ? 'bg-cerulean-blue-500' : 'bg-cerulean-blue-600 hover:bg-cerulean-blue-700',
@@ -168,14 +114,21 @@ export function PaymentDialog({
           >
             {paying ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang xác nhận...
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Đang tạo link thanh toán...
               </>
             ) : (
               <>
-                <CheckCircle2 className="mr-2 h-4 w-4" /> Tôi đã chuyển khoản
+                <ExternalLink className="mr-2 h-4 w-4" />{' '}
+                {method === 'payos' ? 'Mở trang thanh toán PayOS' : 'Mở cổng thanh toán VNPay'}
               </>
             )}
           </Button>
+
+          <p className="text-xs leading-relaxed text-slate-400">
+            {method === 'payos'
+              ? 'Link hết hạn sau 15 phút. Sau khi thanh toán, gói sẽ tự động kích hoạt.'
+              : 'Sau khi thanh toán xong tại VNPay, hệ thống sẽ tự động kích hoạt gói cho nhà hàng.'}
+          </p>
         </div>
       </DialogContent>
     </Dialog>
