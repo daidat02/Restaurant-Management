@@ -176,13 +176,13 @@ class SubscriptionPayosService {
   async handleWebhook(webhookData: any): Promise<any> {
     try {
       const payos = await this.getPlatformPayos();
-      const { orderCode: incomingOrderCode } = webhookData?.data || webhookData;
+      const { orderCode } = webhookData?.data || webhookData;
 
-      if (!webhookData?.data?.orderCode) {
+      if (!orderCode) {
         return { success: true, message: 'Ping OK', code: 200 };
       }
 
-      const transaction = await DB_Connection.Transaction.findOne({ orderCode: incomingOrderCode });
+      const transaction = await DB_Connection.Transaction.findOne({ orderCode: orderCode });
       if (!transaction) {
         throw new Error('Không tìm thấy giao dịch từ webhook');
       }
