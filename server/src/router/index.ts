@@ -19,7 +19,7 @@ const router = Router();
 
 router.use('/auth', authRoutes);
 router.use('/', pricingRoutes);
-router.use('/', subscriptionRoutes);
+router.use('/subscriptions', subscriptionRoutes);
 router.use('/', superAdminRoutes);
 router.use('/restaurants', restaurantRoutes);
 router.use('/tables', tableRoutes);

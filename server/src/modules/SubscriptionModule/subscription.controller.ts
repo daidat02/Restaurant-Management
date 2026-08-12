@@ -43,10 +43,11 @@ class SubscriptionController {
   async payosWebhook(req: Request, res: Response) {
     try {
       const result = await subscriptionPayosService.handleWebhook(req.body);
+      console.log('PayOS subscription webhook handled:', result);
       return res.status(result.code).json(result);
     } catch (error) {
       console.error('Error handling PayOS subscription webhook:', error);
-      return res.status(500).json({ message: 'Lỗi server khi xử lý webhook PayOS gói cước' });
+      return res.status(500).json({ message: 'Lỗi server ' });
     }
   }
 

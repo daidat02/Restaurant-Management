@@ -103,6 +103,7 @@ class PayOsService {
   async handleWebhook(webhookData: any) {
     try {
       const { orderCode: incomingOrderCode } = webhookData?.data || webhookData;
+      console.log('Incoming PayOS webhook data:', webhookData);
       const existingPayment = await paymentRepository.findPaymentByOrderCode(incomingOrderCode);
       const order = await orderRepository.findOrders({ _id: existingPayment.order.toString() });
 

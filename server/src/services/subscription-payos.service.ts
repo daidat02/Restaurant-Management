@@ -178,6 +178,10 @@ class SubscriptionPayosService {
       const payos = await this.getPlatformPayos();
       const { orderCode: incomingOrderCode } = webhookData?.data || webhookData;
 
+      if (!webhookData?.data?.orderCode) {
+        return { success: true, message: 'Ping OK', code: 200 };
+      }
+
       const transaction = await DB_Connection.Transaction.findOne({ orderCode: incomingOrderCode });
       if (!transaction) {
         throw new Error('Không tìm thấy giao dịch từ webhook');
@@ -238,6 +242,7 @@ class SubscriptionPayosService {
         success: false,
         message: 'Xử lý webhook PayOS gói cước thất bại',
         error: error?.message || error,
+        code: 200,
       };
     }
   }
