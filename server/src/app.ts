@@ -1,5 +1,5 @@
 import express from 'express';
-import cors from 'cors';
+import cors, { type CorsOptions } from 'cors';
 import bodyParser from 'body-parser';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
@@ -15,22 +15,37 @@ const createApp = () => {
   const app = express();
 
   const allowedOriginsEnv = process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',')
+    ? process.env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim().replace(/\/$/, ''))
     : ['http://localhost:5173'];
 
-  const allowedOrigins = [
-    ...allowedOriginsEnv,
-    'http://192.168.1.93:5173', // Giữ lại ip local nếu cần test điện thoại
-    'https://abcdef.ngrok-free.app', // Ngrok để test nhanh
-  ];
+  // Gom các origin và loại bỏ dấu / ở cuối nếu có
+  const allowedOrigins = [...allowedOriginsEnv, 'https://0de4-171-239-174-145.ngrok-free.app'];
 
-  // Middleware
-  app.use(
-    cors({
-      origin: allowedOrigins,
-      credentials: true,
-    }),
-  );
+  console.log('Allowed origins for CORS:', allowedOrigins);
+
+  const corsOptions: CorsOptions = {
+    origin: (
+      origin: string | undefined,
+      callback: (err: Error | null, allow?: boolean) => void,
+    ) => {
+      // Cho phép requests không có origin (Postman, Mobile App, Server-to-Server)
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        console.warn(`[CORS Blocked]: Origin ${origin} không nằm trong whitelist`);
+        callback(null, false);
+      }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'ngrok-skip-browser-warning'],
+  };
+
+  // Middleware CORS
+  app.use(cors(corsOptions));
+
   app.use(express.json());
   app.use(bodyParser.urlencoded({ extended: true }));
   app.use(cookieParser());

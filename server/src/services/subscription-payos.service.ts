@@ -69,6 +69,9 @@ class SubscriptionPayosService {
     data: any,
   ) {
     const io = getIO();
+    console.log(
+      `Emitting subscription payment event for restaurant ${restaurantId}, transaction ${transactionId}, status ${status}`,
+    );
     io.to(`subscription_payment_${transactionId}`).emit('subscription_payment_event', {
       status,
       transactionId,
@@ -178,8 +181,9 @@ class SubscriptionPayosService {
       const payos = await this.getPlatformPayos();
       const { orderCode } = webhookData?.data || webhookData;
 
+      console.log('PayOS webhook received:', webhookData);
       if (!orderCode) {
-        return { success: true, message: 'Ping OK', code: 200 };
+        return { success: true, message: 'Không tìm thấy orderCode', code: 404 };
       }
 
       const transaction = await DB_Connection.Transaction.findOne({ orderCode: orderCode });

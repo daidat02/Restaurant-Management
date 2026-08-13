@@ -14,6 +14,8 @@ initSocket(server);
 // Kết nối cơ sở dữ liệu MongoDB
 connectDB();
 
+app.get('/healthz', (req, res) => res.status(200).send('OK'));
+
 server.listen(process.env.PORT, () => {
   console.log(`Server running on http://localhost:${process.env.PORT}`);
 });

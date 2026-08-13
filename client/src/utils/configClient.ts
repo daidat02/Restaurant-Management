@@ -136,7 +136,9 @@ axiosClient.interceptors.response.use(
         (data?.errorCode === 'RESTAURANT_LOCKED' || data?.code === 'RESTAURANT_LOCKED') &&
         store.getState().auth.user?.role === 'admin'
       ) {
-        store.dispatch(openUpsell({ restaurantId: data?.restaurantId || null, message: errorMessage }));
+        store.dispatch(
+          openUpsell({ restaurantId: data?.restaurantId || null, message: errorMessage }),
+        );
       }
 
       return Promise.reject({
