@@ -1,6 +1,6 @@
 # Hướng Dẫn Vận Hành — Hệ Thống Quản Lý Nhà Hàng NhamNhi
 
-> Tài liệu mô tả **cách hệ thống đang vận hành thật trên production** theo mô hình **SaaS thu phí theo nhà hàng** (hoàn tất verify toàn diện T11: test suite + E2E + build xanh, cập nhật 2026-08-02 — **bao gồm redesign vai trò admin quản toàn chuỗi**, bỏ màn hình chọn cơ sở), kèm URL, vai trò, tài khoản test từng role, luồng chính và lỗi đã biết.
+> Tài liệu mô tả **cách hệ thống đang vận hành thật trên production** theo mô hình **SaaS thu phí theo nhà hàng** (cập nhật 2026-08-13 — bổ sung **thanh toán gói cước PayOS/VNPay thật** + `transactionId` + realtime subscription payment + gateway nền tảng; dual-cổng đơn hàng PayOS per-tenant / gói cước platform gateway), kèm URL, vai trò, tài khoản test từng role, luồng chính và lỗi đã biết.
 
 ---
 
@@ -110,7 +110,7 @@ Script sẽ:
 - **Báo cáo kinh doanh** (`/admin/reports`): dữ liệu **thật theo chuỗi** (không còn mock) — bộ lọc thời gian (Hôm nay/7 ngày/Tháng/Năm), KPI tổng chuỗi + **bảng xếp hạng & so sánh doanh thu giữa các chi nhánh**, biểu đồ so sánh, hành vi gọi món.
 - **Người dùng hệ thống** (`/admin/customers`): **chỉ quản manager/admin của chuỗi** (đã bỏ tab "Khách Hàng") — lọc theo chi nhánh hoặc toàn chuỗi; form **"Thêm nhân viên"** tạo manager gán đúng chi nhánh thuộc chuỗi (admin đổi chi nhánh cho manager; manager chỉ tạo staff cho chi nhánh mình).
 - **Nhật ký hệ thống** (`/admin/logs`): 2 tab — **Hành Động** (audit của toàn chuỗi: ai làm gì, chi nhánh nào, khi nào) và **Thanh Toán** (lịch sử giao dịch mọi chi nhánh: nhà hàng, số tiền, chu kỳ, tới ngày); lọc theo chi nhánh + thời gian + từ khoá.
-- **Thanh toán & Gia hạn** (`/admin/billing`): chọn nhà hàng + chu kỳ (1/3/6/12 tháng, đọc giá từ PricingConfig), nút **"Thanh toán"** (mock) → chuyển nhà hàng sang `active`, màn thành công + **lịch sử giao dịch**.
+- **Thanh toán & Gia hạn** (`/admin/billing`): chọn nhà hàng + chu kỳ (1/3/6/12 tháng, đọc giá từ PricingConfig), **chọn phương thức thanh toán (PayOS QR / VNPay)** qua `PaymentDialog` → chuyển nhà hàng sang `active` khi hoàn tất (theo dõi realtime `listenPaymentResult`), màn thành công + **lịch sử giao dịch** (transactionId, nhà hàng, gói+chu kỳ, ngày giờ, hạn, số tiền, trạng thái — DataTable).
 
 > Màn hình cũ đã bị thay thế: **bỏ màn hình "Chọn cơ sở"** (admin quản toàn chuỗi trực tiếp) và **bỏ tab Khách Hàng** ở `/admin/customers`.
 
@@ -150,7 +150,11 @@ Script sẽ:
   - `trial` còn **≤7 ngày** → ghi nhận `subscription.expiring` + thông báo bell (1 lần).
   - `trial` hết hạn / `active` quá `paidUntil` → chuyển **locked** + audit `subscription.locked` + thông báo.
 - **Khi locked**: tạo đơn (`POST /api/orders`) & tạo món (`POST /api/menu/item`) bị chặn → `403 { code: 'RESTAURANT_LOCKED' }` → client hiện modal upsell.
-- **Thanh toán / gia hạn (mock)**: `POST /api/subscriptions/pay` (`restaurantId`, `cycleMonths`) → tạo Transaction(paid), `subscription='active'`, `paidUntil = max(now, paidUntil) + chu kỳ`, audit `transaction.create` + `subscription.unlocked`. Chưa nối PayOS/VNPay.
+- **Thanh toán / gia hạn**: 2 cổng nền tảng do super-admin cấu hình (`GET/PUT /api/settings/gateway`, scope=`platform`):
+  - **PayOS**: `POST /api/subscriptions/payos/create-url` → `{checkoutUrl, transactionId}`; webhook `POST /api/subscriptions/webhook` xác nhận → `completeSubscription()`.
+  - **VNPay**: `POST /api/subscriptions/vnpay/create-url` → `{paymentUrl, transactionId}`; return `GET /api/subscriptions/vnpay/return` (verify `vnp_SecureHash`).
+  - Kết quả: Transaction(paid) có `transactionId` (`yyyyMMdd`+6 số tăng dần), `subscription='active'`, `paidUntil = max(now, paidUntil) + chu kỳ`, audit `transaction.create` + `subscription.unlocked`; đẩy realtime room `subscription_payment_<transactionId>` (event `subscription_payment_event`) + room `restaurant_<id>` (event `subscription_event`).
+  - `POST /api/subscriptions/pay` (`restaurantId`, `cycleMonths`) hiện dùng làm **mock pay** cho E2E/verify nhanh.
 - **Giá chu kỳ** (PricingConfig, super-admin chỉnh tại `/super-admin/pricing`): 1 tháng **299.000đ** / 3 tháng **849.000đ** (~5%) / 6 tháng **1.590.000đ** (~11%) / 12 tháng **2.990.000đ** (~17%).
 - **Khoá tài khoản chủ** (super-admin): đặt `isActive=false` → toàn bộ user (admin/manager/staff) của chủ không đăng nhập được.
 
@@ -182,6 +186,7 @@ Script sẽ:
 | 7 | `/admin/customers` **chỉ quản manager** (bỏ tab khách) | ✅ |
 | 8 | `/admin/logs` audit hành động + lịch sử thanh toán toàn chuỗi | ✅ |
 | 9 | `/admin/billing` thanh toán 1 chi nhánh | ✅ |
+| 10 | PayOS / VNPay gói cước: create-url + webhook/return → Transaction `transactionId` + subscription active | ✅ (`subscription-payos.test.ts`, `subscription-vnpay.test.ts`) |
 | 10 | Login manager → `/manager` (1 cơ sở); **admin bị chặn `/manager/*` → redirect `/admin`** | ✅ |
 | 11 | Login staff → `/staff/orders/pos` | ✅ |
 | 12 | POS `/manager/orders/pos` (menu + giỏ + toggle mang về) | ✅ |
@@ -203,7 +208,7 @@ Script sẽ:
 | 3 | Nhà hàng đầu → trial 30 ngày + audit `subscription.trial.started` | `register-owner.test.ts` |
 | 4 | Nhà hàng 2+ → trả phí (Transaction) + active; chu kỳ sai → 400 | `register-owner.test.ts` |
 | 5 | State machine: trial 20 ngày giữ nguyên / ≤7 ngày → expiring / quá hạn → locked | `subscription-state.test.ts` |
-| 6 | Thanh toán: gia hạn active / mở lại locked → active + audit; chủ khác → 403 | `subscription-pay.test.ts` |
+| 6 | Thanh toán: gia hạn active / mở lại locked → active + audit; chủ khác → 403; **PayOS/VNPay gói cước: create-url + webhook/return verify + `transactionId` sequence** | `subscription-pay.test.ts`, `subscription-payos.test.ts`, `subscription-vnpay.test.ts` |
 | 7 | Tạo đơn & món khi locked → `403 RESTAURANT_LOCKED` | `subscription-pay.test.ts` |
 | 8 | Super-admin: dashboard 4 KPI, tenants, transactions, block/unblock chủ | `super-admin-billing.test.ts`, `super-admin.test.ts` |
 | 9 | **Vòng đời chống production**: đăng ký → nhà hàng đầu trial → tạo đơn OK → hết hạn → locked + chặn đơn → thanh toán → active + tạo đơn lại → super-admin thấy KPI/giao dịch → block/unblock | `subscription-lifecycle.test.ts` |
@@ -213,7 +218,7 @@ Script sẽ:
 
 ### 8.1. Verify redesign vai trò admin quản toàn chuỗi (T01–T10) — E2E + server test
 
-> Tương ứng từng ticket redesign: **server test** 257 tests / 30 files (`npm --prefix server test`), **E2E** 39 tests / 3 skipped (`npm run test:e2e` ở root), **build** `tsc` server + `tsc -b && vite build` client đều xanh.
+> Tương ứng từng ticket redesign: **server test** ~288 tests / 33 files (`npm --prefix server test`), **E2E** 39 tests / 3 skipped (`npm run test:e2e` ở root), **build** `tsc` server + `tsc -b && vite build` client đều xanh.
 
 | # | Hạng mục | Test |
 |---|---|---|

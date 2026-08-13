@@ -71,6 +71,12 @@ Client kết nối socket qua `src/configs/socket.io.ts` (instance `socket` + `c
 
 - **Order:** `order_event`, `new_notification` — cập nhật đơn hàng theo tenant.
 - **Chat:** `send_message` / `new_message`, `typing`, `conversation_updated`, `user_online` / `user_offline` (presence). `useMessaging` (MessagingProvider trong `LayoutAdmin`/`LayoutSuperAdmin`) quản lý hộp thư `MailBoxPopover` trên Header.
-- **Payment:** `payment_success`.
+- **Payment:** `payment_success` (đơn hàng) · `subscription_payment_event` (gói cước — `use-subscription.listenPaymentResult` lắng nghe theo `transactionId`).
 
-Phòng socket: `restaurant_<id>` (tenant), `conversation_<id>` (chat), `user_<id>` (cá nhân), `payment_<id>` (thanh toán). Server chỉ nhận `init_room_restaurant` khi user thuộc đúng tenant.
+Phòng socket: `restaurant_<id>` (tenant), `conversation_<id>` (chat), `user_<id>` (cá nhân), `payment_<id>` (thanh toán), `subscription_payment_<transactionId>` (gói cước). Server chỉ nhận `init_room_restaurant` khi user thuộc đúng tenant.
+
+## Thanh toán gói cước (Billing)
+
+- `/admin/billing`: chọn nhà hàng + chu kỳ (1/3/6/12 tháng) + **phương thức thanh toán (PayOS QR / VNPay)** qua `PaymentDialog`; lịch sử giao dịch dùng `DataTable` (transactionId, nhà hàng, gói, ngày giờ, hạn, số tiền, trạng thái).
+- Hook `use-subscription` (`client/src/hooks/use-subscription.ts`) cung cấp `createPayosUrl` / `createVnpayUrl` / `listenPaymentResult(transactionId, onResult?)` / `stopListeningPaymentResult`.
+- Khi endpoint trả `403 RESTAURANT_LOCKED`, axios interceptor mở modal upsell → chuyển tới `/admin/billing`.
