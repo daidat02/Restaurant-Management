@@ -44,7 +44,10 @@ export function KitchenOrderCard({ order, onItemTap }: KitchenOrderCardProps) {
 
   const typeConfigs = {
     'dine-in': {
-      label: order.table && typeof order.table !== 'string' ? `Bàn ${order.table.tableNumber}` : 'Tại quán',
+      label:
+        order.table && typeof order.table !== 'string'
+          ? `Bàn ${order.table.tableNumber}`
+          : 'Tại quán',
       icon: <User className="h-3 w-3" />,
       color: 'bg-cerulean-blue-600 text-white',
     },
@@ -66,7 +69,9 @@ export function KitchenOrderCard({ order, onItemTap }: KitchenOrderCardProps) {
       {/* CARD HEADER */}
       <div className="p-2 bg-gray-50 border-b border-gray-200 flex items-center justify-between gap-2 shrink-0">
         <div className="flex items-center gap-1.5 min-w-0">
-          <span className={`px-1.5 py-0.5 rounded text-[11px] font-bold flex items-center gap-1 shrink-0 ${currentType.color}`}>
+          <span
+            className={`px-1.5 py-0.5 rounded text-[11px] font-bold flex items-center gap-1 shrink-0 ${currentType.color}`}
+          >
             {currentType.icon}
             {currentType.label}
           </span>
@@ -79,7 +84,9 @@ export function KitchenOrderCard({ order, onItemTap }: KitchenOrderCardProps) {
           <span className="text-[10px] font-medium text-gray-500">
             {formatTime(order.createdAt)}
           </span>
-          <div className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full border text-[10px] font-medium ${timerBg}`}>
+          <div
+            className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full border text-[10px] font-medium ${timerBg}`}
+          >
             <Clock className="h-2.5 w-2.5" />
             <span>{minutesElapsed} ph</span>
           </div>
@@ -106,12 +113,16 @@ export function KitchenOrderCard({ order, onItemTap }: KitchenOrderCardProps) {
                     : 'Bắt đầu nấu món'
               }
               className={`w-full py-1.5 flex items-start gap-1.5 text-left select-none transition-all ${
-                isServed ? 'opacity-30 cursor-default' : 'cursor-pointer hover:bg-cerulean-blue-50/50'
+                isServed
+                  ? 'opacity-30 cursor-default'
+                  : 'cursor-pointer hover:bg-cerulean-blue-50/50'
               }`}
             >
               <span
                 className={`inline-flex items-center justify-center min-w-[18px] h-5 px-1 rounded text-xs font-extrabold ${
-                  isServed ? 'bg-gray-100 text-gray-400 line-through' : 'bg-gray-800 text-white'
+                  isServed || item.status === 'deleted'
+                    ? 'bg-gray-100 text-gray-400 line-through'
+                    : 'bg-gray-800 text-white'
                 }`}
               >
                 {item.quantity}
@@ -120,8 +131,10 @@ export function KitchenOrderCard({ order, onItemTap }: KitchenOrderCardProps) {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1">
                   <p
-                    className={`text-xs font-bold text-gray-700 leading-tight ${
-                      isServed ? 'line-through text-gray-400' : ''
+                    className={`text-xs font-bold leading-tight ${
+                      isServed || item.status === 'deleted'
+                        ? 'line-through text-gray-400'
+                        : 'text-gray-700'
                     }`}
                   >
                     {item.nameSnapshot}
@@ -131,10 +144,16 @@ export function KitchenOrderCard({ order, onItemTap }: KitchenOrderCardProps) {
                       className={`shrink-0 text-[9px] font-bold px-1 py-0.5 rounded-full ${
                         item.status === 'preparing'
                           ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                          : 'bg-gray-100 text-gray-500 border border-gray-200'
+                          : item.status === 'deleted'
+                            ? 'bg-red-50 text-red-700 border border-red-200'
+                            : 'bg-gray-100 text-gray-500 border border-gray-200'
                       }`}
                     >
-                      {item.status === 'preparing' ? 'Đang nấu' : 'Chờ'}
+                      {item.status === 'preparing'
+                        ? 'Đang nấu'
+                        : item.status === 'deleted'
+                          ? 'Đã hủy'
+                          : 'Chờ'}
                     </span>
                   )}
                 </div>
@@ -160,9 +179,15 @@ export function KitchenOrderCard({ order, onItemTap }: KitchenOrderCardProps) {
       {/* CARD FOOTER: Thanh tiến độ món */}
       <div className="p-2 bg-white border-t border-gray-200 shrink-0">
         <div className="flex items-center gap-1">
-          <span className={`h-1 flex-1 rounded-full ${(order.items || []).some((i) => i.status === 'served') ? 'bg-cerulean-blue-600' : 'bg-gray-200'}`} />
-          <span className={`h-1 flex-1 rounded-full ${(order.items || []).some((i) => i.status === 'preparing') ? 'bg-amber-500' : 'bg-gray-200'}`} />
-          <span className={`h-1 flex-1 rounded-full ${(order.items || []).some((i) => i.status === 'pending') ? 'bg-gray-300' : 'bg-gray-200'}`} />
+          <span
+            className={`h-1 flex-1 rounded-full ${(order.items || []).some((i) => i.status === 'served') ? 'bg-cerulean-blue-600' : 'bg-gray-200'}`}
+          />
+          <span
+            className={`h-1 flex-1 rounded-full ${(order.items || []).some((i) => i.status === 'preparing') ? 'bg-amber-500' : 'bg-gray-200'}`}
+          />
+          <span
+            className={`h-1 flex-1 rounded-full ${(order.items || []).some((i) => i.status === 'pending') ? 'bg-gray-300' : 'bg-gray-200'}`}
+          />
         </div>
       </div>
     </div>

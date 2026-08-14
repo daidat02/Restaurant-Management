@@ -29,7 +29,7 @@ export default function ReceiptPrinter({ order, children }: ReceiptPrinterProps)
     documentTitle: `Hoa_Don_${order?.orderId || order?._id || 'Moi'}`,
   });
 
-  const items = order?.items || [];
+  const items = (order?.items || []).filter((it) => it.status !== 'deleted');
   const mergedItems = mergeOrderItems(items);
   const subtotal = items.reduce((s, it) => s + (it.priceSnapshot || 0) * it.quantity, 0);
   const tableNumber =

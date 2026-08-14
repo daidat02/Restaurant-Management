@@ -6,6 +6,7 @@ import { SettingCard, Field, SelectField } from './settings-ui';
 import { useTable } from '@/hooks/use-table';
 import { cn } from '@/lib/utils';
 import type { ITable } from '@/types/table.type';
+import { AlertDialogCustom } from '@/components/AlertDialog';
 
 const STATUSES: Record<ITable['status'], { label: string; className: string }> = {
   available: { label: 'Trống', className: 'bg-emerald-50 text-emerald-700' },
@@ -24,6 +25,7 @@ export default function TabTables({ restaurantId }: { restaurantId?: string }) {
   const [formCapacity, setFormCapacity] = useState('');
   const [formStatus, setFormStatus] = useState<ITable['status']>('available');
   const [submitting, setSubmitting] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ITable | null>(null);
 
   const hasTarget = !!restaurantId;
 
@@ -72,8 +74,13 @@ export default function TabTables({ restaurantId }: { restaurantId?: string }) {
   };
 
   const handleDelete = async (table: ITable) => {
-    if (!window.confirm(`Xoá bàn số ${table.tableNumber}?`)) return;
-    await removeTable(table._id);
+    setDeleteTarget(table);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    await removeTable(deleteTarget._id);
+    setDeleteTarget(null);
   };
 
   return (
@@ -187,6 +194,23 @@ export default function TabTables({ restaurantId }: { restaurantId?: string }) {
           </div>
         </div>
       </SettingCard>
+
+      {/* Xác nhận xoá bàn — dùng AlertDialog dùng chung thay cho window.confirm */}
+      <AlertDialogCustom
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        variant="danger"
+        title="Xoá bàn?"
+        description={
+          deleteTarget
+            ? `Bạn có chắc muốn xoá bàn số ${deleteTarget.tableNumber} không? Hành động này không thể hoàn tác.`
+            : ''
+        }
+        confirmText="Xoá bàn"
+        cancelText="Huỷ"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

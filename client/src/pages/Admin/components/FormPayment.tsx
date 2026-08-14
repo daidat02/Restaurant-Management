@@ -234,7 +234,9 @@ export default function PaymentForm({ paymentId, onCancel, onConfirm }: PaymentF
         </div>
 
         <div className="flex-1 overflow-y-auto p-3 sm:p-4 flex flex-col gap-2">
-          {mergeOrderItems(currentPayment?.order?.items || []).map((item: any) => (
+          {mergeOrderItems(
+            (currentPayment?.order?.items || []).filter((it: any) => it.status !== 'deleted'),
+          ).map((item: any) => (
             <div
               key={item._id}
               className="flex justify-between pt-2 items-start text-xs sm:text-sm border-t border-gray-100 first:border-0 first:pt-0"

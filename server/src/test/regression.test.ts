@@ -115,7 +115,7 @@ describe('T13 — Regression nghiệp vụ', () => {
     expect(res.status).toBe(200);
   });
 
-  it('KDS regression — đơn served rồi thêm món → đơn quay về pending để bếp nhận', async () => {
+  it('KDS regression — đơn served rồi thêm món → đơn quay về serving để bếp nhận món mới', async () => {
     // 1. Tạo đơn dine-in X với 1 món
     const createRes = await request.post('/api/orders').send({
       restaurant: X,
@@ -141,7 +141,7 @@ describe('T13 — Regression nghiệp vụ', () => {
     expect(servedOrder.status).toBe(200);
     expect(servedOrder.body.data.status).toBe('served');
 
-    // 3. Khách gọi thêm món → đơn phải mở lại pending để KDS nhận món mới
+    // 3. Khách gọi thêm món → đơn phải mở lại serving (đang phục vụ) để KDS nhận món mới
     const addRes = await request.post('/api/orders/add-item').send({
       orderId,
       items: [{ menuItem: idOf(SEED_IDS.menuItemX2), quantity: 1 }],
@@ -152,7 +152,7 @@ describe('T13 — Regression nghiệp vụ', () => {
       .get(`/api/orders/${orderId}`)
       .set('Authorization', `Bearer ${managerX()}`);
     expect(reopenedOrder.status).toBe(200);
-    expect(reopenedOrder.body.data.status).toBe('pending');
+    expect(reopenedOrder.body.data.status).toBe('serving');
     expect(reopenedOrder.body.data.items.length).toBe(2);
   });
 
@@ -255,8 +255,8 @@ describe('T13 — Regression nghiệp vụ', () => {
     expect(addedItems[0].status).toBe('pending');
     expect(String(addedItems[0].menuItem)).toBe(idOf(SEED_IDS.menuItemX1));
 
-    // Đơn phải mở lại pending để bếp nhận món mới
-    expect(detailRes.body.data.status).toBe('pending');
+    // Đơn phải mở lại serving (đang phục vụ) để bếp nhận món mới
+    expect(detailRes.body.data.status).toBe('serving');
     // itemsCount = tổng số lượng (2), không gộp quantity vào item cũ
     expect(detailRes.body.data.itemsCount).toBe(2);
   });

@@ -9,6 +9,7 @@ import type { IOrder } from '@/types/order.type';
 import { PaymentModal } from '../components/PaymentModal';
 import { OrderCard } from './components/orderCard';
 import OrderDetailDrawer from '../components/OrderDetailDrawer';
+import { AlertDialogCustom } from '@/components/AlertDialog';
 
 export interface OrderItemProps {
   id: string | number;
@@ -30,6 +31,7 @@ export default function Order() {
 
   const [orderIdSelected, setOrderIdSelected] = useState<string | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [alertDialogOpen, setAlertDialogOpen] = useState(false);
 
   // Lọc dữ liệu theo tab (Dựa trên orderType)
   const filteredOrders = orders.filter((order) => {
@@ -101,8 +103,12 @@ export default function Order() {
                 }
               }}
               onOpenPayment={(orderId) => {
-                setOrderIdSelected(orderId);
-                setIsPaymentModalOpen(true);
+                if (order?.status == 'served') {
+                  setOrderIdSelected(orderId);
+                  setIsPaymentModalOpen(true);
+                } else {
+                  setAlertDialogOpen(true);
+                }
               }}
             />
           ))}
@@ -130,11 +136,30 @@ export default function Order() {
             `/${currentRole}/orders/pos?orderId=${order._id}&tableId=${typeof order.table === 'object' ? order.table?._id : ''}`,
           );
         }}
-        onPayment={(orderId) => {
-          setSelectedOrder(null);
-          setOrderIdSelected(orderId);
-          setIsPaymentModalOpen(true);
+        onPayment={(orderId, status) => {
+          if (status == 'served') {
+            setSelectedOrder(null);
+            setOrderIdSelected(orderId);
+            setIsPaymentModalOpen(true);
+          } else {
+            setAlertDialogOpen(true);
+          }
         }}
+        onOrderUpdated={(updated) => setSelectedOrder(updated)}
+      />
+      <AlertDialogCustom
+        open={!!alertDialogOpen}
+        onOpenChange={(open) => !open && setAlertDialogOpen(false)}
+        variant="warning"
+        title="Đơn hàng đang chờ hoàn tất"
+        description={
+          alertDialogOpen
+            ? `Bàn đang có món chưa phục vụ. Vui lòng hoàn tất hoặc hủy các món còn lại trước khi thanh toán.`
+            : ''
+        }
+        confirmText="Đồng ý"
+        cancelText="Huỷ"
+        onCancel={() => setAlertDialogOpen(false)}
       />
     </div>
   );

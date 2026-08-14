@@ -279,7 +279,7 @@ async function seedOrders(): Promise<void> {
       nameSnapshot: 'Cơm tấm',
       priceSnapshot: 50000,
       quantity: 1,
-      status: 'pending',
+      status: 'served',
     },
     {
       _id: SEED_IDS.orderItemYPaid,

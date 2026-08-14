@@ -19,6 +19,12 @@ export interface IPayment extends Document {
   raw?: any;
   refundReason?: string; // Thêm để ghi lý do hoàn tiền
   paymentDate?: Date; // Thêm để theo dõi thời gian thanh toán
+  refunds?: {
+    amount: number;
+    reason?: string;
+    actor?: Types.ObjectId;
+    refundedAt: Date;
+  }[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -40,6 +46,14 @@ const PaymentSchema = new Schema<IPayment>({
   raw: { type: Schema.Types.Mixed },
   refundReason: { type: String, trim: true },
   paymentDate: { type: Date },
+  refunds: [
+    {
+      amount: { type: Number, required: true, min: 0 },
+      reason: { type: String, trim: true },
+      actor: { type: ObjectId, ref: 'User' },
+      refundedAt: { type: Date, default: Date.now },
+    },
+  ],
 }, { timestamps: true });
 
 export const Payment =  model<IPayment>('Payment', PaymentSchema);

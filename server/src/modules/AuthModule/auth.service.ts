@@ -209,6 +209,22 @@ class AuthService {
   ];
 
   /**
+   * Kiểm tra quyền quản lý user khác theo thang bậc role.
+   * - super-admin: quản lý mọi role.
+   * - admin (chủ chuỗi): quản lý staff & manager (KHÔNG chạm tài khoản admin khác).
+   * - manager: chỉ quản lý staff (KHÔNG chạm manager/admin).
+   * - staff/customer: không quản lý ai.
+   * Tự cập nhật bản thân luôn được phép.
+   */
+  private canManageTarget(actorRole: string, actorId: string, targetId: string, targetRole: string): boolean {
+    if (actorId === targetId) return true;
+    if (actorRole === 'super-admin') return true;
+    if (actorRole === 'admin') return targetRole === 'staff' || targetRole === 'manager';
+    if (actorRole === 'manager') return targetRole === 'staff';
+    return false;
+  }
+
+  /**
    * Cập nhật thông tin cá nhân (Profile)
    */
   async updateUserService(
@@ -221,8 +237,17 @@ class AuthService {
       return { message: 'Không tìm thấy người dùng!!!', code: 400 };
     }
 
-    if (exitUser._id.toString() !== id && exitUser.role !== 'admin') {
-      return { message: 'Bạn không có quyền cập nhật người dùng này!!!', code: 403 };
+    if (exitUser._id.toString() !== id) {
+      const targetUser = await authRepository.findUserById(id);
+      if (!targetUser) {
+        return { message: 'Không tìm thấy người dùng cần cập nhật!!!', code: 400 };
+      }
+      if (!this.canManageTarget(exitUser.role, userId, id, targetUser.role)) {
+        return {
+          message: 'Bạn không có quyền cập nhật người dùng này (chỉ quản lý được staff/manager trong phạm vi của bạn)!!!',
+          code: 403,
+        };
+      }
     }
 
     // Nếu là user tự cập nhật bản thân: chỉ cho phép cập nhật các trường an toàn,
@@ -327,10 +352,17 @@ class AuthService {
   /**
    * Xóa tài khoản (Xóa mềm - ẩn hoạt động)
    */
-  async deleteUserService(id: string): Promise<ServiceResponse<any>> {
+  async deleteUserService(actorUserId: string, actorRole: string, id: string): Promise<ServiceResponse<any>> {
     const exitUser = await authRepository.findUserById(id);
     if (!exitUser) {
       return { message: 'Không tìm thấy người dùng!!!', code: 400 };
+    }
+
+    if (!this.canManageTarget(actorRole, actorUserId, id, exitUser.role)) {
+      return {
+        message: 'Bạn không có quyền xóa người dùng này (chỉ quản lý được staff/manager trong phạm vi của bạn)!!!',
+        code: 403,
+      };
     }
 
     const user = await authRepository.deleteUser(id);
@@ -338,6 +370,39 @@ class AuthService {
       return { message: 'Xóa người dùng thất bại, không tìm thấy người dùng!!!', code: 400 };
     }
     return { message: 'Xóa người dùng thành công!!!', data: this.serializeUser(user), code: 200 };
+  }
+
+  /**
+   * Khoá / mở khoá user (manager xử lý staff, admin xử lý staff/manager).
+   * Chỉ nhắm tới target có role thấp hơn; không thể khoá bản thân/admin khác.
+   */
+  async blockUserService(
+    actorUserId: string,
+    actorRole: string,
+    id: string,
+    blocked: boolean,
+  ): Promise<ServiceResponse<any>> {
+    const exitUser = await authRepository.findUserById(id);
+    if (!exitUser) {
+      return { message: 'Không tìm thấy người dùng!!!', code: 400 };
+    }
+
+    if (!this.canManageTarget(actorRole, actorUserId, id, exitUser.role)) {
+      return {
+        message: 'Bạn không có quyền khoá/mở khoá người dùng này!!!',
+        code: 403,
+      };
+    }
+
+    const user = await authRepository.updateProfile(id, { isActive: !blocked });
+    if (!user) {
+      return { message: 'Không tìm thấy người dùng!!!', code: 400 };
+    }
+    return {
+      message: blocked ? 'Khoá tài khoản thành công!!!' : 'Mở khoá tài khoản thành công!!!',
+      data: this.serializeUser(user),
+      code: 200,
+    };
   }
 
   /**
@@ -382,9 +447,12 @@ class AuthService {
       return { message: 'Không tìm thấy người dùng!!!', code: 400 };
     }
 
+    // Populate tên nhà hàng để client hiển thị (giống luồng login)
+    const populated = await exitUser.populate('restaurantIds', 'name');
+
     return {
       message: 'Lấy thông tin người dùng thành công!!!',
-      data: this.serializeUser(exitUser),
+      data: this.serializeUser(populated),
       code: 200,
     };
   }

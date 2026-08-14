@@ -199,7 +199,7 @@ class AnalyticsService {
       DB_Connection.User.countDocuments({ role: { $in: ['admin', 'manager', 'staff', 'super-admin'] } }),
       DB_Connection.User.countDocuments({ role: 'customer' }),
       DB_Connection.Order.aggregate([
-        { $match: { status: 'paid' } },
+        { $match: { status: { $in: ['paid', 'completed'] } } },
         { $group: { _id: null, totalRevenue: { $sum: '$totalAmount' } } },
       ]),
       DB_Connection.Order.aggregate([

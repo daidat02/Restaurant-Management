@@ -34,14 +34,21 @@ function NameAvatar({ name }: { name: string }) {
 }
 
 /** Badge tên nhà hàng từ map. */
-function RestaurantBadge({ restaurantIds, restaurantNameMap }: { restaurantIds?: (string | { _id: string; name: string })[]; restaurantNameMap: Record<string, string> }) {
+function RestaurantBadge({
+  restaurantIds,
+  restaurantNameMap,
+}: {
+  restaurantIds?: (string | { _id: string; name: string })[];
+  restaurantNameMap: Record<string, string>;
+}) {
   if (!restaurantIds || restaurantIds.length === 0) {
     return <span className="text-xs text-slate-400">—</span>;
   }
   // Lấy nhà hàng đầu tiên (primary)
   const first = restaurantIds[0];
   const rid = typeof first === 'string' ? first : first._id;
-  const name = restaurantNameMap[rid];
+  // Ưu tiên tên đã populate từ server; fallback map (fetch nhà hàng riêng)
+  const name = (typeof first === 'object' && first.name) || restaurantNameMap[rid];
   if (!name) return <span className="text-xs text-slate-400">—</span>;
   return (
     <span className="inline-flex min-w-6 items-center justify-center rounded-lg bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
@@ -170,17 +177,25 @@ export default function UsersPage() {
       className: 'w-[120px]',
       render: (item) => (
         <span
-          className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-semibold tracking-wider ${
+          className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-semibold tracking-wider ${
             item.role === 'admin'
               ? 'bg-purple-50 text-purple-600 border border-purple-100'
               : item.role === 'manager'
-              ? 'bg-amber-50 text-amber-600 border border-amber-100'
-              : item.role === 'staff'
-              ? 'bg-cerulean-blue-50 text-cerulean-blue-600 border border-cerulean-blue-100'
-              : 'bg-slate-50 text-slate-600 border border-slate-100'
+                ? 'bg-amber-50 text-amber-600 border border-amber-100'
+                : item.role === 'staff'
+                  ? 'bg-cerulean-blue-50 text-cerulean-blue-600 border border-cerulean-blue-100'
+                  : 'bg-slate-50 text-slate-600 border border-slate-100'
           }`}
         >
-          {item.role ? item.role.toUpperCase() : 'CUSTOMER'}
+          {item.role === 'admin'
+            ? 'Chủ chuỗi'
+            : item.role === 'manager'
+              ? 'Quản lý'
+              : item.role === 'staff'
+                ? 'Nhân viên'
+                : item.role === 'super-admin'
+                  ? 'Quản trị'
+                  : 'Khách hàng'}
         </span>
       ),
     },
@@ -281,7 +296,10 @@ export default function UsersPage() {
           <div className="flex flex-wrap items-center gap-3 flex-1">
             {/* Ô TÌM KIẾM */}
             <div className="relative flex-1 min-w-[240px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <Search
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                size={18}
+              />
               <input
                 type="text"
                 placeholder="Tìm kiếm tên, email, sđt nhân viên..."

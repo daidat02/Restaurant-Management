@@ -3,6 +3,7 @@ import reservationService from './reservation.service.js';
 import type { AuthRequest } from '../../middlewares/auth.middleware.js';
 import type { IReservation } from '../../models/Schema/ReservationSchema.js';
 import { generateId } from '../../configs/constants.js';
+import { writeAuditLog } from '../../services/auditLog.service.js';
 
 class ReservationControler {
   async createReservation(req: AuthRequest, res: Response) {
@@ -131,22 +132,46 @@ class ReservationControler {
     }
   }
 
-  async updateReservation(req: Request, res: Response) {
+  async updateReservation(req: AuthRequest, res: Response) {
     const { id } = req.params;
     const reservationData = req.body;
     try {
       const result = await reservationService.updateReservationService(id || '', reservationData);
+      if (result.code === 200 && id) {
+        await writeAuditLog({
+          action: 'reservation.update',
+          restaurant: req.tenantId || req.user?.restaurantId || null,
+          actor: req.user?.userId || null,
+          actorInfo: { name: req.user?.name, role: req.user?.role },
+          targetType: 'reservation',
+          targetId: id || null,
+          summary: 'Cập nhật đặt bàn',
+          meta: { fields: Object.keys(reservationData || {}) },
+        });
+      }
       res.status(result.code).json(result);
     } catch (error) {
       res.status(500).json({ message: 'Lỗi server ...' });
     }
   }
 
-  async updateStatusReservation(req: Request, res: Response) {
+  async updateStatusReservation(req: AuthRequest, res: Response) {
     const { id } = req.params;
     const { status } = req.query;
     try {
       const result = await reservationService.updateStatusService(id || '', status as string);
+      if (result.code === 200 && id) {
+        await writeAuditLog({
+          action: 'reservation.update',
+          restaurant: req.tenantId || req.user?.restaurantId || null,
+          actor: req.user?.userId || null,
+          actorInfo: { name: req.user?.name, role: req.user?.role },
+          targetType: 'reservation',
+          targetId: id || null,
+          summary: `Đổi trạng thái đặt bàn → ${status}`,
+          meta: { status },
+        });
+      }
       res.status(result.code).json(result);
     } catch (error) {
       res.status(500).json({ message: 'Lỗi server ...' });

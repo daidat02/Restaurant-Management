@@ -65,3 +65,23 @@ export const generateTimeSlots = (openHours: string, closeHours: string): string
 export const formatVND = (value: number) => {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
 };
+
+// Chuyển ISO/date sang chuỗi giờ ngắn (HH:mm hoặc ngày/giờ).
+export const formatTime = (value?: string) => {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  const hhmm = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  if (sameDay) return hhmm;
+  return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+};
+
+// Nhãn tiếng Việt cho role
+export const roleLabelOf = (role?: string): string => {
+  if (role === 'admin') return 'Admin';
+  if (role === 'manager') return 'Quản lý';
+  if (role === 'staff') return 'Nhân viên';
+  return role || 'Thành viên';
+};

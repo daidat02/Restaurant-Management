@@ -37,7 +37,7 @@ import POS from './pages/Admin/PosPage/pos';
 import RestaurantsPage from './pages/Admin/RestaurantPage/restaurants';
 import CreateRestaurantPage from './pages/Admin/RestaurantPage/create-restaurant';
 import RestaurantDetailPage from './pages/Admin/RestaurantPage/restaurant-detail';
-import MessagePage from './pages/Admin/MessageModal/MessagePage';
+import MessagePage from './pages/Admin/Message/MessagePage';
 import OnboardingWizard from './pages/Admin/Onboarding/onboarding';
 import Table from './pages/Admin/TablePage/table';
 import Users from './pages/Admin/UserPage/users';
@@ -283,6 +283,7 @@ export default function App() {
           <Route path="orders/management" element={<OrderManagerment />} />
           <Route path="orders/edit/:id" element={<OrderDetail />} />
           <Route path="messages" element={<MessagePage />} />
+          <Route path="logs" element={<LogsPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
 

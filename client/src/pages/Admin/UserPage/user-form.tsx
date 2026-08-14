@@ -25,6 +25,7 @@ import { CustomDatePicker } from '@/components/DatePickerCustom';
 import { toast } from 'sonner';
 import { useUser } from '@/hooks/use-user';
 import { useAuth } from '@/hooks/use-auth';
+import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
 import { useRestaurant } from '@/hooks/use-restaurant';
 import { extractId, formatVND } from '@/utils/helpers';
 import type { EmployeeFormData, UserGender } from '@/types/user.type';
@@ -65,6 +66,8 @@ export default function UserFormPage() {
   const { createUser, editUser, fetchUserById } = useUser();
   const { user: currentUser } = useAuth();
   const { restaurants, fetchRestaurants } = useRestaurant();
+  // Chi nhánh đang làm việc (manager/staff) — nguồn DUY NHẤT cho default của form tạo mới
+  const activeRestaurantId = useActiveRestaurantId();
 
   const isEditing = !!params.id;
   const userId = params.id as string | undefined;
@@ -85,8 +88,10 @@ export default function UserFormPage() {
     () => (isEditing ? '' : currentUser?.role === 'admin' ? 'manager' : 'staff'),
   );
   const [restaurantSelected, setRestaurantSelected] = useState<string>(
-    () => (isEditing ? '' : currentUser?.role !== 'admin' ? extractId(currentUser?.restaurant) : ''),
+    () => (isEditing ? '' : currentUser?.role !== 'admin' ? activeRestaurantId : ''),
   );
+  // Admin chỉ có 1 chi nhánh → dùng luôn chi nhánh đó làm default (không cần chọn tay)
+  const effectiveRestaurantId = restaurantSelected || (restaurants.length === 1 ? restaurants[0]._id : '');
   const [address, setAddress] = useState('');
   const [employeeCode, setEmployeeCode] = useState('');
   const [position, setPosition] = useState('');
@@ -147,7 +152,7 @@ export default function UserFormPage() {
     return MANAGER_ROLE_OPTIONS;
   }, [currentUser?.role]);
 
-  const defaultManagerRestaurant = extractId(currentUser?.restaurant);
+  const defaultManagerRestaurant = activeRestaurantId;
 
   const activeIndex = WIZARD_STEPS.indexOf(activeTab);
 
@@ -194,7 +199,7 @@ export default function UserFormPage() {
         valid = false;
       }
 
-      if (role !== 'admin' && !restaurantSelected) {
+      if (role !== 'admin' && !effectiveRestaurantId) {
         errors.restaurant = 'Vui lòng chọn chi nhánh cho tài khoản.';
         valid = false;
       }
@@ -245,7 +250,7 @@ export default function UserFormPage() {
     setIsSubmitting(true);
     try {
       const finalRestaurant =
-        currentUser?.role === 'admin' ? restaurantSelected : defaultManagerRestaurant;
+        currentUser?.role === 'admin' ? effectiveRestaurantId : defaultManagerRestaurant;
 
       const payload: EmployeeFormData = {
         name,
@@ -304,8 +309,8 @@ export default function UserFormPage() {
   };
 
   const selectedRestaurantName = useMemo(() => {
-    return restaurants.find((r) => r._id === restaurantSelected)?.name || 'Chưa chọn nhà hàng';
-  }, [restaurants, restaurantSelected]);
+    return restaurants.find((r) => r._id === effectiveRestaurantId)?.name || 'Chưa chọn nhà hàng';
+  }, [restaurants, effectiveRestaurantId]);
 
   const salaryDisplay = baseSalary
     ? formatVND(Number(baseSalary))
@@ -507,7 +512,7 @@ export default function UserFormPage() {
                       currentUser?.role === 'admin' ? 'Chọn nhà hàng' : 'Chi nhánh trực thuộc'
                     }
                     options={restaurants.map((r) => ({ label: r.name, value: r._id }))}
-                    value={restaurantSelected}
+                    value={effectiveRestaurantId}
                     onValueChange={(value) => {
                       setRestaurantSelected(value);
                       clearFieldError('restaurant');

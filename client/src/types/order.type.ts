@@ -9,7 +9,16 @@ export interface IOrder {
   table?: ITable;
   customer?: IUser | string;
   orderType?: 'dine-in' | 'delivery' | 'to-go';
-  status?: 'pending' | 'confirmed' | 'preparing' | 'served' | 'delivered' | 'paid' | 'cancelled';
+  status?:
+    | 'pending'
+    | 'confirmed'
+    | 'preparing'
+    | 'serving'
+    | 'served'
+    | 'delivered'
+    | 'paid'
+    | 'completed'
+    | 'cancelled';
   paymentStatus?: 'waiting_paid' | 'unpaid' | 'partial' | 'paid' | 'refunded';
   totalAmount?: number;
   itemsCount?: number;
@@ -41,7 +50,9 @@ export interface IOrderItem {
   quantity: number;
   note?: string;
   toppings?: { name: string; price: number }[];
-  status?: 'pending' | 'preparing' | 'served';
+  status?: 'pending' | 'preparing' | 'served' | 'deleted';
+  deletedReason?: string;
+  deletedAt?: Date;
   createdAt?: Date;
   updatedAt?: Date;
 }

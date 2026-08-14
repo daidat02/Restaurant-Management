@@ -153,17 +153,20 @@ class AuthController {
       }
 
       const result = await authService.updateUserService(id, userId || '', updateData);
-      // Đổi role user là hành động nhạy cảm → ghi audit
-      if (req.params?.id && updateData?.role) {
+      // Chỉ audit khi admin/manager cập nhật user KHÁC (bản thân tự sửa profile thì bỏ qua — tránh spam log)
+      if (req.params?.id && result.code === 200) {
+        const isRoleChange = !!updateData?.role;
         await writeAuditLog({
-          action: 'user.update.role',
+          action: isRoleChange ? 'user.update.role' : 'user.update',
           restaurant: req.tenantId || req.user?.restaurantId || null,
           actor: req.user?.userId || null,
           actorInfo: { name: req.user?.name, role: req.user?.role },
           targetType: 'user',
           targetId: id || null,
-          summary: `Đổi role user ${id} thành ${updateData.role}`,
-          meta: { role: updateData.role },
+          summary: isRoleChange
+            ? `Đổi role user ${id} thành ${updateData.role}`
+            : `Cập nhật thông tin user ${id}`,
+          meta: isRoleChange ? { role: updateData.role } : { fields: Object.keys(updateData || {}) },
         });
       }
       return res.status(result.code).json(result);
@@ -217,7 +220,9 @@ class AuthController {
   async deleteUser(req: AuthRequest, res: Response) {
     const { id } = req.params;
     try {
-      const result = await authService.deleteUserService(id || '');
+      const actorUserId = req.user?.userId || '';
+      const actorRole = req.user?.role || '';
+      const result = await authService.deleteUserService(actorUserId, actorRole, id || '');
       if (result.code === 200) {
         await writeAuditLog({
           action: 'user.delete',
@@ -226,13 +231,41 @@ class AuthController {
           actorInfo: { name: req.user?.name, role: req.user?.role },
           targetType: 'user',
           targetId: id || null,
-          summary: `Xóa user ${id}`,
+          summary: 'Xóa tài khoản người dùng',
         });
       }
       return res.status(result.code).json(result);
     } catch (error) {
       console.error('Error deleting user:', error);
       return res.status(500).json({ message: 'Lỗi server khi xóa người dùng' });
+    }
+  }
+
+  /**
+   * Khoá / mở khoá tài khoản (staff/manager) — chỉ quản lý cấp dưới, không chạm admin.
+   */
+  async blockUser(req: AuthRequest, res: Response) {
+    const { id } = req.params;
+    const blocked = req.body?.blocked === true;
+    try {
+      const actorUserId = req.user?.userId || '';
+      const actorRole = req.user?.role || '';
+      const result = await authService.blockUserService(actorUserId, actorRole, id || '', blocked);
+      if (result.code === 200) {
+        await writeAuditLog({
+          action: blocked ? 'user.block' : 'user.unblock',
+          restaurant: req.tenantId || req.user?.restaurantId || null,
+          actor: req.user?.userId || null,
+          actorInfo: { name: req.user?.name, role: req.user?.role },
+          targetType: 'user',
+          targetId: id || null,
+          summary: blocked ? 'Khoá tài khoản người dùng' : 'Mở khoá tài khoản người dùng',
+        });
+      }
+      return res.status(result.code).json(result);
+    } catch (error) {
+      console.error('Error blocking user:', error);
+      return res.status(500).json({ message: 'Lỗi server khi khoá/mở khoá người dùng' });
     }
   }
 
@@ -249,6 +282,18 @@ class AuthController {
     } as IUser;
     try {
       const result = await authService.createStaffService(userData);
+      if (result.code === 201) {
+        await writeAuditLog({
+          action: 'user.create',
+          restaurant: req.tenantId || req.user?.restaurantId || null,
+          actor: req.user?.userId || null,
+          actorInfo: { name: req.user?.name, role: req.user?.role },
+          targetType: 'user',
+          targetId: result.data?._id || null,
+          summary: `Tạo tài khoản nội bộ (${result.data?.role || userData.role}) ${userData.email}`,
+          meta: { email: userData.email, role: result.data?.role || userData.role },
+        });
+      }
       return res.status(result.code).json(result);
     } catch (error) {
       console.error('Error creating staff:', error);
@@ -309,24 +354,14 @@ class AuthController {
   }
 
   /**
-   * Chuyển nhà hàng đang hoạt động (switch tenant) — trả access token mới
+   * Chuyển nhà hàng đang hoạt động (switch tenant) — trả access token mới.
+   * Không ghi audit (hành động cá nhân, không phải thay đổi dữ liệu).
    */
   async switchTenant(req: AuthRequest, res: Response) {
     const { restaurantId } = req.body;
     try {
       const userId = req.user?.userId;
       const result = await authService.switchTenantService(userId || '', restaurantId);
-      if (result.code === 200) {
-        await writeAuditLog({
-          action: 'user.switch-tenant',
-          restaurant: restaurantId || null,
-          actor: userId || null,
-          actorInfo: { name: req.user?.name, role: req.user?.role },
-          targetType: 'system',
-          targetId: restaurantId || null,
-          summary: `Chuyển nhà hàng hoạt động sang ${restaurantId}`,
-        });
-      }
       return res.status(result.code).json(result);
     } catch (error) {
       console.error('Error switching tenant:', error);

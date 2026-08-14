@@ -113,10 +113,14 @@ export interface IAuditLog {
   _id: string;
   action: string;
   restaurant?: { _id: string; name: string } | string;
-  actor?: string;
+  actor?: { _id: string; name: string; email?: string } | string;
   actorInfo?: { name?: string; role?: string };
+  /** Tên người thực hiện (populate từ User — ưu tiên hơn actorInfo). */
+  actorName?: string;
   targetType: string;
   targetId?: string;
+  /** Tên đối tượng bị tác động (populate theo targetType, không phải id thô). */
+  target?: { id: string; name: string };
   summary: string;
   createdAt: string;
 }

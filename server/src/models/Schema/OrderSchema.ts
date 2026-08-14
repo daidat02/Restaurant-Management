@@ -21,7 +21,16 @@ export interface IOrder extends Document {
   table?: ObjectId | ITable;
   customer?: ObjectId;
   orderType: 'dine-in' | 'delivery' | 'to-go';
-  status: 'pending' | 'confirmed' | 'preparing' | 'served' | 'delivered' | 'paid' | 'cancelled';
+  status:
+    | 'pending'
+    | 'confirmed'
+    | 'preparing'
+    | 'serving'
+    | 'served'
+    | 'delivered'
+    | 'paid'
+    | 'completed'
+    | 'cancelled';
   paymentStatus: 'waiting_paid' | 'unpaid' | 'partial' | 'paid' | 'refunded';
   totalAmount: number;
   itemsCount: number;
@@ -64,7 +73,17 @@ const OrderSchema = new Schema<IOrder>(
 
     status: {
       type: String,
-      enum: ['pending', 'confirmed', 'preparing', 'delivered', 'served', 'paid', 'cancelled'],
+      enum: [
+        'pending',
+        'confirmed',
+        'preparing',
+        'serving',
+        'delivered',
+        'served',
+        'paid',
+        'completed',
+        'cancelled',
+      ],
       default: 'pending',
       index: true,
     },

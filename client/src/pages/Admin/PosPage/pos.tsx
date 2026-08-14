@@ -171,7 +171,9 @@ export default function POS() {
   const orderIdFromUrl = searchParams.get('orderId');
 
   const [order, setOrder] = useState<IOrder | null>(currentOrder);
-  const [orderItems, setOrderItems] = useState<IOrderItem[]>(order?.items || []);
+  const [orderItems, setOrderItems] = useState<IOrderItem[]>(
+    (order?.items || []).filter((i) => i.status !== 'deleted'),
+  );
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTable, setSelectedTable] = useState<ITable | null>(null);

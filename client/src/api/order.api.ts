@@ -85,3 +85,33 @@ export const requestPaymentAtTable = async (payload: {
   const res = await axiosClient.post<any, ApiResponse<null>>(ORDERS.REQUEST_PAYMENT, payload);
   return res.data;
 };
+
+// POS: Xoá món khỏi đơn (soft delete — giữ bản ghi kèm lý do) — DELETE /orders/:id/items/:itemId
+export const removeOrderItem = async (orderId: string, itemId: string, reason?: string) => {
+  const res = await axiosClient.delete<any, ApiResponse<IOrder>>(
+    ORDERS.REMOVE_ITEM(orderId, itemId),
+    { data: { reason } },
+  );
+  return res.data;
+};
+
+// POS: Sửa món trong đơn (quantity/price/note) — PATCH /orders/:id/items/:itemId
+export const updateOrderItemDetail = async (
+  orderId: string,
+  itemId: string,
+  data: { quantity?: number; price?: number; note?: string },
+) => {
+  const res = await axiosClient.patch<any, ApiResponse<IOrder>>(
+    ORDERS.UPDATE_ITEM_DETAIL(orderId, itemId),
+    data,
+  );
+  return res.data;
+};
+
+// POS: Chuyển đơn sang bàn khác — PUT /orders/:id/move-table
+export const moveOrderToTableApi = async (orderId: string, targetTableId: string) => {
+  const res = await axiosClient.put<any, ApiResponse<IOrder>>(ORDERS.MOVE_TABLE(orderId), {
+    targetTableId,
+  });
+  return res.data;
+};

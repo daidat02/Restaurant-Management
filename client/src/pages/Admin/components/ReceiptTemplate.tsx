@@ -71,7 +71,8 @@ export default function ReceiptTemplate({
           </tr>
         </thead>
         <tbody>
-          {mergeOrderItems(order?.items || []).map((item: any) => (
+          {mergeOrderItems((order?.items || []).filter((it: any) => it.status !== 'deleted')).map(
+            (item: any) => (
             <tr key={item._id}>
               <td className="py-1 break-words pr-1">
                 <p>{item.nameSnapshot}</p>

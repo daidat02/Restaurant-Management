@@ -92,6 +92,7 @@ function KitchenDashboard({
   // Xử lý sự kiện realtime từ socket
   const handleOrderEvent = useCallback(
     (res: { action: string; orderData?: Partial<IOrder>; itemData?: Partial<IOrderItem> }) => {
+      console.log('KDS socket event:', res.action, res.itemData);
       const { action, orderData, itemData } = res;
       setOrders((prevOrders) => {
         switch (action) {
@@ -121,7 +122,9 @@ function KitchenDashboard({
             if (!hasUnservedItems(orderData)) {
               return prevOrders.filter((o) => o._id !== orderData._id);
             }
-            return prevOrders.map((o) => (o._id === orderData._id ? { ...o, ...orderData } : o));
+            return prevOrders.map((o) =>
+              o._id === orderData._id ? { ...o, ...orderData, items: o.items } : o,
+            );
           }
           case 'UPDATE_ITEM': {
             if (!itemData) return prevOrders;
@@ -131,14 +134,42 @@ function KitchenDashboard({
               const newItems = o.items!.map((i) =>
                 i._id === itemData._id ? { ...i, status: itemData.status } : i,
               );
-              const stillCooking = newItems.some((i) => i.status !== 'served');
+              const stillCooking = newItems.some(
+                (i) => i.status !== 'served' && i.status !== 'deleted',
+              );
               if (!stillCooking) return acc; // Không còn món nào cần nấu -> tự ẩn card
               return [...acc, { ...o, items: newItems }];
             }, []);
           }
-          case 'CANCEL':
+          case 'DELETE_ITEM': {
+            if (!orderData) return prevOrders;
+
             playAudio(1);
-            return prevOrders.filter((o) => o._id !== orderData?._id);
+
+            return prevOrders
+              .map((o) => {
+                if (o._id === orderData._id) {
+                  // Cập nhật order, ưu tiên giữ lại mảng items từ orderData (nếu có),
+                  // nếu orderData không gửi items thì dùng items hiện tại
+                  return {
+                    ...o,
+                    ...orderData,
+                    items: orderData.items ?? o.items,
+                  };
+                }
+                return o;
+              })
+              .filter((o) => {
+                // 1. Nếu đơn hàng không còn món nào trong danh sách -> Ẩn Card
+                if (!o.items || o.items.length === 0) return false;
+
+                // 2. Kiểm tra xem còn món nào chưa phục vụ và chưa bị hủy không
+                const stillCooking = o.items.some(
+                  (i) => i.status !== 'served' && i.status !== 'deleted',
+                );
+                return stillCooking; // Chỉ giữ lại Card nếu vẫn còn món cần chế biến
+              });
+          }
           default:
             return prevOrders;
         }

@@ -12,6 +12,7 @@ import type { IOrder } from '@/types/order.type';
 import { PaymentModal } from '../components/PaymentModal';
 import { TableCard } from './components/TableCard';
 import OrderDetailDrawer from '../components/OrderDetailDrawer';
+import { AlertDialogCustom } from '@/components/AlertDialog';
 
 export default function Table() {
   const { user } = useAuth();
@@ -27,6 +28,7 @@ export default function Table() {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [orderIdSelected, setOrderIdSelected] = useState<string | null>(null);
+  const [alertDialogOpen, setAlertDialogOpen] = useState(false);
 
   // Lọc dữ liệu theo tab
   const filteredTables = tables.filter((table) => {
@@ -86,14 +88,21 @@ export default function Table() {
             <TableCard
               key={table._id}
               table={table}
-              isSelected={selectedOrder?._id === (typeof table.currentOrder === 'object' ? table.currentOrder?._id : '')}
+              isSelected={
+                selectedOrder?._id ===
+                (typeof table.currentOrder === 'object' ? table.currentOrder?._id : '')
+              }
               onClick={() => handleSelectTable(table)}
               onChangeStatus={(id, newStatus) => {
                 changeTableStatus(id, newStatus);
               }}
-              onOpenPayment={(orderId) => {
-                setOrderIdSelected(orderId);
-                setIsPaymentModalOpen(true);
+              onOpenPayment={(orderId, status) => {
+                if (status == 'served') {
+                  setOrderIdSelected(orderId);
+                  setIsPaymentModalOpen(true);
+                } else {
+                  setAlertDialogOpen(true);
+                }
               }}
               onCreateOrder={(tableId) => {
                 navigate(`/${currentRole}/orders/pos?tableId=${tableId}`);
@@ -124,12 +133,35 @@ export default function Table() {
             `/${currentRole}/orders/pos?orderId=${order._id}&tableId=${typeof order.table === 'object' ? order.table?._id : ''}`,
           );
         }}
-        onPayment={(orderId) => {
-          setIsDrawerOpen(false);
-          setSelectedOrder(null);
-          setOrderIdSelected(orderId);
-          setIsPaymentModalOpen(true);
+        onPayment={(orderId, status) => {
+          if (status == 'served') {
+            setIsDrawerOpen(false);
+            setSelectedOrder(null);
+            setOrderIdSelected(orderId);
+            setIsPaymentModalOpen(true);
+          } else {
+            setAlertDialogOpen(true);
+          }
         }}
+        onOrderUpdated={(updated) => {
+          setSelectedOrder(updated);
+          fetchTablesByRestaurant(activeRestaurantId);
+        }}
+      />
+
+      <AlertDialogCustom
+        open={!!alertDialogOpen}
+        onOpenChange={(open) => !open && setAlertDialogOpen(false)}
+        variant="warning"
+        title="Đơn hàng đang chờ hoàn tất"
+        description={
+          alertDialogOpen
+            ? `Bàn đang có món chưa phục vụ. Vui lòng hoàn tất hoặc hủy các món còn lại trước khi thanh toán.`
+            : ''
+        }
+        confirmText="Đồng ý"
+        cancelText="Huỷ"
+        onCancel={() => setAlertDialogOpen(false)}
       />
     </div>
   );

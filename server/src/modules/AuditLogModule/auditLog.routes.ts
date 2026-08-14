@@ -9,10 +9,11 @@ import {
 const router = Router();
 
 // Audit log: super-admin (quyền nền tảng) + admin (chỉ thấy chi nhánh của chuỗi mình)
+// + manager (chỉ thấy chi nhánh mình — intersectRestaurantIds giới hạn tenant hiện tại)
 router.get(
   '/',
   verifyToken,
-  verifyRole(['super-admin', 'admin']),
+  verifyRole(['super-admin', 'admin', 'manager']),
   intersectRestaurantIds,
   auditLogController.getAuditLogs,
 );

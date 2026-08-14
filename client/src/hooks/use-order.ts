@@ -15,6 +15,9 @@ import {
   getActiveOrdersByRestaurant,
   getOrderByTableId,
   getMyOrders,
+  removeOrderItem,
+  updateOrderItemDetail,
+  moveOrderToTableApi,
 } from '@/api/order.api';
 
 import { useGlobalLoading } from '@/components/LoadingOverlay';
@@ -347,8 +350,74 @@ export const useOrder = () => {
     [showLoading, hideLoading, currentOrder],
   );
 
-  const fetchOrderByTableId = useCallback(async (tableId: string) => {
-    setIsLoading(true);
+  const applyUpdatedOrder = useCallback(
+    (id: string, updated: IOrder) => {
+      setOrders((prev) => prev.map((o) => (o._id === id ? { ...o, ...updated } : o)));
+      if (currentOrder?._id === id) setCurrentOrder({ ...currentOrder, ...updated });
+    },
+    [currentOrder],
+  );
+
+  // POS: Xoá món khỏi đơn (soft delete kèm lý do) — DELETE /orders/:id/items/:itemId
+  const removeItemFromOrder = useCallback(
+    async (orderId: string, itemId: string, reason?: string) => {
+      setError(null);
+      try {
+        const result = await removeOrderItem(orderId, itemId, reason);
+        if (result) {
+          applyUpdatedOrder(orderId, result);
+          toast.success('Xoá món khỏi đơn thành công', { position: 'top-right' });
+          return result;
+        }
+      } catch (err: any) {
+        setError(err.message || 'Đã xảy ra lỗi khi xoá món');
+        toast.error(err.message || 'Đã xảy ra lỗi khi xoá món', { position: 'top-right' });
+      }
+      return null;
+    },
+    [applyUpdatedOrder],
+  );
+
+  // POS: Sửa món trong đơn (quantity/price/note) — PATCH /orders/:id/items/:itemId
+  const editItemInOrder = useCallback(
+    async (orderId: string, itemId: string, data: { quantity?: number; price?: number; note?: string }) => {
+      setError(null);
+      try {
+        const result = await updateOrderItemDetail(orderId, itemId, data);
+        if (result) {
+          applyUpdatedOrder(orderId, result);
+          return result;
+        }
+      } catch (err: any) {
+        setError(err.message || 'Đã xảy ra lỗi khi sửa món');
+        toast.error(err.message || 'Đã xảy ra lỗi khi sửa món', { position: 'top-right' });
+      }
+      return null;
+    },
+    [applyUpdatedOrder],
+  );
+
+  // POS: Chuyển đơn sang bàn khác — PUT /orders/:id/move-table
+  const moveOrderToTable = useCallback(
+    async (orderId: string, targetTableId: string) => {
+      setError(null);
+      try {
+        const result = await moveOrderToTableApi(orderId, targetTableId);
+        if (result) {
+          applyUpdatedOrder(orderId, result);
+          toast.success('Chuyển bàn thành công', { position: 'top-right' });
+          return result;
+        }
+      } catch (err: any) {
+        setError(err.message || 'Đã xảy ra lỗi khi chuyển bàn');
+        toast.error(err.message || 'Đã xảy ra lỗi khi chuyển bàn', { position: 'top-right' });
+      }
+      return null;
+    },
+    [applyUpdatedOrder],
+  );
+
+  const fetchOrderByTableId = useCallback(async (tableId: string) => {    setIsLoading(true);
     setError(null);
     try {
       const result = await getOrderByTableId(tableId);
@@ -396,5 +465,9 @@ export const useOrder = () => {
     fetchActiveOrders,
     fetchOrderByTableId,
     fetchMyOrders,
+    // POS mutations
+    removeItemFromOrder,
+    editItemInOrder,
+    moveOrderToTable,
   };
 };

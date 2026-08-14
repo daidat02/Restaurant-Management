@@ -160,13 +160,13 @@ const PosBillSummary = ({
   notes,
   setNotes,
   onSendKitchen,
-  onPayment,
+  // onPayment,
 }: {
   subTotal: number;
   notes: string;
   setNotes: (v: string) => void;
   onSendKitchen: () => void;
-  onPayment: () => void;
+  // onPayment: () => void;
 }) => {
   const discount = 0;
   const total = Math.max(0, subTotal - discount);
@@ -189,7 +189,9 @@ const PosBillSummary = ({
       </div>
       <div className="mt-1 flex items-center justify-between text-sm">
         <span className="text-slate-500">Giảm giá</span>
-        <span className="font-semibold text-emerald-600">{discount > 0 ? `-${fmt(discount)}` : '-0đ'}</span>
+        <span className="font-semibold text-emerald-600">
+          {discount > 0 ? `-${fmt(discount)}` : '-0đ'}
+        </span>
       </div>
       <div className="mt-2 flex items-center justify-between border-t border-dashed border-slate-200 pt-2">
         <span className="text-sm font-bold text-gray-900">Tổng cộng</span>
@@ -204,13 +206,13 @@ const PosBillSummary = ({
         <ChefHat className="h-5 w-5" />
         Gửi bếp
       </button>
-      <button
+      {/* <button
         onClick={onPayment}
         className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-cerulean-blue-600 text-sm font-bold text-white shadow-lg shadow-cerulean-blue-200 transition hover:bg-cerulean-blue-700 active:scale-[0.98]"
       >
         <Wallet className="h-5 w-5" />
         Thanh toán
-      </button>
+      </button> */}
     </div>
   );
 };
@@ -319,7 +321,12 @@ const PosBill = ({
 
   return (
     <div className="flex h-full w-full flex-col bg-white">
-      <PosBillHeader tableNumber={tableNumber} orderId={orderId} onClear={onClearOrder} itemCount={totalItemsCount} />
+      <PosBillHeader
+        tableNumber={tableNumber}
+        orderId={orderId}
+        onClear={onClearOrder}
+        itemCount={totalItemsCount}
+      />
 
       {/* Danh sách món */}
       <div className="flex-1 overflow-y-auto p-4">
@@ -352,7 +359,7 @@ const PosBill = ({
         notes={notes}
         setNotes={setNotes}
         onSendKitchen={() => handleSaveOrder(false)}
-        onPayment={() => handleSaveOrder(true)}
+        // onPayment={() => handleSaveOrder(true)}
       />
     </div>
   );

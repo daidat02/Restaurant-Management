@@ -40,7 +40,7 @@ describe('T8 — Admin tạo manager/staff gán chi nhánh + sửa nhà hàng', 
       .get('/api/auth/profile/me')
       .set('Authorization', `Bearer ${managerToken}`);
     expect(res.status).toBe(200);
-    const ids = (res.body?.data?.restaurantIds || []).map((id: any) => String(id));
+    const ids = (res.body?.data?.restaurantIds || []).map((id: any) => String(id?._id ?? id));
     expect(ids[0]).toBe(X);
   });
 

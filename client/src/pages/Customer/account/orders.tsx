@@ -40,6 +40,7 @@ const ORDER_STATUSES = [
   { value: 'served', label: 'Đã phục vụ' },
   { value: 'delivered', label: 'Đã giao' },
   { value: 'paid', label: 'Đã thanh toán' },
+  { value: 'completed', label: 'Hoàn thành' },
   { value: 'cancelled', label: 'Đã hủy' },
 ];
 
@@ -147,10 +148,10 @@ function OrderDetailDrawer({
           {/* DANH SÁCH MÓN */}
           <div>
             <p className="text-xs font-bold text-gray-800 uppercase tracking-wide mb-2">
-              Món đã gọi ({order.items?.length || order.itemsCount || 0})
+              Món đã gọi ({order.items?.filter((i) => i.status !== 'deleted').length || order.itemsCount || 0})
             </p>
             <div className="space-y-2">
-              {mergeOrderItems(order.items || []).map((item) => (
+              {mergeOrderItems((order.items || []).filter((i) => i.status !== 'deleted')).map((item) => (
                 <div
                   key={item._id}
                   className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2.5"
@@ -502,7 +503,7 @@ export default function AccountOrders() {
                             : 'Khác'}
                     </p>
                     <p className="text-[10px] text-gray-400">
-                      {order.itemsCount || order.items?.length || 0} món
+                      {order.itemsCount || order.items?.filter((i) => i.status !== 'deleted').length || 0} món
                     </p>
                   </div>
 

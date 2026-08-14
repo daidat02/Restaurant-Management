@@ -22,11 +22,30 @@ class OrderRepository {
     return await DB_Connection.OrderItem.findByIdAndUpdate(id, itemData, { new: true }).exec();
   }
 
+  async deleteOrderItem(id: string): Promise<IOrderItemDocument | null> {
+    return await DB_Connection.OrderItem.findByIdAndDelete(id).exec();
+  }
+
+  async findOrderItemById(id: string): Promise<IOrderItemDocument | null> {
+    return await DB_Connection.OrderItem.findById(id).exec();
+  }
+
   /**
    * Đếm số lượng món ăn trong một đơn hàng theo bộ lọc (Dùng để kiểm tra đơn đã phục vụ toàn bộ hay chưa)
    */
   async countOrderItems(filter: FilterQuery<IOrderItemDocument>): Promise<number> {
     return await DB_Connection.OrderItem.countDocuments(filter).exec();
+  }
+
+  /**
+   * Đếm số món chưa hoàn thành (chưa served/deleted) trong một đơn —
+   * dùng để chặn thanh toán khi còn món đang làm dở.
+   */
+  async countUnfinishedItems(orderId: string): Promise<number> {
+    return await DB_Connection.OrderItem.countDocuments({
+      order: orderId,
+      status: { $nin: ['served', 'deleted'] },
+    }).exec();
   }
 
   // ==========================================
@@ -144,7 +163,7 @@ class OrderRepository {
           _id: null,
           totalRevenue: {
             $sum: {
-              $cond: [{ $eq: ['$status', 'paid'] }, '$totalAmount', 0],
+              $cond: [{ $in: ['$status', ['paid', 'completed']] }, '$totalAmount', 0],
             },
           },
           totalOrders: { $sum: 1 },
@@ -155,7 +174,7 @@ class OrderRepository {
           },
           paidOrdersCount: {
             $sum: {
-              $cond: [{ $eq: ['$status', 'paid'] }, 1, 0],
+              $cond: [{ $in: ['$status', ['paid', 'completed']] }, 1, 0],
             },
           },
         },
@@ -168,7 +187,7 @@ class OrderRepository {
   async getRevenueByHourStats(startDate: Date, endDate: Date, restaurantIds: string[]) {
     const matchQuery: any = {
       createdAt: { $gte: startDate, $lte: endDate },
-      status: 'paid',
+      status: { $in: ['paid', 'completed'] },
     };
 
     if (restaurantIds && restaurantIds.length > 0) {
@@ -278,7 +297,7 @@ class OrderRepository {
     return await DB_Connection.Order.aggregate([
       {
         $match: {
-          status: 'paid',
+          status: { $in: ['paid', 'completed'] },
           createdAt: { $gte: startDate, $lte: endDate },
         },
       },
@@ -316,7 +335,7 @@ class OrderRepository {
         },
       },
       {
-        $sort: { revenue: -1 }, // Xếp từ doanh thu cao nhất xuống thấp nhất
+        $sort: { revenue: -1 }, // Sắp từ doanh thu cao nhất xuống thấp nhất
       },
     ]);
   }
@@ -326,7 +345,7 @@ class OrderRepository {
    */
   async getBranchRevenueStatsByIds(startDate: Date, endDate: Date, restaurantIds: string[]) {
     const matchQuery: any = {
-      status: 'paid',
+      status: { $in: ['paid', 'completed'] },
       createdAt: { $gte: startDate, $lte: endDate },
     };
 

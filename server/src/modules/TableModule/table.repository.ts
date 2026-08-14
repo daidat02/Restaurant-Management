@@ -68,7 +68,7 @@ class TableRepository {
    */
   async findTables(filter: FilterQuery<ITableDocument>): Promise<ITableDocument[]> {
     return await DB_Connection.Table.find(filter)
-      .populate([{ path: 'currentOrder', select: 'orderId totalAmount' }])
+      .populate([{ path: 'currentOrder', select: 'orderId totalAmount status' }])
       .sort({ tableNumber: 1 }) // Ưu tiên xếp từ bàn nhỏ đến bàn lớn
       .exec();
   }

@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 
 import { getAdminAuditLogs, getAdminPaymentLogs } from '@/api/auditLogs.api';
 import type { IAuditLog, ITransaction } from '@/types/superadmin.type';
+import { useAuth } from '@/hooks/use-auth';
 import { useRestaurant } from '@/hooks/use-restaurant';
 import { useSubscription } from '@/hooks/use-subscription';
 import { formatVND } from '@/utils/helpers';
@@ -14,19 +15,39 @@ import { FilterToolbar } from '../OrderPage/management-order';
 /** Ánh xạ action → nhãn tiếng Việt để dễ đọc. */
 const ACTION_LABELS: Record<string, string> = {
   'user.register': 'Đăng ký',
+  'user.create': 'Tạo tài khoản',
+  'user.update': 'Cập nhật user',
+  'user.update.role': 'Đổi vai trò',
+  'user.delete': 'Xoá user',
   'user.block': 'Khoá chủ',
   'user.unblock': 'Mở khoá chủ',
+  'user.switch-tenant': 'Chuyển chi nhánh',
   'restaurant.create': 'Tạo nhà hàng',
+  'restaurant.update': 'Cập nhật nhà hàng',
+  'restaurant.delete': 'Xoá nhà hàng',
+  'restaurant.lock': 'Khoá nhà hàng',
+  'restaurant.unlock': 'Mở khoá nhà hàng',
   'subscription.trial.started': 'Bắt đầu dùng thử',
   'subscription.locked': 'Khoá hết hạn',
   'subscription.unlocked': 'Mở khoá hết hạn',
   'subscription.expiring': 'Sắp hết hạn',
   'transaction.create': 'Thanh toán',
+  'payment.captured': 'Thu tiền',
+  'payment.refund': 'Hoàn tiền',
   'pricing.update': 'Cập nhật giá',
   'order.create': 'Tạo đơn',
   'order.update': 'Cập nhật đơn',
+  'order.update.status': 'Đổi trạng thái đơn',
+  'order.item.update': 'Sửa món trong đơn',
+  'order.item.remove': 'Xoá món khỏi đơn',
+  'order.move.table': 'Chuyển bàn',
   'order.paid': 'Thanh toán đơn',
   'order.void': 'Huỷ đơn',
+  'menuItem.update': 'Sửa món menu',
+  'table.update': 'Cập nhật bàn',
+  'reservation.update': 'Cập nhật đặt bàn',
+  'setting.payos.update': 'Cập nhật PayOS',
+  'setting.kds-code.generate': 'Tạo mã nhà bếp',
 };
 
 function actionLabel(action: string) {
@@ -58,6 +79,8 @@ function restaurantIdOf(r: IAuditLog['restaurant']): string {
 }
 
 export default function LogsPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const { restaurants, fetchRestaurants } = useRestaurant();
   const { subscriptions } = useSubscription();
 
@@ -74,11 +97,13 @@ export default function LogsPage() {
   const [timeRange, setTimeRange] = useState<TimeRange>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Lấy danh sách chi nhánh của chuỗi (chủ) + map id → tên để hiển thị + lọc
+  // Lấy danh sách chi nhánh của chuỗi (chủ) + map id → tên để hiển thị + lọc.
+  // Admin: chỉ các chi nhánh đang thuê bao. Manager: chi nhánh của mình (chỉ có 1).
   const ownerRestaurants = useMemo(() => {
+    if (!isAdmin) return restaurants || [];
     const subMap = new Map(subscriptions.map((s) => [String(s._id), s]));
     return (restaurants || []).filter((r) => subMap.has(String(r._id)));
-  }, [restaurants, subscriptions]);
+  }, [restaurants, subscriptions, isAdmin]);
 
   const branchNameMap = useMemo(() => {
     const map: Record<string, string> = {};
@@ -101,7 +126,7 @@ export default function LogsPage() {
         if (activeTab === 'hanh_dong') {
           const { data } = await getAdminAuditLogs(params);
           if (!cancelled) setLogs(data ?? []);
-        } else {
+        } else if (isAdmin) {
           const { data } = await getAdminPaymentLogs(params);
           if (!cancelled) setPayments(data ?? []);
         }
@@ -118,7 +143,7 @@ export default function LogsPage() {
     return () => {
       cancelled = true;
     };
-  }, [activeTab, currentPage]);
+  }, [activeTab, currentPage, isAdmin]);
 
   const filteredLogs = useMemo(() => {
     const keyword = searchTerm.trim().toLowerCase();
@@ -127,7 +152,13 @@ export default function LogsPage() {
       if (!inTimeRange(item.createdAt, timeRange)) return false;
       if (keyword) {
         const branchName = branchNameMap[restaurantIdOf(item.restaurant)] || '';
-        const match = [item.summary, actionLabel(item.action), item.actorInfo?.name, branchName]
+        const match = [
+          item.summary,
+          item.target?.name,
+          actionLabel(item.action),
+          item.actorName || item.actorInfo?.name,
+          branchName,
+        ]
           .filter(Boolean)
           .some((s) => s!.toLowerCase().includes(keyword));
         if (!match) return false;
@@ -186,13 +217,17 @@ export default function LogsPage() {
     {
       header: 'Người thực hiện',
       render: (item) => (
-        <span className="text-xs font-medium text-slate-700">{item.actorInfo?.name || '---'}</span>
+        <span className="text-xs font-medium text-slate-700">
+          {item.actorName || item.actorInfo?.name || '---'}
+        </span>
       ),
     },
     {
       header: 'Nội dung',
       render: (item) => (
-        <span className="text-xs text-slate-600 max-w-[360px] truncate block">{item.summary}</span>
+        <span className="text-xs text-slate-600 max-w-[360px] truncate block">
+          {item.target?.name ? `${item.target.name} — ${item.summary}` : item.summary}
+        </span>
       ),
     },
   ];
@@ -255,7 +290,9 @@ export default function LogsPage() {
               Nhật Ký Hệ Thống
             </h1>
             <p className="text-sm text-slate-500 mt-1">
-              Audit hành động + lịch sử thanh toán của toàn chuỗi chi nhánh
+              {isAdmin
+                ? 'Audit hành động + lịch sử thanh toán của toàn chuỗi chi nhánh'
+                : 'Audit hành động trong chi nhánh của bạn'}
             </p>
           </div>
         </div>
@@ -276,35 +313,39 @@ export default function LogsPage() {
           >
             Hành Động
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('thanh_toan');
-              setCurrentPage(1);
-            }}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-              activeTab === 'thanh_toan'
-                ? 'bg-cerulean-blue-600 text-white shadow-sm'
-                : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
-            }`}
-          >
-            Thanh Toán
-          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('thanh_toan');
+                setCurrentPage(1);
+              }}
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                activeTab === 'thanh_toan'
+                  ? 'bg-cerulean-blue-600 text-white shadow-sm'
+                  : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+              }`}
+            >
+              Thanh Toán
+            </button>
+          )}
         </div>
 
         <FilterToolbar>
-          <select
-            value={branchId}
-            onChange={(e) => setBranchId(e.target.value)}
-            className="h-9 rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-sm text-slate-700 focus:outline-none focus:border-cerulean-blue-500"
-          >
-            <option value="">Tất cả chi nhánh</option>
-            {ownerRestaurants.map((r) => (
-              <option key={String(r._id)} value={String(r._id)}>
-                {r.name}
-              </option>
-            ))}
-          </select>
+          {isAdmin && (
+            <select
+              value={branchId}
+              onChange={(e) => setBranchId(e.target.value)}
+              className="h-9 rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-sm text-slate-700 focus:outline-none focus:border-cerulean-blue-500"
+            >
+              <option value="">Tất cả chi nhánh</option>
+              {ownerRestaurants.map((r) => (
+                <option key={String(r._id)} value={String(r._id)}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          )}
 
           <select
             value={timeRange}
@@ -329,7 +370,7 @@ export default function LogsPage() {
           </div>
         </FilterToolbar>
 
-        {activeTab === 'hanh_dong' ? (
+        {activeTab === 'hanh_dong' || !isAdmin ? (
           <DataTable
             columns={auditColumns}
             data={filteredLogs}

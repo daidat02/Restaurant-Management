@@ -51,6 +51,14 @@ router.put(
   requireResourceTenant(userTenantResolver),
   authController.updateUser,
 );
+// Khoá/mở khoá user (quản lý cấp dưới — manager xử lý staff, admin xử lý staff/manager)
+router.patch(
+  '/admin/:id/block',
+  verifyToken,
+  verifyRole(['admin', 'manager']),
+  requireResourceTenant(userTenantResolver),
+  authController.blockUser,
+);
 // Tạo user nội bộ (staff/manager) thuộc tenant đang xác thực — dùng cho wizard onboarding
 router.post(
   '/admin/create',

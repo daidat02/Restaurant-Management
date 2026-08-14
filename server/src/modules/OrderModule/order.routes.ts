@@ -56,5 +56,27 @@ router.put(
   requireResourceTenant(orderTenantResolver),
   orderController.updateStatusOrder,
 );
+// POS: xoá món khỏi đơn, sửa món trong đơn, chuyển đơn sang bàn khác
+router.delete(
+  '/:id/items/:itemId',
+  verifyToken,
+  verifyRole(['staff', 'manager']),
+  requireResourceTenant(orderTenantResolver),
+  orderController.removeItemFromOrder,
+);
+router.patch(
+  '/:id/items/:itemId',
+  verifyToken,
+  verifyRole(['staff', 'manager']),
+  requireResourceTenant(orderTenantResolver),
+  orderController.updateOrderItem,
+);
+router.put(
+  '/:id/move-table',
+  verifyToken,
+  verifyRole(['staff', 'manager']),
+  requireResourceTenant(orderTenantResolver),
+  orderController.moveOrderToTable,
+);
 
 export default router;

@@ -86,6 +86,12 @@ export const API_ENDPOINTS = {
     MY_ORDERS: `${API_BASE_URL}/orders/my-orders`,
     CALL_STAFF: `${API_BASE_URL}/orders/call-staff`,
     REQUEST_PAYMENT: `${API_BASE_URL}/orders/request-payment`,
+    // POS: xoá món / sửa món trong đơn / chuyển bàn
+    REMOVE_ITEM: (orderId: string, itemId: string) =>
+      `${API_BASE_URL}/orders/${orderId}/items/${itemId}`,
+    UPDATE_ITEM_DETAIL: (orderId: string, itemId: string) =>
+      `${API_BASE_URL}/orders/${orderId}/items/${itemId}`,
+    MOVE_TABLE: (orderId: string) => `${API_BASE_URL}/orders/${orderId}/move-table`,
   },
 
   // --- PHÂN HỆ THANH TOÁN (PAYMENTS) ---

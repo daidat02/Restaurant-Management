@@ -26,9 +26,11 @@ const STATUS_CONFIG: Record<string, { label: string; cls: string; icon: typeof C
   pending: { label: 'Chờ xử lý', cls: 'bg-slate-100 text-slate-500', icon: Clock },
   confirmed: { label: 'Đã xác nhận', cls: 'bg-sky-50 text-sky-700', icon: CheckCheck },
   preparing: { label: 'Đang chế biến', cls: 'bg-violet-50 text-violet-700', icon: ChefHat },
+  serving: { label: 'Đang phục vụ', cls: 'bg-cyan-50 text-cyan-700', icon: Utensils },
   served: { label: 'Đã phục vụ', cls: 'bg-emerald-50 text-emerald-700', icon: Utensils },
   delivered: { label: 'Đã giao hàng', cls: 'bg-teal-50 text-teal-700', icon: Utensils },
   paid: { label: 'Đã thanh toán', cls: 'bg-emerald-50 text-emerald-700', icon: CircleCheck },
+  completed: { label: 'Hoàn thành', cls: 'bg-emerald-50 text-emerald-700', icon: CircleCheck },
   cancelled: { label: 'Đã hủy', cls: 'bg-red-50 text-red-600', icon: Ban },
 };
 
@@ -54,11 +56,14 @@ export const OrderCard = ({
   const currentStyle = STATUS_CONFIG[order?.status as string] || STATUS_CONFIG['pending'];
   const StatusIcon = currentStyle.icon;
 
+  const isTerminal = ['paid', 'completed', 'cancelled'].includes(order?.status as string);
+
   const customerName =
     order.deliveryInfo?.name ||
     (typeof order?.customer === 'object' ? order?.customer?.name : null) ||
     'Khách lẻ';
-  const itemsCount = order?.itemsCount || order?.items?.length || 0;
+  const itemsCount =
+    order?.itemsCount || order?.items?.filter((i) => i.status !== 'deleted').length || 0;
   const total = order?.totalAmount || 0;
 
   return (
@@ -99,7 +104,7 @@ export const OrderCard = ({
       </div>
 
       {/* Hàng 3: Trạng thái + nút action */}
-      {order.status !== 'paid' && order.status !== 'cancelled' && (
+      {!isTerminal && (
         <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
           <span
             className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${currentStyle.cls}`}
@@ -143,8 +148,8 @@ export const OrderCard = ({
         </div>
       )}
 
-      {/* Footer trạng thái khi đã thanh toán/hủy */}
-      {order.status === 'paid' || order.status === 'cancelled' ? (
+      {/* Footer trạng thái khi đã chốt (thanh toán / hoàn thành / hủy) */}
+      {isTerminal ? (
         <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
           <span
             className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${currentStyle.cls}`}

@@ -33,14 +33,30 @@ class SettingController {
   }
 
   /**
-   * Cập nhật thông tin chi tiết cấu hình (Form tổng lực)
+   * Cập nhật thông tin chi tiết cấu hình (Form tổng lực).
+   * Chỉ ghi audit khi thay đổi liên quan cấu hình PayOS (thay đổi cấu hình khác không ghi log).
    */
-  async updateSetting(req: Request, res: Response) {
+  async updateSetting(req: AuthRequest, res: Response) {
     const { id } = req.params;
     const settingData = req.body;
-    console.log(settingData);
     try {
       const result = await settingService.updateSettingService(id || '', settingData);
+      if (result.code === 200 && id) {
+        const changedKeys = Object.keys(settingData || {});
+        const isPayos = changedKeys.some((k) => k.toLowerCase().includes('payos') || k === 'payosConfig');
+        if (isPayos) {
+          await writeAuditLog({
+            action: 'setting.payos.update',
+            restaurant: req.tenantId || req.user?.restaurantId || null,
+            actor: req.user?.userId || null,
+            actorInfo: { name: req.user?.name, role: req.user?.role },
+            targetType: 'setting',
+            targetId: id || null,
+            summary: 'Cập nhật cấu hình PayOS',
+            meta: { fields: changedKeys },
+          });
+        }
+      }
       res.status(result.code).json(result);
     } catch (error) {
       console.error(error);
@@ -86,7 +102,7 @@ class SettingController {
   /**
    * Cập nhật nhanh loại hình phương thức thanh toán chuyển khoản mặc định
    */
-  async updatePaymentMethodType(req: Request, res: Response) {
+  async updatePaymentMethodType(req: AuthRequest, res: Response) {
     const { id } = req.params;
     const { paymentMethodType, payload } = req.body;
     try {
@@ -95,6 +111,18 @@ class SettingController {
         paymentMethodType,
         payload,
       );
+      if (result.code === 200 && id) {
+        await writeAuditLog({
+          action: 'setting.payos.update',
+          restaurant: req.tenantId || req.user?.restaurantId || null,
+          actor: req.user?.userId || null,
+          actorInfo: { name: req.user?.name, role: req.user?.role },
+          targetType: 'setting',
+          targetId: id || null,
+          summary: 'Cập nhật phương thức thanh toán',
+          meta: { paymentMethodType },
+        });
+      }
       res.status(result.code).json(result);
     } catch (error) {
       console.error(error);
@@ -118,9 +146,20 @@ class SettingController {
   /**
    * Lưu cấu hình cổng thanh toán hệ thống (Chỉ Super Admin)
    */
-  async upsertGatewayConfig(req: Request, res: Response) {
+  async upsertGatewayConfig(req: AuthRequest, res: Response) {
     try {
       const result = await settingService.upsertGatewayConfigService(req.body);
+      if (result.code === 200) {
+        await writeAuditLog({
+          action: 'setting.gateway.update',
+          restaurant: null,
+          actor: req.user?.userId || null,
+          actorInfo: { name: req.user?.name, role: req.user?.role },
+          targetType: 'setting',
+          targetId: (result as any)?.data?._id || null,
+          summary: 'Cập nhật cấu hình cổng thanh toán hệ thống',
+        });
+      }
       res.status(result.code).json(result);
     } catch (error) {
       console.error(error);
@@ -158,7 +197,7 @@ class SettingController {
           actorInfo: { name: req.user?.name, role: req.user?.role },
           targetType: 'system',
           targetId: (result as any)?.data?._id || null,
-          summary: `Tạo mã nhà bếp mới cho nhà hàng ${restaurantId}`,
+          summary: 'Tạo mã nhà bếp mới',
         });
       }
       res.status(result.code).json(result);

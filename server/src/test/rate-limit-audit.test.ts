@@ -6,6 +6,9 @@ import { SEED_IDS } from './seed.js';
 const X = SEED_IDS.tenantX.toString();
 const Y = SEED_IDS.tenantY.toString();
 const idOf = (oid: unknown) => String(oid);
+// restaurant được populate thành { _id, name } — lấy id từ cả 2 dạng (string | object)
+const ridOf = (restaurant: unknown) =>
+  idOf((restaurant as { _id?: unknown })?._id ?? (restaurant as string));
 
 const adminX = () => tokenFor('admin', X);
 const superAdmin = () => tokenFor('super-admin');
@@ -27,7 +30,7 @@ describe('T05 — Rate limit + Audit log', () => {
       expect(log?.summary).toContain('Đăng ký');
     });
 
-    it('switch-tenant → có audit log user.switch-tenant đúng restaurant + actor', async () => {
+    it('switch-tenant → KHÔNG ghi audit (hành động cá nhân, không thay đổi dữ liệu)', async () => {
       const token = await request.post('/api/auth/login').send({
         email: 'admin.test@nhamnhi.vn',
         password: 'Test@NhamNhi2026',
@@ -41,9 +44,7 @@ describe('T05 — Rate limit + Audit log', () => {
       const log = (await DB_Connection.AuditLog.findOne({ action: 'user.switch-tenant' })
         .sort({ createdAt: -1 })
         .lean()) as any;
-      expect(log).toBeTruthy();
-      expect(idOf(log?.restaurant)).toBe(Y);
-      expect(idOf(log?.actor)).toBe(idOf(SEED_IDS.adminX));
+      expect(log).toBeFalsy();
     });
 
     it('khoá nhà hàng (super-admin) → có audit log restaurant.lock', async () => {
@@ -80,7 +81,7 @@ describe('T05 — Rate limit + Audit log', () => {
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body.data)).toBe(true);
       for (const log of res.body.data as any[]) {
-        const rid = idOf(log.restaurant);
+        const rid = ridOf(log.restaurant);
         expect([X, Y]).toContain(rid);
       }
     });
@@ -98,16 +99,50 @@ describe('T05 — Rate limit + Audit log', () => {
         .set('Authorization', `Bearer ${superAdmin()}`);
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body.data)).toBe(true);
-      expect(res.body.total).toBeGreaterThanOrEqual(4);
+      expect(res.body.total).toBeGreaterThanOrEqual(3);
     });
 
-    it('super-admin lọc theo restaurantId=X → chỉ log của X', async () => {
+    it('super-admin → KHÔNG thấy action vận hành order.* (chỉ log nền tảng)', async () => {
+      const res = await request
+        .get('/api/audit-logs?limit=50')
+        .set('Authorization', `Bearer ${superAdmin()}`);
+      expect(res.status).toBe(200);
+      for (const log of res.body.data as any[]) {
+        expect(String(log.action).startsWith('order.')).toBe(false);
+      }
+    });
+
+    it('super-admin lọc theo restaurantId=X → chỉ log của X, vẫn không có order.*', async () => {
       const res = await request
         .get(`/api/audit-logs?restaurantId=${X}&limit=50`)
         .set('Authorization', `Bearer ${superAdmin()}`);
       expect(res.status).toBe(200);
       for (const log of res.body.data as any[]) {
-        expect(idOf(log.restaurant)).toBe(X);
+        expect(ridOf(log.restaurant)).toBe(X);
+        expect(String(log.action).startsWith('order.')).toBe(false);
+      }
+    });
+
+    it('admin X → vẫn thấy order.create của chuỗi mình', async () => {
+      const res = await request.get('/api/audit-logs').set('Authorization', `Bearer ${adminX()}`);
+      expect(res.status).toBe(200);
+      const orderLogs = (res.body.data as any[]).filter((log) =>
+        String(log.action).startsWith('order.'),
+      );
+      expect(orderLogs.length).toBeGreaterThan(0);
+    });
+
+    it('manager X → thấy order.create của chi nhánh mình, không lộ chi nhánh khác', async () => {
+      const res = await request
+        .get('/api/audit-logs')
+        .set('Authorization', `Bearer ${tokenFor('manager', X)}`);
+      expect(res.status).toBe(200);
+      const orderLogs = (res.body.data as any[]).filter((log) =>
+        String(log.action).startsWith('order.'),
+      );
+      expect(orderLogs.length).toBeGreaterThan(0);
+      for (const log of res.body.data as any[]) {
+        expect(ridOf(log.restaurant)).toBe(X);
       }
     });
   });

@@ -93,10 +93,12 @@ class AuthRepository {
   /**
    * Hàm Query tổng lực: Tìm kiếm danh sách User linh hoạt theo mọi bộ lọc (Filter).
    * Luôn loại trừ user đã soft-delete (deletedAt != null).
+   * Populate `restaurantIds` (name) để client hiển thị tên nhà hàng mà không cần fetch riêng.
    */
   async findUsers(filter: FilterQuery<IUserDocument>): Promise<IUserDocument[]> {
     return await DB_Connection.User.find({ ...filter, deletedAt: null })
       .sort({ createdAt: -1 })
+      .populate('restaurantIds', 'name')
       .exec();
   }
 

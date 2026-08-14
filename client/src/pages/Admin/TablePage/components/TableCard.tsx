@@ -1,9 +1,10 @@
 import type { ITable } from '@/types/table.type';
 import { useRef } from 'react';
 import { Plus, Printer } from 'lucide-react';
-import { getTimeAgo } from '@/utils/helpers';
+import { extractId, getTimeAgo } from '@/utils/helpers';
 import { QRCodeSVG } from 'qrcode.react';
 import { useReactToPrint } from 'react-to-print';
+import type { IOrder } from '@/types/order.type';
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
 interface TableCardProps {
@@ -17,7 +18,7 @@ interface TableCardProps {
   time?: string;
   onChangeStatus?: (id: string, status: string) => void;
   open?: boolean;
-  onOpenPayment?: (orderId: string) => void;
+  onOpenPayment?: (orderId: string, status: IOrder['status']) => void;
   wifiName?: string;
   wifiPassword?: string;
   restaurantName?: string;
@@ -67,9 +68,7 @@ export const TableCard = ({
   const orderId =
     typeof table.currentOrder === 'object' ? table.currentOrder?._id : table.currentOrder;
   const orderTotal =
-    typeof table.currentOrder === 'object'
-      ? table.currentOrder?.totalAmount
-      : undefined;
+    typeof table.currentOrder === 'object' ? table.currentOrder?.totalAmount : undefined;
 
   const name =
     customerName ||
@@ -87,7 +86,8 @@ export const TableCard = ({
 
   const timeLabel = isAvailable
     ? 'Sẵn sàng'
-    : time || (orderTime ? getTimeAgo(orderTime) : table.updatedAt ? getTimeAgo(table.updatedAt) : '-');
+    : time ||
+      (orderTime ? getTimeAgo(orderTime) : table.updatedAt ? getTimeAgo(table.updatedAt) : '-');
 
   return (
     <div
@@ -104,7 +104,9 @@ export const TableCard = ({
           <p className="text-sm font-bold text-gray-900">Bàn số {table.tableNumber}</p>
           <p className="text-xs text-slate-400">{table.capacity} chỗ</p>
         </div>
-        <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${currentStyle.badge}`}>
+        <span
+          className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${currentStyle.badge}`}
+        >
           {currentStyle.label}
         </span>
       </div>
@@ -164,7 +166,12 @@ export const TableCard = ({
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                if (orderId && onOpenPayment) onOpenPayment(orderId);
+                const orderStatus =
+                  typeof table.currentOrder === 'object' && table.currentOrder !== null
+                    ? (table.currentOrder as IOrder).status
+                    : undefined;
+                if (orderId && onOpenPayment)
+                  onOpenPayment(orderId, orderStatus as IOrder['status']);
               }}
               className="rounded-lg bg-cerulean-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-cerulean-blue-700"
             >

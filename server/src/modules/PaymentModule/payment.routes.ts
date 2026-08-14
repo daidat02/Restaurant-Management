@@ -17,7 +17,19 @@ router.get(
   paymentController.getPaymentDetail,
 );
 router.post('/initiate', verifyToken, paymentController.initiatePayment);
-router.post('/:paymentId/method/:method', verifyToken, paymentController.updatePaymentMethod);
+router.post(
+  '/:paymentId/method/:method',
+  verifyToken,
+  paymentController.updatePaymentMethod,
+);
+// Hoàn tiền giao dịch đã thu (POS) — chỉ manager/admin, payment phải thuộc tenant
+router.post(
+  '/:paymentId/refund',
+  verifyToken,
+  verifyRole(['admin', 'manager']),
+  requireResourceTenant(paymentTenantResolver),
+  paymentController.refundPayment,
+);
 router.patch('/status', verifyToken, paymentController.changePaymentStatus);
 router.post(
   '/ewallet/:orderId',

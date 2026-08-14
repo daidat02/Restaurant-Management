@@ -8,7 +8,7 @@ export interface ITable {
   capacity: number;
   status: 'available' | 'occupied' | 'reserved' | 'inactive';
   lastStatusUpdate?: Date;
-  currentOrder: IOrder | string;
+  currentOrder: IOrder | string | null;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -22,7 +22,7 @@ class OrderService {
     message,
   }: {
     targetRoom: string; // Phòng nhận tin (Có thể là phòng nhà hàng hoặc phòng của riêng đơn hàng đó)
-    action: 'CREATE' | 'ADD_ITEMS' | 'UPDATE_STATUS' | 'UPDATE_ITEM' | 'CANCEL';
+    action: 'CREATE' | 'ADD_ITEMS' | 'UPDATE_STATUS' | 'UPDATE_ITEM' | 'DELETE_ITEM' | 'CANCEL';
     orderData?: any;
     message: string;
     itemData?: any;
@@ -78,6 +78,19 @@ class OrderService {
     }
 
     return { totalAmount, totalCount, orderItems };
+  }
+
+  /** Tính lại totalAmount/itemsCount từ các món CÒN HIỆU LỰC (không tính món đã soft-delete). */
+  private async recalcOrderTotals(order: IOrderDocument): Promise<void> {
+    const items = await DB_Connection.OrderItem.find({
+      order: order._id,
+      status: { $ne: 'deleted' },
+    }).exec();
+    order.totalAmount = items.reduce(
+      (sum, i) => sum + (i.priceSnapshot || 0) * (i.quantity || 1),
+      0,
+    );
+    order.itemsCount = items.reduce((sum, i) => sum + (i.quantity || 1), 0);
   }
 
   async createOrderService(
@@ -239,22 +252,81 @@ class OrderService {
         });
 
         const orderId = existingOrder._id.toString();
-        const totalItems = await orderRepository.countOrderItems({ order: existingOrder._id });
-        const servedItems = await orderRepository.countOrderItems({
+        const orderItems = await DB_Connection.OrderItem.find({
           order: existingOrder._id,
-          status: 'served',
-        });
+          status: { $ne: 'deleted' },
+        }).exec();
 
-        // Chỉ tự động hoàn thành đơn khi toàn bộ món ăn đã được phục vụ (served)
-        if (totalItems > 0 && servedItems === totalItems && existingOrder.status !== 'served') {
-          const updatedOrder = await orderRepository.updateOrder(orderId, { status: 'served' });
-          if (updatedOrder) {
-            this.emitOrderUpdate({
-              targetRoom: restaurantRoom,
-              action: 'UPDATE_STATUS',
-              orderData: updatedOrder,
-              message: 'Đơn hàng đã hoàn thành toàn bộ món ăn',
+        // Đồng bộ trạng thái đơn theo trạng thái các món:
+        //  - Toàn bộ món đã phục vụ (served) → đơn 'served'.
+        //  - Còn món chưa xong nhưng đã có ít nhất 1 món phục vụ → đơn 'serving' (đang phục vụ).
+        //  - Chưa có món nào phục vụ, còn món đang nấu → đơn 'preparing'.
+        // KHÔNG đè lên trạng thái chốt: paid / completed / cancelled.
+        // KHÔNG đưa đơn lùi về phía trước (chỉ tiến theo luồng phục vụ).
+
+        const isTerminal = ['paid', 'completed', 'cancelled'].includes(existingOrder.status);
+        if (!isTerminal) {
+          // 1. Phân loại danh sách món
+          const validItems = orderItems.filter(
+            (i) => i.status !== 'deleted' && i.status !== 'cancelled',
+          );
+          const totalValid = validItems.length;
+
+          const servedItems = validItems.filter((i) => i.status === 'served').length;
+          const preparingItems = validItems.filter((i) => i.status === 'preparing').length;
+          const deletedItems = orderItems.filter(
+            (i) => i.status === 'deleted' || i.status === 'cancelled',
+          ).length;
+
+          let derivedStatus: string | null = null;
+
+          if (totalValid === 0 && deletedItems > 0) {
+            // TH1: Tất cả các món trong đơn đều đã bị hủy
+            derivedStatus = 'cancelled'; // hoặc 'deleted' tùy enum của bạn
+          } else if (totalValid > 0 && servedItems === totalValid) {
+            // TH2: Tất cả các món còn hiệu lực đã phục vụ xong
+            derivedStatus = 'served';
+          } else if (servedItems > 0) {
+            // TH3: Đã phục vụ được một số món (đang ra món dở dang)
+            derivedStatus = 'serving';
+          } else if (preparingItems > 0) {
+            // TH4: Đang có ít nhất 1 món đang nấu
+            derivedStatus = 'preparing';
+          } else {
+            // TH5: Chưa có món nào nấu/phục vụ (toàn bộ đang ở trạng thái 'pending' / 'waiting')
+            derivedStatus = 'pending';
+          }
+
+          const flowRank: Record<string, number> = {
+            pending: 0,
+            confirmed: 1,
+            preparing: 2,
+            serving: 3,
+            served: 4,
+            delivered: 5,
+            paid: 6,
+            completed: 7,
+            cancelled: 8,
+          };
+          const currentRank = flowRank[existingOrder.status] ?? 0;
+          const derivedRank = derivedStatus ? (flowRank[derivedStatus] ?? 0) : -1;
+
+          if (
+            derivedStatus &&
+            derivedRank > currentRank &&
+            derivedStatus !== existingOrder.status
+          ) {
+            const updatedOrder = await orderRepository.updateOrder(orderId, {
+              status: derivedStatus as IOrder['status'],
             });
+            if (updatedOrder) {
+              this.emitOrderUpdate({
+                targetRoom: restaurantRoom,
+                action: 'UPDATE_STATUS',
+                orderData: updatedOrder,
+                message: `Đơn hàng đã chuyển sang trạng thái ${derivedStatus}`,
+              });
+            }
           }
         }
       }
@@ -293,18 +365,22 @@ class OrderService {
       ]);
 
       const allItems = (populatedOrder as any).items as IOrderItemDocument[];
-      populatedOrder.totalAmount = allItems.reduce(
+      const activeItems = allItems.filter((item) => item.status !== 'deleted');
+      populatedOrder.totalAmount = activeItems.reduce(
         (sum: number, item: IOrderItemDocument) => sum + item.priceSnapshot * item.quantity,
         0,
       );
-      populatedOrder.itemsCount = allItems.reduce(
+      populatedOrder.itemsCount = activeItems.reduce(
         (sum: number, item: IOrderItemDocument) => sum + item.quantity,
         0,
       );
 
-      // Món mới được thêm vào đơn đã phục vụ hết (served) hoặc đã thanh toán trước (paid)
-      // → mở lại đơn về pending để bếp nhận món mới (KDS) và đơn hiển thị lại ở màn quản lý.
-      if (['served', 'paid'].includes(populatedOrder.status)) {
+      // Món mới được thêm vào đơn đã phục vụ hết (served) → mở lại đơn về 'serving' (đang phục vụ)
+      // vì còn món mới chưa xong. Đơn đã chốt (paid/completed) → mở lại về 'pending' để bếp nhận
+      // món mới (KDS) và đơn hiển thị lại ở màn quản lý.
+      if (populatedOrder.status === 'served') {
+        populatedOrder.status = 'serving';
+      } else if (['paid', 'completed'].includes(populatedOrder.status)) {
         populatedOrder.status = 'pending';
       }
 
@@ -325,6 +401,224 @@ class OrderService {
     }
   }
 
+  /**
+   * POS: Xoá (SOFT DELETE) một món khỏi đơn — nhân viên/thu ngân huỷ món.
+   * Món KHÔNG bị xoá hẳn khỏi DB: đánh dấu status='deleted' + deletedReason/deletedAt
+   * để màn chi tiết đơn còn truy vết được món đã xoá. Cập nhật totalAmount/itemsCount,
+   * đồng bộ socket + bảng.
+   */
+  async removeItemFromOrderService(
+    orderId: string,
+    itemId: string,
+    reason?: string,
+  ): Promise<ServiceResponse<IOrderDocument | null>> {
+    const order = await orderRepository.findOrderById(orderId);
+    if (!order) return { code: 404, message: 'Không tìm thấy thông tin đơn hàng' };
+    if (['paid', 'completed', 'cancelled'].includes(order.status)) {
+      return { code: 400, message: 'Đơn hàng đã chốt, không thể xoá món' };
+    }
+
+    const item = await orderRepository.findOrderItemById(itemId);
+    if (!item || item.order.toString() !== orderId) {
+      return { code: 404, message: 'Không tìm thấy món ăn trong đơn' };
+    }
+    if (item.status === 'deleted') {
+      return { code: 400, message: 'Món này đã được xoá khỏi đơn' };
+    }
+
+    // 1. SOFT DELETE món ăn
+    const updatedItem = await orderRepository.updateOrderItem(itemId, {
+      status: 'deleted',
+      ...(reason ? { deletedReason: reason } : {}),
+      deletedAt: new Date(),
+    });
+
+    // 2. Tính toán lại tổng tiền order
+    await this.recalcOrderTotals(order);
+    await order.save();
+
+    // 3. Populate lại order để lấy danh sách items mới nhất
+    const populatedOrder = await order.populate([
+      { path: 'table', select: 'tableNumber capacity status' },
+      { path: 'customer', select: 'name email phone' },
+      { path: 'items' },
+    ]);
+    const restaurantRoom = `restaurant_${order.restaurant.toString()}`;
+
+    // 4. Phân loại danh sách món để xử lý Auto-Update Status Order chuẩn nghiệp vụ
+    const allItems = populatedOrder.items || [];
+
+    // Lọc danh sách món hợp lệ (không bị xóa)
+    const validItems = allItems.filter((i) => {
+      return typeof i === 'object' && i !== null && 'status' in i && i.status !== 'deleted';
+    });
+
+    if (validItems.length === 0) {
+      // TH1: Tất cả món trong đơn đều đã bị xóa -> Tự động HỦY ĐƠN
+      populatedOrder.status = 'cancelled';
+      await orderRepository.updateOrder(orderId, { status: 'cancelled' });
+    } else {
+      // TH2: Kiểm tra xem tất cả các món còn lại đã phục vụ xong chưa
+      const isAllServed = validItems.every(
+        (i) => typeof i === 'object' && i !== null && 'status' in i && i.status === 'served',
+      );
+      if (isAllServed) {
+        populatedOrder.status = 'served';
+        await orderRepository.updateOrder(orderId, { status: 'served' });
+        this.emitOrderUpdate({
+          targetRoom: restaurantRoom,
+          action: 'UPDATE_STATUS',
+          orderData: populatedOrder,
+          message: 'Món ăn đã được xoá khỏi đơn hàng',
+        });
+      }
+    }
+
+    // 5. Bắn Socket event real-time (Truyền updatedItem có status 'deleted' chuẩn)
+    console.log('Emitting order item delete:', updatedItem || item, 'to room:', restaurantRoom);
+
+    this.emitOrderUpdate({
+      targetRoom: restaurantRoom,
+      action: 'DELETE_ITEM',
+      orderData: populatedOrder,
+      itemData: updatedItem || { ...item.toObject(), status: 'deleted' },
+      message: 'Món ăn đã được xoá khỏi đơn hàng',
+    });
+
+    // 6. Trả về populatedOrder đầy đủ thông tin cho client
+    return { code: 200, message: 'Xoá món khỏi đơn thành công', data: populatedOrder };
+  }
+
+  /**
+   * POS: Cập nhật món trong đơn — số lượng / giá bán / ghi chú (thu ngân chỉnh món).
+   */
+  async updateOrderItemService(
+    orderId: string,
+    itemId: string,
+    updateData: { quantity?: number; price?: number; note?: string },
+  ): Promise<ServiceResponse<IOrderDocument | null>> {
+    const order = await orderRepository.findOrderById(orderId);
+    if (!order) return { code: 404, message: 'Không tìm thấy thông tin đơn hàng' };
+    if (order.status === 'paid' || order.status === 'completed' || order.status === 'cancelled') {
+      return { code: 400, message: 'Đơn hàng đã chốt, không thể sửa món' };
+    }
+
+    const item = await orderRepository.findOrderItemById(itemId);
+    if (!item || item.order.toString() !== orderId) {
+      return { code: 404, message: 'Không tìm thấy món ăn trong đơn' };
+    }
+    if (item.status === 'deleted') {
+      return { code: 400, message: 'Món đã bị xoá khỏi đơn, không thể sửa' };
+    }
+
+    const patch: Partial<IOrderItemDocument> = {};
+    if (updateData.quantity !== undefined) {
+      if (!Number.isFinite(updateData.quantity) || updateData.quantity < 1) {
+        return { code: 400, message: 'Số lượng món không hợp lệ' };
+      }
+      patch.quantity = updateData.quantity;
+    }
+    if (updateData.price !== undefined) {
+      if (!Number.isFinite(updateData.price) || updateData.price < 0) {
+        return { code: 400, message: 'Giá bán không hợp lệ' };
+      }
+      patch.priceSnapshot = updateData.price;
+    }
+    if (updateData.note !== undefined) {
+      patch.note = updateData.note;
+    }
+
+    const updatedItem = await orderRepository.updateOrderItem(itemId, patch);
+    if (!updatedItem) return { code: 404, message: 'Không tìm thấy món ăn trong đơn' };
+
+    // Tính lại tổng từ danh sách món còn hiệu lực (không tính món đã xoá)
+    await this.recalcOrderTotals(order);
+    await order.save();
+
+    const populatedOrder = await order.populate([
+      { path: 'table', select: 'tableNumber capacity status' },
+      { path: 'customer', select: 'name email phone' },
+      { path: 'items' },
+    ]);
+
+    this.emitOrderUpdate({
+      targetRoom: `restaurant_${order.restaurant.toString()}`,
+      action: 'UPDATE_ITEM',
+      orderData: populatedOrder,
+      itemData: updatedItem,
+      message: 'Món ăn trong đơn đã được cập nhật',
+    });
+
+    return { code: 200, message: 'Cập nhật món trong đơn thành công', data: order };
+  }
+
+  /**
+   * POS: Chuyển đơn sang bàn khác — chỉ đơn dine-in, bàn đích cùng nhà hàng & đang trống.
+   */
+  async moveOrderToTableService(
+    orderId: string,
+    targetTableId: string,
+  ): Promise<ServiceResponse<IOrderDocument | null>> {
+    const order = await orderRepository.findOrderById(orderId);
+    if (!order) return { code: 404, message: 'Không tìm thấy thông tin đơn hàng' };
+    if (order.orderType !== 'dine-in') {
+      return { code: 400, message: 'Chỉ chuyển được đơn tại bàn (dine-in)' };
+    }
+    if (order.status === 'paid' || order.status === 'completed' || order.status === 'cancelled') {
+      return { code: 400, message: 'Đơn hàng đã chốt, không thể chuyển bàn' };
+    }
+    if (order.table && order.table.toString() === targetTableId) {
+      return { code: 400, message: 'Đơn đang ở chính bàn này' };
+    }
+
+    const targetTable = await tableRepository.findTableById(targetTableId);
+    if (!targetTable) return { code: 404, message: 'Không tìm thấy bàn đích' };
+    if (targetTable.restaurant.toString() !== order.restaurant.toString()) {
+      return { code: 400, message: 'Bàn đích không thuộc nhà hàng này' };
+    }
+    if (targetTable.currentOrder && targetTable.currentOrder.toString() !== orderId) {
+      return { code: 400, message: 'Bàn đích đang có đơn khác' };
+    }
+
+    // Trả bàn cũ về trạng thái trống nếu không còn đơn nào treo
+    const oldTableId = order.table?.toString();
+    order.table = new ObjectId(targetTableId) as any;
+    await order.save();
+
+    await tableRepository.updateTable(targetTableId, {
+      currentOrder: order._id as unknown as Types.ObjectId,
+      status: 'occupied',
+    });
+    if (oldTableId) {
+      const stillActive = await orderRepository.findOrders({
+        table: oldTableId,
+        status: { $nin: ['paid', 'completed', 'cancelled'] },
+        _id: { $ne: order._id },
+      });
+      if (!stillActive || stillActive.length === 0) {
+        await tableRepository.updateTable(oldTableId, {
+          currentOrder: null,
+          status: 'available',
+        });
+      }
+    }
+
+    const populatedOrder = await order.populate([
+      { path: 'table', select: 'tableNumber capacity status' },
+      { path: 'customer', select: 'name email phone' },
+      { path: 'items' },
+    ]);
+
+    this.emitOrderUpdate({
+      targetRoom: `restaurant_${order.restaurant.toString()}`,
+      action: 'UPDATE_STATUS',
+      orderData: populatedOrder,
+      message: 'Đơn hàng đã được chuyển sang bàn khác',
+    });
+
+    return { code: 200, message: 'Chuyển bàn thành công', data: order };
+  }
+
   async getAllOrderByRestaurant(
     restaurantId: string,
   ): Promise<ServiceResponse<IOrderDocument[] | null>> {
@@ -339,10 +633,11 @@ class OrderService {
   async getActiveOrdersService(restaurantId: string) {
     if (!restaurantId) throw new Error('Thiếu ID nhà hàng (restaurantId)');
 
-    // Tận dụng hàm findOrders truyền điều kiện $nin
+    // Đơn hiện tại = mọi đơn CHƯA chốt: chỉ loại completed / cancelled.
+    // paid (đã thanh toán nhưng chưa hoàn thành — to-go/delivery) vẫn hiện trên trang order.
     return await orderRepository.findOrders({
       restaurant: restaurantId,
-      status: { $nin: ['paid', 'cancelled', 'delivered'] },
+      status: { $nin: ['completed', 'cancelled'] },
     });
   }
 
@@ -378,7 +673,7 @@ class OrderService {
 
     const order = await orderRepository.findOrders({
       table: tableId,
-      status: { $nin: ['paid', 'cancelled'] },
+      status: { $nin: ['paid', 'completed', 'cancelled'] },
     });
     if (!order || order.length === 0)
       return { code: 404, message: 'Không có đơn hàng nào đang hoạt động cho bàn này' };
@@ -404,7 +699,7 @@ class OrderService {
     orderData: Partial<IOrderDocument>,
   ): Promise<ServiceResponse<IOrderDocument | null>> {
     const existingOrder = await orderRepository.findOrderById(id);
-    if (existingOrder?.status == 'paid') {
+    if (existingOrder?.status == 'paid' || existingOrder?.status == 'completed') {
       return {
         code: 400,
         message: 'Đơn hàng đã được thanh toán không thể cập nhật lại trạng thái',
@@ -430,9 +725,11 @@ class OrderService {
       'pending',
       'confirmed',
       'preparing',
+      'serving',
       'served',
       'delivered',
       'paid',
+      'completed',
       'cancelled',
     ];
     if (!validStatuses.includes(status as IOrder['status'])) {

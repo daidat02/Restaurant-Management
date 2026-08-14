@@ -8,6 +8,7 @@ import { useUser } from '@/hooks/use-user';
 import { useAuth } from '@/hooks/use-auth';
 import { CustomTextarea } from '@/components/CustomTextArea';
 import { useRestaurant } from '@/hooks/use-restaurant';
+import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
 import { extractId } from '@/utils/helpers';
 
 // Danh sách vai trò theo người đăng nhập (ticket 08):
@@ -29,6 +30,7 @@ const FormUser = ({ initialData, onSuccess }: FormProps) => {
   const { restaurants, fetchRestaurants } = useRestaurant();
   const { createUser, editUser } = useUser();
   const { user: currentUser } = useAuth(); // Tài khoản đang đăng nhập để thực hiện phân quyền trên Form
+  const activeRestaurantId = useActiveRestaurantId(); // Chi nhánh đang làm việc (manager/staff)
 
   const [name, setName] = useState(initialData?.name || '');
   const [email, setEmail] = useState(initialData?.email || '');
@@ -39,13 +41,14 @@ const FormUser = ({ initialData, onSuccess }: FormProps) => {
   );
   const [restaurantSelected, setRestaurantSelected] = useState(() => {
     if (initialData) {
-      return typeof initialData?.restaurant === 'string'
-        ? initialData.restaurant
-        : initialData?.restaurant?._id || '';
+      // Server populate restaurantIds ({_id, name}) → extractId xử lý cả string lẫn object
+      return extractId(initialData.restaurant) || extractId(initialData.restaurantIds?.[0]);
     }
-    // Manager: mặc định chi nhánh của chính mình; Admin: phải tự chọn
-    return currentUser?.role === 'admin' ? '' : extractId(currentUser?.restaurant);
+    // Manager/Staff: mặc định chi nhánh đang làm việc; Admin: phải tự chọn
+    return currentUser?.role === 'admin' ? '' : activeRestaurantId;
   });
+  // Admin chỉ có 1 chi nhánh → dùng luôn chi nhánh đó làm default (không cần chọn tay)
+  const effectiveRestaurantId = restaurantSelected || (restaurants.length === 1 ? restaurants[0]._id : '');
   const [address, setAddress] = useState('');
 
   // 1. Tự động tính toán danh sách quyền được hiển thị dựa trên Role người đăng nhập
@@ -56,7 +59,7 @@ const FormUser = ({ initialData, onSuccess }: FormProps) => {
   }, [currentUser?.role]);
 
   // 2. Chi nhánh mặc định cho manager (chỉ nhánh của chính mình)
-  const defaultManagerRestaurant = extractId(currentUser?.restaurant);
+  const defaultManagerRestaurant = activeRestaurantId;
 
   // Fetch danh sách nhà hàng một lần duy nhất khi component mount
   useEffect(() => {
@@ -67,7 +70,7 @@ const FormUser = ({ initialData, onSuccess }: FormProps) => {
     e.preventDefault();
 
     // Validate: nhà hàng bắt buộc với staff/manager (ticket 08)
-    if (role !== 'admin' && !restaurantSelected) {
+    if (role !== 'admin' && !effectiveRestaurantId) {
       toast.error('Vui lòng chọn nhà hàng cho tài khoản.', { position: 'top-right' });
       return;
     }
@@ -76,7 +79,7 @@ const FormUser = ({ initialData, onSuccess }: FormProps) => {
 
     // ID nhà hàng: admin lấy từ ô chọn; manager dùng chi nhánh của chính mình
     const finalRestaurant =
-      currentUser?.role === 'admin' ? restaurantSelected : defaultManagerRestaurant;
+      currentUser?.role === 'admin' ? effectiveRestaurantId : defaultManagerRestaurant;
 
     if (initialData) {
       // ------------------------------------
@@ -172,7 +175,7 @@ const FormUser = ({ initialData, onSuccess }: FormProps) => {
               label: r.name,
               value: r._id,
             }))}
-            value={restaurantSelected}
+            value={effectiveRestaurantId}
             onValueChange={(value) => setRestaurantSelected(value)}
             disabled={currentUser?.role !== 'admin' || isEditingSelf}
           />

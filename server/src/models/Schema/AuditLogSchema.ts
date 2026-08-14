@@ -10,7 +10,20 @@ export interface IAuditLog extends Document {
     name: string;
     role: string;
   };
-  targetType: 'order' | 'table' | 'menuItem' | 'user' | 'payment' | 'restaurant' | 'system' | 'pricing';
+  targetType:
+    | 'order'
+    | 'table'
+    | 'menuItem'
+    | 'user'
+    | 'payment'
+    | 'restaurant'
+    | 'system'
+    | 'pricing'
+    | 'subscription'
+    | 'reservation'
+    | 'setting'
+    | 'refund'
+    | 'conversation';
   targetId: Schema.Types.ObjectId;
   // Tóm tắt ngắn gọn bằng chữ để hiển thị nhanh lên danh sách Frontend
   summary: string;
@@ -34,7 +47,21 @@ const AuditLogSchema = new Schema<IAuditLog>(
     },
     targetType: {
       type: String,
-      enum: ['order', 'table', 'menuItem', 'user', 'payment', 'restaurant', 'system', 'pricing'],
+      enum: [
+        'order',
+        'table',
+        'menuItem',
+        'user',
+        'payment',
+        'restaurant',
+        'system',
+        'pricing',
+        'subscription',
+        'reservation',
+        'setting',
+        'refund',
+        'conversation',
+      ],
       required: true,
       index: true,
     },

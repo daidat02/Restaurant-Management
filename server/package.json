@@ -8,6 +8,8 @@
     "dev": "concurrently \"tsc --watch\" \"nodemon dist/index.js\"",
     "start": "node dist/index.js",
     "start:test": "node dist/test/server.js",
+    "seed": "node scripts/seed-test-data.mjs",
+    "seed:accounts": "node scripts/seed-test-accounts.mjs",
     "test": "vitest run"
   },
   "keywords": [],

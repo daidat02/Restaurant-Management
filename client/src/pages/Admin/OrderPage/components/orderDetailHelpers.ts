@@ -6,5 +6,5 @@ export const calcItemTotal = (item: IOrderItem): number => {
   return (item.priceSnapshot + toppingTotal) * item.quantity;
 };
 
-// Format tiền theo chuẩn hiển thị hiện tại của OrderDetail (giữ nguyên UI)
-export const formatPrice = (value: number): string => `${value.toLocaleString('vi-VN')} đ`;
+// Format tiền theo chuẩn hiển thị hiện tại của OrderDetail
+export const formatPrice = (value: number): string => `${value.toLocaleString('vi-VN')}₫`;

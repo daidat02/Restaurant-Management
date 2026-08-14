@@ -1,4 +1,4 @@
-import { UtensilsCrossed } from 'lucide-react';
+import { Plus, UtensilsCrossed } from 'lucide-react';
 import type { IOrderItem } from '@/types/order.type';
 import { calcItemTotal, formatPrice } from './orderDetailHelpers';
 import { mergeOrderItems } from '@/utils/orderItems';
@@ -6,7 +6,7 @@ import { mergeOrderItems } from '@/utils/orderItems';
 const itemStatusCfg: Record<string, { label: string; cls: string }> = {
   pending: { label: 'Chờ bếp', cls: 'bg-slate-100 text-slate-600' },
   preparing: { label: 'Đang chế biến', cls: 'bg-violet-50 text-violet-700' },
-  served: { label: 'Đã phục vụ', cls: 'bg-emerald-50 text-emerald-700' },
+  served: { label: 'Đã phục vụ', cls: 'bg-emerald-50 text-emerald-600' },
 };
 
 interface OrderItemsTableProps {
@@ -15,7 +15,10 @@ interface OrderItemsTableProps {
 }
 
 export default function OrderItemsTable({ items, isLoading }: OrderItemsTableProps) {
-  const merged = mergeOrderItems(items);
+  const active = items.filter((it) => it.status !== 'deleted');
+  const deleted = items.filter((it) => it.status === 'deleted');
+  const merged = mergeOrderItems(active);
+  const mergedDeleted = mergeOrderItems(deleted);
 
   if (isLoading) {
     return (
@@ -30,7 +33,7 @@ export default function OrderItemsTable({ items, isLoading }: OrderItemsTablePro
     );
   }
 
-  if (merged.length === 0) {
+  if (merged.length === 0 && mergedDeleted.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-14 text-slate-300">
         <UtensilsCrossed className="h-9 w-9" />
@@ -42,55 +45,75 @@ export default function OrderItemsTable({ items, isLoading }: OrderItemsTablePro
   return (
     <ul className="divide-y divide-slate-100">
       {merged.map((item) => {
-        const originItems = items.filter((it) => it._id === item?._id);
+        const originItems = active.filter((it) => it._id === item?._id);
         const sCfg =
           itemStatusCfg[item.status || 'pending'] ||
           itemStatusCfg[originItems[0]?.status || 'pending'];
         const note = item.note;
 
         return (
-          <li key={item?._id as string} className="flex items-start justify-between gap-4 py-4">
-            <div className="min-w-0">
-              <div className="flex items-start gap-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-50 text-slate-400 ring-1 ring-slate-100">
-                  <UtensilsCrossed className="h-4 w-4" />
-                </div>
-                <div className="min-w-0">
-                  <p className="flex items-center gap-2 font-semibold text-slate-900">
-                    <span className="truncate">{item.nameSnapshot}</span>
-                    <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-cerulean-blue-50 px-1.5 text-xs font-bold text-cerulean-blue-700">
-                      ×{item.quantity}
-                    </span>
-                  </p>
-                  <p className="mt-0.5 text-sm text-slate-500">
-                    {formatPrice(item.priceSnapshot)}
-                  </p>
-                  {item.toppings && item.toppings.length > 0 && (
-                    <p className="mt-0.5 text-xs text-slate-400">
-                      {item.toppings.map((t) => t.name).join(', ')}
-                    </p>
-                  )}
-                  {note && (
-                    <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-amber-600">
-                      <span className="rounded-sm bg-amber-50 px-1.5 py-0.5">{note}</span>
-                    </p>
-                  )}
-                </div>
+          <li key={item?._id as string} className="flex items-start gap-3 py-4">
+            <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-cerulean-blue-50 text-xs font-bold text-cerulean-blue-700">
+              {item.quantity}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <p className="text-sm font-semibold text-gray-900">
+                  {item.nameSnapshot}
+                </p>
+                <span
+                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${sCfg.cls}`}
+                >
+                  {sCfg.label}
+                </span>
               </div>
+              {item.toppings && item.toppings.length > 0 && (
+                <div className="mt-1 flex items-center gap-1.5">
+                  <Plus className="h-3 w-3 shrink-0 text-cerulean-blue-400" />
+                  <p className="text-xs font-medium text-cerulean-blue-700">
+                    {item.toppings.map((t) => `${t.name} +${formatPrice(t.price)}`).join(' · ')}
+                  </p>
+                </div>
+              )}
+              {note && (
+                <p className="mt-1.5 text-xs text-amber-700">
+                  <span className="font-semibold">Ghi chú:</span> {note}
+                </p>
+              )}
             </div>
-            <div className="flex shrink-0 flex-col items-end gap-1.5">
-              <span
-                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold ${sCfg.cls}`}
-              >
-                {sCfg.label}
-              </span>
-              <span className="font-bold text-slate-900">
-                {formatPrice(calcItemTotal(item))}
-              </span>
+            <div className="shrink-0 text-right">
+              <p className="text-sm font-bold text-gray-900">{formatPrice(calcItemTotal(item))}</p>
+              <p className="text-[11px] text-slate-400">
+                {formatPrice(item.priceSnapshot)} × {item.quantity}
+              </p>
             </div>
           </li>
         );
       })}
+
+      {mergedDeleted.map((item) => (
+        <li key={`deleted-${item?._id as string}`} className="flex items-start gap-3 py-4 opacity-75">
+          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-rose-50 text-xs font-bold text-rose-500">
+            {item.quantity}
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <p className="text-sm font-semibold text-slate-400 line-through">
+                {item.nameSnapshot}
+              </p>
+              <span className="inline-flex items-center rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-600">
+                Đã xóa
+              </span>
+            </div>
+            {item.deletedReason && (
+              <p className="mt-1 text-xs text-rose-500">Lý do xóa: {item.deletedReason}</p>
+            )}
+          </div>
+          <span className="shrink-0 text-sm font-bold text-slate-300 line-through">
+            {formatPrice(calcItemTotal(item))}
+          </span>
+        </li>
+      ))}
     </ul>
   );
 }

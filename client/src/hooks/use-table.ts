@@ -16,6 +16,7 @@ import {
 import {
   callStaffAtTable as callStaffAtTableApi,
   requestPaymentAtTable as requestPaymentAtTableApi,
+  moveOrderToTableApi,
 } from '@/api/order.api';
 
 import { useGlobalLoading } from '@/components/LoadingOverlay';
@@ -184,6 +185,40 @@ export const useTable = () => {
     [],
   );
 
+  // POS: Chuyển đơn sang bàn khác — cập nhật cục bộ trạng thái bàn (bàn cũ trống, bàn mới có khách)
+  const moveOrderToTable = useCallback(
+    async (orderId: string, targetTableId: string) => {
+      try {
+        const result = await moveOrderToTableApi(orderId, targetTableId);
+        if (result) {
+          const sourceTableId =
+            typeof result.table === 'object' && result.table ? result.table._id : result.table;
+          setTables((prev) =>
+            prev.map((t) => {
+              if (t._id === targetTableId) {
+                return { ...t, status: 'occupied', currentOrder: orderId };
+              }
+              if (t._id === sourceTableId) {
+                return { ...t, status: 'available', currentOrder: null };
+              }
+              return t;
+            }),
+          );
+          if (currentTable?._id === targetTableId) {
+            setCurrentTable((prev) =>
+              prev ? { ...prev, status: 'occupied', currentOrder: orderId } : prev,
+            );
+          }
+        }
+        return result;
+      } catch (err: any) {
+        toast.error(err?.message || 'Đã xảy ra lỗi khi chuyển bàn', { position: 'top-right' });
+        return null;
+      }
+    },
+    [currentTable],
+  );
+
   return {
     // State
     tables,
@@ -202,5 +237,6 @@ export const useTable = () => {
     // Nghiệp vụ khách tại bàn
     callStaffAtTable,
     requestPaymentAtTable,
+    moveOrderToTable,
   };
 };

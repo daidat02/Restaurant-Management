@@ -83,6 +83,8 @@ describe('T2 — /auth/profile/me trả restaurantIds mới nhất', () => {
     const me1 = await request.get('/api/auth/profile/me').set('Authorization', `Bearer ${token}`);
     expect(me1.status).toBe(200);
     expect(me1.body.data.restaurantIds.length).toBe(1);
-    expect(me1.body.data.restaurantIds[0]).toBe(idOf(created.body.result.data._id));
+    // restaurantIds được populate 'name' → phần tử là { _id, name }; trích id để so sánh
+    const rid = idOf(me1.body.data.restaurantIds[0]?._id ?? me1.body.data.restaurantIds[0]);
+    expect(rid).toBe(idOf(created.body.result.data._id));
   });
 });

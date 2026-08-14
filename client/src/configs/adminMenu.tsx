@@ -100,6 +100,7 @@ const MANAGER_MENU: MenuGroup[] = [
     label: 'Công cụ',
     items: [
       { title: 'Tin Nhắn', icon: MessageCircle, path: '/manager/messages' },
+      { title: 'Nhật Ký Hệ Thống', icon: History, path: '/manager/logs' },
       { title: 'Cài Đặt Chung', icon: Settings, path: '/manager/settings' },
       { title: 'Trợ Giúp', icon: HelpCircle, path: '/manager/help' },
     ],

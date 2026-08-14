@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import type { IPayment, IPaymentDocument } from '../../models/Schema/PaymentSchema.js';
 import type { ServiceResponse } from '../../shared/type.js';
+import DB_Connection from '../../models/DB_Connection.js';
 import orderRepository from '../OrderModule/order.repository.js';
 import paymentRepository from './payment.repository.js';
 import vnpayService from './vnpay.service.js';
@@ -39,6 +40,22 @@ class PaymentService {
     }
   }
 
+  /**
+   * Đơn tại quầy (dine-in/to-go) chỉ được thanh toán khi toàn bộ món đã phục vụ (served)
+   * hoặc đã xoá (deleted). Đơn giao (delivery) được trả tiền online ngay khi đặt hàng
+   * nên không áp dụng ràng buộc này.
+   */
+  private async assertOrderReadyForPayment(order: Awaited<ReturnType<typeof orderRepository.findOrderById>>): Promise<string | null> {
+    if (!order) return 'Không tìm thấy đơn hàng';
+    if (order.orderType === 'delivery') return null;
+
+    const unfinished = await orderRepository.countUnfinishedItems(order._id.toString());
+    if (unfinished > 0) {
+      return 'Đơn còn món chưa phục vụ xong, chưa thể thanh toán';
+    }
+    return null;
+  }
+
   async initiatePaymentService(orderId: string): Promise<ServiceResponse<IPaymentDocument>> {
     const session = await mongoose.startSession();
     session.startTransaction();
@@ -49,7 +66,12 @@ class PaymentService {
         await session.abortTransaction();
         return { code: 404, message: 'Không tìm thấy đơn hàng' };
       }
-      if (order.status === 'paid') {
+      const blockReason = await this.assertOrderReadyForPayment(order);
+      if (blockReason) {
+        await session.abortTransaction();
+        return { code: 400, message: blockReason };
+      }
+      if (order.status === 'paid' || order.status === 'completed') {
         await session.abortTransaction();
         return { code: 400, message: 'Đơn hàng đã được thanh toán' };
       }
@@ -111,6 +133,12 @@ class PaymentService {
       }
 
       if (status === 'captured') {
+        const blockReason = await this.assertOrderReadyForPayment(existingOrder);
+        if (blockReason) {
+          await session.abortTransaction();
+          return { code: 400, message: blockReason };
+        }
+
         if (
           existingOrder?.orderType == 'delivery' &&
           existingOrder.paymentStatus == 'waiting_paid'
@@ -124,10 +152,13 @@ class PaymentService {
             { session },
           );
         } else {
+          // Dine-in/to-go: đã đủ điều kiện thanh toán → chốt đơn = completed.
+          const nextStatus = existingOrder?.orderType === 'delivery' ? 'confirmed' : 'completed';
+          console.log('nextStatus', nextStatus);
           await orderRepository.updateOrder(
             existingPayment.order.toString(),
             {
-              status: 'paid',
+              status: nextStatus,
               paymentStatus: 'paid',
             },
             { session },
@@ -144,6 +175,9 @@ class PaymentService {
       }
 
       await session.commitTransaction();
+
+      console.log('existingPayment', status);
+
       return {
         code: 200,
         message: 'Cập nhật thanh toán thành công',
@@ -171,7 +205,11 @@ class PaymentService {
     if (!order) {
       return { code: 404, message: 'Không tìm thấy đơn hàng' };
     }
-    if (order.status === 'paid') {
+    const blockReason = await this.assertOrderReadyForPayment(order);
+    if (blockReason) {
+      return { code: 400, message: blockReason };
+    }
+    if (order.status === 'paid' || order.status === 'completed') {
       return { code: 400, message: 'Đơn hàng đã được thanh toán' };
     }
 
@@ -202,6 +240,12 @@ class PaymentService {
       if (!order) {
         await session.abortTransaction();
         return { code: 404, message: 'Không tìm thấy đơn hàng' };
+      }
+
+      const blockReason = await this.assertOrderReadyForPayment(order);
+      if (blockReason) {
+        await session.abortTransaction();
+        return { code: 400, message: blockReason };
       }
 
       const existingPayment = await paymentRepository.findByOrderId(
@@ -238,7 +282,9 @@ class PaymentService {
 
       await updatedPayment.save({ session });
 
-      await orderRepository.updateOrder(orderId!, { status: 'paid' }, { session });
+      // Dine-in/to-go: đã đủ điều kiện thanh toán → chốt đơn = completed; delivery giữ 'paid'.
+      const nextStatus = order.orderType === 'delivery' ? 'paid' : 'completed';
+      await orderRepository.updateOrder(orderId!, { status: nextStatus }, { session });
 
       if (order.table) {
         await tableRepository.updateTable(
@@ -271,6 +317,59 @@ class PaymentService {
       return { code: 200, message: 'Cập nhật thông tin thành công', data: existingPayment };
     } catch (error) {
       return { code: 500, message: 'Cập nhật trạng thái thất bại' };
+    }
+  }
+
+  /**
+   * Hoàn tiền cho một giao dịch đã thu (captured/authorized).
+   * - Ghi bản ghi refund (amount/reason/actor) vào payment.refunds.
+   * - Đổi payment.status → 'refunded', order.paymentStatus → 'refunded'.
+   */
+  async refundPaymentService(
+    paymentId: string,
+    payload: { reason?: string; actorUserId?: string },
+  ): Promise<ServiceResponse<IPaymentDocument>> {
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+      const payment = await DB_Connection.Payment.findById(paymentId).session(session).exec();
+      if (!payment) {
+        await session.abortTransaction();
+        return { code: 404, message: 'Không tìm thấy thông tin thanh toán' };
+      }
+      if (payment.status !== 'captured' && payment.status !== 'authorized') {
+        await session.abortTransaction();
+        return { code: 400, message: 'Chỉ hoàn tiền được giao dịch đã thu tiền' };
+      }
+
+      payment.status = 'refunded';
+      payment.refundReason = payload.reason || payment.refundReason;
+      payment.refunds = [
+        ...(payment.refunds || []),
+        {
+          amount: payment.amount,
+          reason: payload.reason,
+          actor: payload.actorUserId ? new ObjectId(payload.actorUserId) : undefined,
+          refundedAt: new Date(),
+        },
+      ];
+      await payment.save({ session });
+
+      await orderRepository.updateOrder(
+        payment.order.toString(),
+        { paymentStatus: 'refunded' },
+        { session },
+      );
+
+      await session.commitTransaction();
+      return { code: 200, message: 'Hoàn tiền thành công', data: payment };
+    } catch (error) {
+      await session.abortTransaction();
+      console.error('Lỗi khi hoàn tiền:', error);
+      return { code: 500, message: 'Hoàn tiền thất bại' };
+    } finally {
+      await session.endSession();
     }
   }
 }

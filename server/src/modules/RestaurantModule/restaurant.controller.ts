@@ -87,6 +87,21 @@ class RestaurantController {
     const restaurantData = req.body;
     try {
       const result = await restaurantService.updateRestaurantService(id || '', restaurantData);
+      if (result.code === 200 && id) {
+        const restaurantName = result.data?.name;
+        await writeAuditLog({
+          action: 'restaurant.update',
+          restaurant: id,
+          actor: (req as AuthRequest).user?.userId || null,
+          actorInfo: { name: (req as AuthRequest).user?.name, role: (req as AuthRequest).user?.role },
+          targetType: 'restaurant',
+          targetId: id,
+          summary: restaurantName
+            ? `Cập nhật thông tin nhà hàng ${restaurantName}`
+            : 'Cập nhật thông tin nhà hàng',
+          meta: { fields: Object.keys(restaurantData || {}) },
+        });
+      }
       res.status(result.code).json({ result });
     } catch (error) {
       console.log(error);
@@ -106,7 +121,7 @@ class RestaurantController {
           actorInfo: { name: req.user?.name, role: req.user?.role },
           targetType: 'restaurant',
           targetId: id || null,
-          summary: `Xóa nhà hàng ${id}`,
+          summary: 'Xóa nhà hàng',
         });
       }
       res.status(result.code).json({ result });
@@ -127,6 +142,7 @@ class RestaurantController {
       }
       const result = await restaurantService.updateRestaurantService(id || '', { status });
       if (result.code === 200) {
+        const restaurantName = result.data?.name;
         await writeAuditLog({
           action: status === 'inactive' ? 'restaurant.lock' : 'restaurant.unlock',
           restaurant: id || null,
@@ -134,7 +150,14 @@ class RestaurantController {
           actorInfo: { name: req.user?.name, role: req.user?.role },
           targetType: 'restaurant',
           targetId: id || null,
-          summary: status === 'inactive' ? `Khoá nhà hàng ${id}` : `Mở khoá nhà hàng ${id}`,
+          summary:
+            status === 'inactive'
+              ? restaurantName
+                ? `Khoá nhà hàng ${restaurantName}`
+                : 'Khoá nhà hàng'
+              : restaurantName
+                ? `Mở khoá nhà hàng ${restaurantName}`
+                : 'Mở khoá nhà hàng',
           meta: { status },
         });
       }
