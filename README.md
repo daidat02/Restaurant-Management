@@ -37,6 +37,7 @@ Mật khẩu dùng chung: `Test@NhamNhi2026` — seed bằng `cd server && node 
 - [Audit Log](#audit-log)
 - [Chat nội bộ (Messaging)](#chat-nội-bộ-messaging)
 - [Realtime Socket.IO](#realtime-socketio)
+- [BullMQ Message Queue](#bullmq-message-queue)
 - [API Reference](#api-reference)
 - [Cài đặt & Chạy](#cài-đặt--chạy)
 - [Biến môi trường](#biến-môi-trường)
@@ -127,11 +128,16 @@ restaurant_management/
 │   │   │   ├── UploadModule  Notification  SettingModule(+gateway)  AuditLogModule
 │   │   │   ├── SubscriptionModule(+pricing)  SuperAdminModule  AnalyticModule  MessageModule
 │   │   ├── services/                # dùng chung: auditLog, transaction-id, subscription,
-│   │   │                            #   subscription-pay, subscription-payos, subscription-vnpay
+│   │   │                            #   subscription-pay, subscription-payos, subscription-vnpay,
+│   │   │                            #   cache.service (menu + BullMQ queue)
+│   │   ├── queues/                  # BullMQ: connection (riêng maxRetries=null), queue registry (3 queue),
+│   │   │                            #   workers (startWorkers/closeWorkers)
+│   │   ├── jobs/                    # + handlers registry (addJob + fallback inline) + các job:
+│   │   │                            #   payment.job, notification.job, order.job
 │   │   ├── sockets/                 # index + order/payment/message/subscription handlers
 │   │   └── scripts/migrate-tenant.ts
 │   ├── scripts/                     # backup.sh, reset-super-admin.mjs, seed-test-accounts.mjs
-│   ├── src/test/                    # 33 test files, ~288 tests (Vitest + Memory Server)
+│   ├── src/test/                    # 42 test files, ~360 tests (Vitest + Memory Server)
 │   └── .env.example
 ├── client/                          # React 19 + Vite
 │   └── src/
@@ -327,7 +333,7 @@ npm run dev                 # → http://localhost:5173 (proxy → 8000)
 ### Build & Test
 
 ```bash
-cd server && npm run build && npm test        # 33 files / ~288 tests
+cd server && npm run build && npm test        # 42 files / ~360 tests
 cd client && npm run build                    # tsc -b && vite build
 npm run test:e2e                              # root — Playwright (build server trước)
 ```
@@ -356,6 +362,10 @@ VNP_TMNCODE=change-me
 VNP_URL=https://sandbox.vnpay.vn/paymentv2/vpcpay.html
 VNP_RETURN_URL=http://localhost:8000/api/payments/vnpay-return
 SENTRY_DSN=                                  # optional
+
+# Redis cache + BullMQ queue (OPTIONAL — mặc định TẮT)
+ENABLE_REDIS=false                           # true = bật cache menu + queue BullMQ
+REDIS_URL=redis://localhost:6379
 ```
 
 > PayOS key đơn hàng lưu trong `settings.integrations.payOS` (mã hoá). **PayOS/VNPay gói cước lưu trong `setting.gateway.*` (scope=platform)** — cả hai không nằm trong env, super-admin cấu hình qua UI `/super-admin/settings` (tab Nền tảng).
@@ -368,6 +378,33 @@ VITE_SERVER_BASE_URL=http://localhost:8000
 VITE_SENTRY_DSN=
 ```
 
+## Redis Cache (Menu)
+
+Hệ thống có **lớp cache menu opt-in** — mặc định **TẮT** (`ENABLE_REDIS=false`), app chạy thuần Database.
+Khi bật, các endpoint đọc menu theo nhà hàng (`GET /api/menu/category/:restaurantId`, `/item/available/:restaurantId`, `/items/:restaurantId`, `/items/bestsellers/:restaurantId`) được cache trong **1 key composite** `menu:{restaurantId}` (TTL 300s).
+
+- **Fallback an toàn**: Redis down / không kết nối được → app KHÔNG crash, tự chuyển sang query Database; kết nối thử tối đa 3 lần rồi dừng, tự **hồi phục nền 30s** khi Redis sống lại.
+- **Invalidate tự động**: khi tạo/sửa/ẩn-hiện danh mục hoặc món ăn (`POST/PUT` menu), key `menu:{restaurantId}` của nhà hàng đó bị xoá ngay → request kế tiếp đọc dữ liệu mới. Redis tắt → bỏ qua, không lỗi.
+- **Wrapper generic**: `services/cache.service.ts` (`getOrSetCache`, `getCache`, `invalidateCache`) dùng cho module khác về sau (order, report…).
+- `item/:id` và `item/category/:catId` không nằm trong cache (route không kèm restaurantId) — vẫn chạy Database trực tiếp.
+
+## BullMQ Message Queue
+
+Hệ thống có **3 queue nền (BullMQ)** để tách side-effect khỏi request chính — bật TẮT cùng `ENABLE_REDIS` / `REDIS_URL` (không cần env mới):
+
+| Queue          | Job                  | Chạy khi                                      | Side-effect                                                                        |
+| -------------- | -------------------- | --------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `payment-webhook` | `complete-payment` | Webhook PayOS sau khi verify chữ ký (sync)    | Hoàn tất thanh toán (atomic + idempotent), emit `payment_success` / `order_event`, audit |
+| `notification` | `create-notification`| Enqueue từ order-fanout (và nơi khác)          | Persist + emit `new_notification` qua room `restaurant_<id>`                        |
+| `order-fanout` | `new-order`          | Tạo đơn / thêm món (`POST /api/orders*`, POS) | (a) emit socket `order_event`, (b) enqueue `notification`, (c) tăng `orderCount` MenuItem |
+
+- **Producer typed** (`jobs/handlers.ts` `addJob`): Redis không ready / enqueue lỗi → chạy **fallback inline** CÙNG handler worker (không lệch logic), lỗi inline theo policy: `payment-webhook`=propagate · `notification`/`order-fanout`=swallow (log, không hỏng luồng chính).
+- **Worker**: `startWorkers()` chỉ gọi trong `index.ts` (không trong `createApp` — test không bật worker). Concurrency: payment `1`, notification `5`, order-fanout `5`. Graceful shutdown đợi job active ≤5s.
+- **Emits theo status-change** (món `pending→…→served`, đơn paid/cancelled) **giữ sync** ở service —KHÔNG đi qua queue.
+- **Khi Redis tắt**: queue không bật, `addJob` chạy inline → nghiệp vụ vẫn đủ (chỉ tốn chút thời gian request); `startWorkers()` bỏ qua an toàn, không crash.
+- **Chạy local có Redis** (tùy chọn, để chạy worker nền): cài Redis rồi set `ENABLE_REDIS=true`. Ví dụ brew: `brew install redis && redis-server`; hoặc `docker run -d -p 6379:6379 redis:7`. Server dùng chung `REDIS_URL` với cache — không có env riêng.
+- Tài liệu thiết kế: `.scratch/bullmq-queue/{SPEC.md,TICKETS.md}`.
+
 ## Bảo mật
 
 - JWT dual-token; refresh trong HTTP-only cookie (tránh XSS). PayOS keys mã hoá AES-256-CBC khi lưu.
@@ -378,7 +415,7 @@ VITE_SENTRY_DSN=
 
 ## Test & CI/CD
 
-- **Backend**: Vitest + supertest + MongoDB Memory Server (ReplSet). 33 test files / ~288 tests, `fileParallelism:false`, seed cố định `SEED_IDS`.
+- **Backend**: Vitest + supertest + MongoDB Memory Server (ReplSet). 42 test files / ~360 tests, `fileParallelism:false`, seed cố định `SEED_IDS`.
 - **E2E**: Playwright (`e2e/`), cần server + client (dùng `E2E_SERVER=test node dist/test/server.js` cho memory server).
 - **CI** (`.github/workflows/ci.yml`): 3 job — server (npm ci → typecheck → test → build) · client (npm ci → typecheck → lint baseline → build) · e2e.
 

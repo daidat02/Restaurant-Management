@@ -34,13 +34,6 @@ class OrderController {
     try {
       const result = await orderService.addItemIntoOrder(items, orderId);
       res.status(result.code).json(result);
-      const notification = await notificationRepository.createNotification({
-        type: 'new_order',
-        message: 'Đơn Hàng Có Sự Thay Đổi. Vui Lòng Kiểm Tra Chi Tiết',
-        data: result.data,
-      });
-      const resRestaurantId = result.data?.restaurant?.toString?.() || '';
-      if (resRestaurantId) getIO().to(`restaurant_${resRestaurantId}`).emit('new_Notification', notification);
     } catch (error) {
       console.log(error);
       res.status(500).json({ message: 'Lỗi server...' });

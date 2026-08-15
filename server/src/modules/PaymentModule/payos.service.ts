@@ -1,8 +1,6 @@
 import { createRequire } from 'module';
 import paymentRepository from './payment.repository.js';
 import orderRepository from '../OrderModule/order.repository.js';
-import paymentService from './payment.service.js';
-import { getIO } from '../../configs/socketsConfig.js';
 import type { IPayOSConfig } from '../../models/Schema/SettingSchema.js';
 import type { ServiceResponse } from '../../shared/type.js';
 import settingRepository from '../SettingModule/setting.repository.js';
@@ -14,6 +12,15 @@ const { PayOS } = require('@payos/node');
 interface CreatePaymentParams {
   orderId: string;
 }
+
+type PayOSClientCtor = new (...args: any[]) => any;
+
+// Test hook: cho phép inject client PayOS giả (giống subscription-payos.service).
+// Khi null → dùng PayOS thật. Chỉ dùng trong test, không dùng trong production.
+let payOSClientOverride: PayOSClientCtor | null = null;
+export const __setPayOSClient = (ctor: ((...args: any[]) => any) | null): void => {
+  payOSClientOverride = ctor === null ? null : (ctor as unknown as PayOSClientCtor);
+};
 
 class PayOsService {
   // 🔥 Sửa 1: Giải mã Key và chuẩn hóa hàm getPayos
@@ -31,7 +38,8 @@ class PayOsService {
     process.env.PAYOS_CLIENT_ID = clientId;
     process.env.PAYOS_API_KEY = realApiKey;
     process.env.PAYOS_CHECKSUM_KEY = realChecksumKey;
-    return new PayOS(clientId, realApiKey, realChecksumKey);
+    const PayOSClient = payOSClientOverride ?? PayOS;
+    return new PayOSClient(clientId, realApiKey, realChecksumKey);
   }
 
   async createUrl(data: CreatePaymentParams) {
@@ -100,47 +108,28 @@ class PayOsService {
     }
   }
 
-  async handleWebhook(webhookData: any) {
-    try {
-      const { orderCode: incomingOrderCode } = webhookData?.data || webhookData;
-      console.log('Incoming PayOS webhook data:', webhookData);
-      const existingPayment = await paymentRepository.findPaymentByOrderCode(incomingOrderCode);
-      const order = await orderRepository.findOrders({ _id: existingPayment.order.toString() });
-
-      const currentOrder = order[0];
-      if (!currentOrder) {
-        throw new Error('Không tìm thấy đơn hàng từ webhook');
-      }
-
-      const payos = await this.getPayos(currentOrder.restaurant.toString());
-
-      // Verify chữ ký từ PayOS
-      const webhookDataVerified = await payos.webhooks.verify(webhookData);
-      const { orderCode, status } = webhookDataVerified;
-
-      if (webhookDataVerified?.code === '00') {
-        await paymentService.changePaymentStatusAuthorized(
-          existingPayment._id.toString(),
-          'captured',
-        );
-      } else if (status === 'CANCELLED') {
-        await paymentRepository.changePaymentStatus(orderCode, 'cancelled');
-      }
-
-      const io = getIO();
-
-      console.log('order: ', currentOrder?.restaurant);
-      io.to(`payment_${existingPayment._id}`).emit('payment_success', webhookDataVerified);
-      io.to(`restaurant_${currentOrder?.restaurant.toString()}`).emit('order_event', {
-        action: 'CREATE',
-        orderData: currentOrder,
-        message: 'Có đơn giao hàng mới',
-      });
-      return { success: true, data: webhookDataVerified };
-    } catch (error: any) {
-      console.error('Lỗi webhook PayOS:', error);
-      return { success: false, error: error?.message };
+  /**
+   * Verify chữ ký webhook PayOS (SYNC tại route). KHÔNG hoàn tất thanh toán ở đây —
+   * sau khi verify xong route gọi `addJob('payment-webhook','complete-payment',...)`
+   * rồi ack 200. Lỗi (chữ ký sai / không tìm thấy đơn) → throw, route trả lỗi để gateway biết.
+   */
+  async verifyWebhookSignature(webhookData: any) {
+    const { orderCode: incomingOrderCode } = webhookData?.data || webhookData;
+    console.log('Incoming PayOS webhook data:', webhookData);
+    const existingPayment = await paymentRepository.findPaymentByOrderCode(incomingOrderCode);
+    if (!existingPayment) {
+      throw new Error(`Không tìm thấy thanh toán ứng với orderCode ${incomingOrderCode}`);
     }
+    const order = await orderRepository.findOrders({ _id: existingPayment.order.toString() });
+    const currentOrder = order[0];
+    if (!currentOrder) {
+      throw new Error('Không tìm thấy đơn hàng từ webhook');
+    }
+
+    const payos = await this.getPayos(currentOrder.restaurant.toString());
+    const webhookDataVerified = await payos.webhooks.verify(webhookData);
+
+    return { existingPayment, currentOrder, webhookDataVerified };
   }
 
   async checkPayOSConnectionService(payload: IPayOSConfig): Promise<ServiceResponse<boolean>> {

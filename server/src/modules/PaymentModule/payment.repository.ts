@@ -16,9 +16,22 @@ class PaymentRepository{
         );
         return existingPayment
     }
-      async findPaymentByOrderCode(orderCode:string):Promise<IPaymentDocument>{
+      async findPaymentByOrderCode(orderCode:string|number):Promise<IPaymentDocument>{
         const existingPayment = await DB_Connection.Payment.findOne({orderCode:orderCode});
         return existingPayment
+    }
+
+    /**
+     * Atomic claim: chỉ job/webhook đầu tiên giành quyền đổi authorized → captured.
+     * update=0 (hoặc không tìm thấy) → đã được xử lý trước đó (no-op, idempotent).
+     * Dùng cho BullMQ payment-webhook để chống double-captured khi webhook lặp lại.
+     */
+    async claimCaptured(paymentId:string):Promise<IPaymentDocument|null>{
+        return DB_Connection.Payment.findOneAndUpdate(
+            { _id: paymentId, status: 'authorized' },
+            { status: 'captured' },
+            { new: true },
+        ).exec();
     }
 
 

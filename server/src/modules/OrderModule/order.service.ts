@@ -10,6 +10,8 @@ import tableRepository from '../TableModule/table.repository.js';
 import { getIO } from '../../configs/socketsConfig.js';
 import notificationService from '../Notification/notification.service.js';
 import type { INotification } from '../../models/Schema/NotificationSchema.js';
+import { addJob } from '../../jobs/handlers.js';
+import { QUEUE_NAMES } from '../../queues/queue.js';
 
 const ObjectId = Types.ObjectId;
 
@@ -39,10 +41,16 @@ class OrderService {
   private async processOrderItems(
     items: Partial<IOrderItemDocument>[],
     orderId: Types.ObjectId,
-  ): Promise<{ totalAmount: number; totalCount: number; orderItems: Types.ObjectId[] }> {
+  ): Promise<{
+    totalAmount: number;
+    totalCount: number;
+    orderItems: Types.ObjectId[];
+    menuCounts: { menuItemId: string; quantity: number }[];
+  }> {
     let totalAmount: number = 0;
     let totalCount: number = 0;
     const orderItems: Types.ObjectId[] = [];
+    const menuCounts: { menuItemId: string; quantity: number }[] = [];
 
     for (const item of items) {
       const menuItem = await menuRepository.findItemById(item.menuItem!.toString());
@@ -75,9 +83,10 @@ class OrderService {
       totalAmount += orderItem.priceSnapshot * orderItem.quantity;
       totalCount += orderItem.quantity;
       orderItems.push(new ObjectId(orderItem._id.toString()));
+      menuCounts.push({ menuItemId: menuItem._id.toString(), quantity: orderItem.quantity });
     }
 
-    return { totalAmount, totalCount, orderItems };
+    return { totalAmount, totalCount, orderItems, menuCounts };
   }
 
   /** Tính lại totalAmount/itemsCount từ các món CÒN HIỆU LỰC (không tính món đã soft-delete). */
@@ -152,7 +161,7 @@ class OrderService {
     let committed = false;
     try {
       const order = await orderRepository.createOrder(orderData, { session });
-      const { totalAmount, totalCount, orderItems } = await this.processOrderItems(
+      const { totalAmount, totalCount, orderItems, menuCounts } = await this.processOrderItems(
         items,
         new ObjectId(order._id.toString()),
       );
@@ -172,44 +181,24 @@ class OrderService {
       await session.commitTransaction();
       committed = true;
 
-      // Populate và emit SAU commit: query populate không dùng session nên không thấy dữ liệu chưa commit trong transaction
+      // Fan-out SAU commit qua queue order-fanout (T03): socket + notification + orderCount.
+      // Redis down → addJob chạy inline cùng handler; lỗi inline → swallow, không ảnh hưởng response.
+      await addJob(QUEUE_NAMES.orderFanOut, 'new-order', {
+        orderId: order._id.toString(),
+        restaurantId: order.restaurant.toString(),
+        orderType: order.orderType,
+        action: 'CREATE',
+        menuCounts,
+      });
+
+      // Populate lại cho payload trả về (items phải là doc đầy đủ — regression test phụ thuộc).
       const populatedOrder = await orderUpdated.populate([
         { path: 'table', select: 'tableNumber capacity status' },
         { path: 'customer', select: 'name email phone' },
         { path: 'items' },
       ]);
 
-      const tableData = populatedOrder.table as any;
-
-      const orderSource =
-        populatedOrder.orderType === 'dine-in'
-          ? `bàn ${tableData?.tableNumber}`
-          : `khách hàng ${populatedOrder.deliveryInfo?.name || 'Ẩn danh'}`;
-
-      const targetRoom = `restaurant_${order.restaurant.toString()}`;
-
-      if (order.paymentStatus !== 'waiting_paid') {
-        console.log('Emitting order update :', populatedOrder);
-        this.emitOrderUpdate({
-          targetRoom: targetRoom,
-          action: 'CREATE',
-          orderData: populatedOrder,
-          message: `Có đơn hàng mới từ ${orderSource}`,
-        });
-      }
-
-      const payloadNoti: Partial<INotification> = {
-        restaurant: new ObjectId(order.restaurant.toString()),
-        type: 'new_order',
-        message: 'Vừa có một đơn hàng mới',
-        data: order,
-      };
-
-      console.log('payloadNoti: ', payloadNoti);
-
-      await notificationService.createNewNotification(payloadNoti, targetRoom);
-
-      return { code: 201, message: 'Tạo đơn hàng thành công', data: order };
+      return { code: 201, message: 'Tạo đơn hàng thành công', data: populatedOrder };
     } catch (error: any) {
       if (!committed) {
         await session.abortTransaction();
@@ -347,7 +336,7 @@ class OrderService {
       return { code: 400, message: 'Không thể thêm món vào đơn hàng giao đi đã chốt' };
 
     try {
-      const { orderItems } = await this.processOrderItems(
+      const { orderItems, menuCounts } = await this.processOrderItems(
         items,
         new ObjectId(order._id.toString()),
       );
@@ -386,13 +375,14 @@ class OrderService {
 
       await populatedOrder.save();
 
-      const tableData = populatedOrder.table as any;
-
-      this.emitOrderUpdate({
-        targetRoom: `restaurant_${order.restaurant.toString()}`,
+      // Fan-out SAU khi thêm món (T03): socket ADD_ITEMS + notification + orderCount.
+      // menuCounts = món MỚI trong request này (không scan lại đơn → không đếm trùng).
+      await addJob(QUEUE_NAMES.orderFanOut, 'new-order', {
+        orderId: order._id.toString(),
+        restaurantId: order.restaurant.toString(),
+        orderType: order.orderType,
         action: 'ADD_ITEMS',
-        orderData: populatedOrder,
-        message: `Bàn ${tableData?.tableNumber} đã thêm món ăn mới`,
+        menuCounts,
       });
 
       return { code: 200, message: 'Thêm món vào Order thành công', data: order };

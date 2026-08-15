@@ -93,6 +93,26 @@ class MenuRepository {
   }
 
   /**
+   * Tăng orderCount (sold) cho danh sách món — gọi từ job new-order (order-fanout).
+   * Dùng bulkWrite $inc một lần để không n+1 query khi đơn có nhiều món.
+   */
+  async incrementOrderCounts(
+    counts: { menuItemId: string; quantity: number }[],
+  ): Promise<{ modifiedCount: number }> {
+    if (!counts || counts.length === 0) return { modifiedCount: 0 };
+    const result = await DB_Connection.MenuItem.bulkWrite(
+      counts.map(({ menuItemId, quantity }) => ({
+        updateOne: {
+          filter: { _id: new Types.ObjectId(menuItemId) },
+          update: { $inc: { orderCount: quantity } },
+        },
+      })),
+      { ordered: false },
+    );
+    return { modifiedCount: result.modifiedCount ?? 0 };
+  }
+
+  /**
    * Lấy danh sách món ăn bán chạy nhất của MỘT nhà hàng cụ thể
    */
   async findTopBestSellers(restaurantId: string, limitCount: number): Promise<IMenuItemDocument[]> {

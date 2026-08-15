@@ -4,6 +4,8 @@ import paymentService from './payment.service.js';
 import payosService from './payos.service.js';
 import type { IPayOSConfig } from '../../models/Schema/SettingSchema.js';
 import { writeAuditLog } from '../../services/auditLog.service.js';
+import { addJob } from '../../jobs/handlers.js';
+import { QUEUE_NAMES } from '../../queues/queue.js';
 
 type Provider = 'vn_pay' | 'momo' | 'zalopay';
 
@@ -146,12 +148,29 @@ class PaymentController {
 
   handleWebhook = async (req: Request, res: Response) => {
     try {
-      const result = await payosService.handleWebhook(req.body);
-      console.log(result);
-      res.status(200).json(result);
+      // 1) Verify chữ ký SYNC (không xử lý nghiệp vụ ở đây) — lỗi → gateway biết và retry.
+      const { existingPayment, webhookDataVerified } = await payosService.verifyWebhookSignature(
+        req.body,
+      );
+      const verifiedStatus =
+        webhookDataVerified?.code === '00'
+          ? 'SUCCESS'
+          : webhookDataVerified?.status === 'CANCELLED'
+            ? 'CANCELLED'
+            : 'PENDING';
+
+      // 2) Enqueue job hoàn tất thanh toán (idempotent + atomic). Redis down → chạy inline.
+      await addJob(QUEUE_NAMES.paymentWebhook, 'complete-payment', {
+        provider: 'payos',
+        orderCode: existingPayment?.orderCode,
+        verifiedStatus,
+      });
+
+      // 3) Ack 200 ngay cho gateway (xử lý nặng chuyển xuống job/worker).
+      res.status(200).json({ success: true, data: webhookDataVerified });
     } catch (error) {
-      console.log(error);
-      res.status(500).json(error);
+      console.error('Lỗi webhook PayOS:', error);
+      res.status(400).json({ success: false, error: (error as Error)?.message });
     }
   };
 
