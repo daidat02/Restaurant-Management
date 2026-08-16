@@ -3,7 +3,10 @@
     "test:e2e": "E2E_SERVER=test playwright test"
   },
   "dependencies": {
-    "@ant-design/icons": "^6.1.0"
+    "@ant-design/icons": "^6.1.0",
+    "@bull-board/api": "^8.6.1",
+    "@bull-board/express": "^8.6.1",
+    "bullmq": "^6.1.1"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1"

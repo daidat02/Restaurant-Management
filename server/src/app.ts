@@ -18,8 +18,13 @@ const createApp = () => {
     ? process.env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim().replace(/\/$/, ''))
     : ['http://localhost:5173'];
 
+  // Local dev trên điện thoại trong cùng LAN (test qua IP LAN)
+  const localOrigins = ['http://localhost:5173', 'http://192.168.1.93:5173'];
+
   // Gom các origin và loại bỏ dấu / ở cuối nếu có
-  const allowedOrigins = [...allowedOriginsEnv, 'https://0de4-171-239-174-145.ngrok-free.app'];
+  const allowedOrigins = [
+    ...new Set([...allowedOriginsEnv, ...localOrigins, 'https://0de4-171-239-174-145.ngrok-free.app']),
+  ];
 
   console.log('Allowed origins for CORS:', allowedOrigins);
 

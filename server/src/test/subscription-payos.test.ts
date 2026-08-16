@@ -145,20 +145,21 @@ describe('T12 — Thanh toán gói cước bằng PayOS (create-url + webhook)',
     expect(res.body.message).toContain('Không thể hạ gói');
   });
 
-  it('POST /subscriptions/payos/webhook — không cấu hình gateway → xử lý lỗi', async () => {
+  it('POST /subscriptions/webhook — không cấu hình gateway → ack 200 + success:false (không crash)', async () => {
     // Xoá gateway để mô phỏng chưa cấu hình
     await DB_Connection.Setting.deleteMany({ scope: 'platform', targetId: PLATFORM_GATEWAY_TARGET_ID });
     const res = await request
-      .post('/api/subscriptions/payos/webhook')
+      .post('/api/subscriptions/webhook')
       .send({ orderCode: 123456 });
-    expect(res.status).toBe(500);
+    // Webhook luôn ACK 200 để PayOS không retry liên tục — lỗi tại service.
+    expect(res.status).toBe(200);
     expect(res.body.success).toBe(false);
   });
 
-  it('POST /subscriptions/payos/webhook — orderCode không tồn tại → lỗi, không crash', async () => {
+  it('POST /subscriptions/webhook — orderCode không tồn tại → ack 200, không crash', async () => {
     const res = await request
-      .post('/api/subscriptions/payos/webhook')
+      .post('/api/subscriptions/webhook')
       .send({ orderCode: 999999999 });
-    expect(res.status).toBe(500);
+    expect(res.status).toBe(200);
   });
 });
