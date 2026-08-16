@@ -128,7 +128,7 @@ class PayOsService {
 
     const payos = await this.getPayos(currentOrder.restaurant.toString());
     const webhookDataVerified = await payos.webhooks.verify(webhookData);
-
+    console.log('Webhook data sau khi verify chữ ký PayOS:', webhookDataVerified);
     return { existingPayment, currentOrder, webhookDataVerified };
   }
 

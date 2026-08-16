@@ -43,7 +43,6 @@ export const usePayment = () => {
 
     // Hàm xử lý khi webhook báo thành công
     const handlePaymentSuccess = (payload: any) => {
-      console.log('[Socket] Nhận kết quả thành công:', payload);
       setPaymentSocketResult({ success: true, data: payload });
     };
     // Hàm xử lý khi webhook báo thất bại/hủy

@@ -23,7 +23,11 @@ const createApp = () => {
 
   // Gom các origin và loại bỏ dấu / ở cuối nếu có
   const allowedOrigins = [
-    ...new Set([...allowedOriginsEnv, ...localOrigins, 'https://0de4-171-239-174-145.ngrok-free.app']),
+    ...new Set([
+      ...allowedOriginsEnv,
+      ...localOrigins,
+      'https://38e1-171-239-174-145.ngrok-free.app',
+    ]),
   ];
 
   console.log('Allowed origins for CORS:', allowedOrigins);

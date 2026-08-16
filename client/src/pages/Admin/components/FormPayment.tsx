@@ -171,8 +171,8 @@ export default function PaymentForm({ paymentId, onCancel, onConfirm }: PaymentF
     <div className="flex flex-col md:flex-row h-screen md:h-[90vh] w-full overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-sm relative supports-[height:100dvh]:h-dvh">
       {/* DIALOG THÔNG BÁO THANH TOÁN THÀNH CÔNG REALTIME */}
       {(paymentSocketResult?.data?.code === '00' ||
-        paymentSocketResult?.code === '00' ||
-        paymentSocketResult?.webhookData?.code === '00') && (
+        paymentSocketResult?.data.webhookData?.code === '00' ||
+        paymentSocketResult?.success) && (
         <DialogCustom
           open={true}
           content={
@@ -192,25 +192,25 @@ export default function PaymentForm({ paymentId, onCancel, onConfirm }: PaymentF
                 <div className="flex justify-between items-center border-b border-gray-200 pb-2">
                   <span className="text-gray-500">Số tiền:</span>
                   <span className="font-bold text-[#16c52a] text-base sm:text-lg">
-                    {paymentSocketResult.data.amount.toLocaleString('vi-VN')} VNĐ
+                    {paymentSocketResult.data.webhookData.amount.toLocaleString('vi-VN')} VNĐ
                   </span>
                 </div>
                 <div className="flex justify-between items-center border-b border-gray-200 pb-2">
                   <span className="text-gray-500">Người chuyển:</span>
                   <span className="font-medium text-gray-800 uppercase truncate max-w-[180px]">
-                    {paymentSocketResult.data.counterAccountName || 'N/A'}
+                    {paymentSocketResult.data.webhookData.counterAccountName || 'N/A'}
                   </span>
                 </div>
                 <div className="flex justify-between items-center border-b border-gray-200 pb-2">
                   <span className="text-gray-500">Mã đơn (OrderCode):</span>
                   <span className="font-medium text-gray-800">
-                    {paymentSocketResult.data.orderCode}
+                    {paymentSocketResult.data.webhookData.orderCode}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-500">Thời gian:</span>
                   <span className="font-medium text-gray-800 text-right">
-                    {paymentSocketResult.data.transactionDateTime}
+                    {paymentSocketResult.data.webhookData.transactionDateTime}
                   </span>
                 </div>
               </div>

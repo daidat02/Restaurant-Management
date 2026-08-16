@@ -159,6 +159,7 @@ class PaymentController {
             ? 'CANCELLED'
             : 'PENDING';
 
+      console.log(`[PayOS webhook]  ${webhookDataVerified}`);
       // 2) Enqueue job hoàn tất thanh toán (idempotent + atomic). Redis down → chạy inline.
       await addJob(QUEUE_NAMES.paymentWebhook, 'complete-payment', {
         provider: 'payos',
