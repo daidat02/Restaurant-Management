@@ -170,7 +170,7 @@ class PaymentController {
       res.status(200).json({ success: true, data: webhookDataVerified });
     } catch (error) {
       console.error('Lỗi webhook PayOS:', error);
-      res.status(400).json({ success: false, error: (error as Error)?.message });
+      res.status(200).json({ success: false, error: (error as Error)?.message });
     }
   };
 
