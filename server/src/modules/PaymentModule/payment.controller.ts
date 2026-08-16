@@ -164,6 +164,7 @@ class PaymentController {
         provider: 'payos',
         orderCode: existingPayment?.orderCode,
         verifiedStatus,
+        webhookData: webhookDataVerified,
       });
 
       // 3) Ack 200 ngay cho gateway (xử lý nặng chuyển xuống job/worker).
