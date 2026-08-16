@@ -45,8 +45,13 @@ const completePayment = async (payload: CompletePaymentData): Promise<void> => {
   }
 
   // Trạng thái gateway không phải SUCCESS/CANCELLED (VD: PENDING/PROCESSING) → chưa cần làm gì.
-  if (verifiedStatus !== PAYMENT_VERIFIED_SUCCESS && verifiedStatus !== PAYMENT_VERIFIED_CANCELLED) {
-    console.warn(`[Job complete-payment] orderCode ${orderCode} — verifiedStatus=${verifiedStatus}, bỏ qua.`);
+  if (
+    verifiedStatus !== PAYMENT_VERIFIED_SUCCESS &&
+    verifiedStatus !== PAYMENT_VERIFIED_CANCELLED
+  ) {
+    console.warn(
+      `[Job complete-payment] orderCode ${orderCode} — verifiedStatus=${verifiedStatus}, bỏ qua.`,
+    );
     return;
   }
 
@@ -69,7 +74,9 @@ const completePayment = async (payload: CompletePaymentData): Promise<void> => {
   // Atomic claim: chỉ job đầu tiên giành quyền hoàn tất capture.
   const claimed = await paymentRepository.claimCaptured(paymentId);
   if (!claimed) {
-    console.warn(`[Job complete-payment] orderCode ${orderCode} — claim thất bại (đã xử lý bởi job khác).`);
+    console.warn(
+      `[Job complete-payment] orderCode ${orderCode} — claim thất bại (đã xử lý bởi job khác).`,
+    );
     return;
   }
 
@@ -85,8 +92,8 @@ const completePayment = async (payload: CompletePaymentData): Promise<void> => {
   const order = await orderRepository.findOrders({ _id: existingPayment.order.toString() });
   const currentOrder = order[0];
   const io = getIO();
-  io.to(`payment_${existingPayment._id}`).emit('payment_success', { orderCode });
-  if (currentOrder) {
+  io.to(`payment_${existingPayment._id}`).emit('payment_success', { payload });
+  if (currentOrder && currentOrder.orderType == 'delivery') {
     io.to(`restaurant_${currentOrder.restaurant.toString()}`).emit('order_event', {
       action: 'CREATE',
       orderData: currentOrder,
