@@ -32,10 +32,11 @@ export interface CompletePaymentData {
   provider: 'payos' | 'vnpay';
   orderCode: number;
   verifiedStatus: VerifiedPaymentStatus;
+  webhookData?: any; // Dữ liệu webhook đã verify chữ ký (PayOS) — dùng để log, không dùng để xử lý nghiệp vụ.
 }
 
 const completePayment = async (payload: CompletePaymentData): Promise<void> => {
-  const { orderCode, verifiedStatus } = payload;
+  const { orderCode, verifiedStatus, webhookData } = payload;
 
   const existingPayment = await paymentRepository.findPaymentByOrderCode(orderCode);
   if (!existingPayment) {
@@ -92,7 +93,7 @@ const completePayment = async (payload: CompletePaymentData): Promise<void> => {
   const order = await orderRepository.findOrders({ _id: existingPayment.order.toString() });
   const currentOrder = order[0];
   const io = getIO();
-  io.to(`payment_${existingPayment._id}`).emit('payment_success', { payload });
+  io.to(`payment_${existingPayment._id}`).emit('payment_success', { webhookData });
   if (currentOrder && currentOrder.orderType == 'delivery') {
     io.to(`restaurant_${currentOrder.restaurant.toString()}`).emit('order_event', {
       action: 'CREATE',
