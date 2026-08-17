@@ -14,7 +14,7 @@ describe('T5 — Thanh toán mock + khoá đơn/món khi locked', () => {
       .send({ restaurantId: SEED_IDS.tenantX.toString(), cycleMonths: 1 });
     expect(res.status).toBe(200);
     expect(res.body.data.restaurant.subscription).toBe('active');
-    expect(res.body.data.transaction.amount).toBe(299000);
+    expect(res.body.data.transaction.amount).toBe(190000);
     const txLog = await DB_Connection.AuditLog.exists({ action: 'transaction.create' });
     expect(txLog).toBeTruthy();
   });

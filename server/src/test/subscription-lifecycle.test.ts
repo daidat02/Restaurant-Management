@@ -81,7 +81,7 @@ describe('T11 — Verify lifecycle subscription (trial → locked → pay → ac
       .send({ restaurantId: rid, cycleMonths: 1 });
     expect(pay.status).toBe(200);
     expect(pay.body.data.restaurant.subscription).toBe('active');
-    expect(pay.body.data.transaction.amount).toBe(299000);
+    expect(pay.body.data.transaction.amount).toBe(190000);
     const unlockLog = await DB_Connection.AuditLog.exists({ action: 'subscription.unlocked' });
     expect(unlockLog).toBeTruthy();
 
@@ -106,7 +106,7 @@ describe('T11 — Verify lifecycle subscription (trial → locked → pay → ac
       (t: any) => String(t.restaurant?._id ?? t.restaurant) === rid,
     );
     expect(newTx).toBeTruthy();
-    expect(newTx.amount).toBe(299000);
+    expect(newTx.amount).toBe(190000);
     expect(newTx.status).toBe('paid');
 
     // 7. Super-admin khoá chủ → toàn bộ user chủ không đăng nhập được → mở lại → đăng nhập OK

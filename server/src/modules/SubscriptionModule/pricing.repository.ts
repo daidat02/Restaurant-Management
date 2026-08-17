@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import DB_Connection from '../../models/DB_Connection.js';
+import { sanitizeFeatureKeys } from '../../shared/feature-catalog.js';
 import {
   DEFAULT_PRICING_CYCLES,
   DEFAULT_PLANS,
@@ -77,6 +78,7 @@ class PricingRepository {
               12: Math.round(plan.cycles?.[12] || 0),
             },
         features,
+        featureKeys: sanitizeFeatureKeys(plan.featureKeys),
         limits: {
           tables: Math.max(0, Math.round(plan.limits?.tables || 0)),
           items: Math.max(0, Math.round(plan.limits?.items || 0)),

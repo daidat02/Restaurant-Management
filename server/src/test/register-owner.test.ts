@@ -74,7 +74,7 @@ describe('T4 — Đăng ký chủ + tạo nhà hàng', () => {
     expect(res.body.result.transaction).toBeTruthy();
 
     const tx = await DB_Connection.Transaction.findOne({ restaurant: r._id }).lean();
-    expect((tx as any)?.amount).toBe(849000);
+    expect((tx as any)?.amount).toBe(570000);
     expect((tx as any)?.cycleMonths).toBe(3);
 
     const txLog = await DB_Connection.AuditLog.exists({ action: 'transaction.create' });

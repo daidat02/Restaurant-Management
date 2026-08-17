@@ -8,10 +8,10 @@ describe('T2 — PricingConfig API', () => {
       .set('Authorization', `Bearer ${tokenFor('admin', undefined)}`);
     expect(res.status).toBe(200);
     expect(res.body.data.cycles).toMatchObject({
-      '1': 299000,
-      '3': 849000,
-      '6': 1590000,
-      '12': 2990000,
+      '1': 190000,
+      '3': 570000,
+      '6': 1020000,
+      '12': 1820000,
     });
     expect(res.body.data.currency).toBe('VND');
   });

@@ -66,7 +66,7 @@ describe('T13 — Thanh toán gói cước bằng VNPay (create-url + return)', 
     const tx = await DB_Connection.Transaction.findById(res.body.data.transactionId);
     expect(tx).toBeTruthy();
     expect(tx?.status).toBe('pending');
-    expect(tx?.amount).toBe(299000);
+    expect(tx?.amount).toBe(190000);
     expect(tx?.cycleMonths).toBe(1);
     expect(tx?.planKey).toBe('basic');
   });

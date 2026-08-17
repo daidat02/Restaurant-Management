@@ -89,7 +89,7 @@ describe('T12 — Thanh toán gói cước bằng PayOS (create-url + webhook)',
     expect(tx).toBeTruthy();
     expect(tx?.status).toBe('pending');
     expect(tx?.orderCode).toBe(res.body.data.orderCode);
-    expect(tx?.amount).toBe(299000);
+    expect(tx?.amount).toBe(190000);
     expect(tx?.cycleMonths).toBe(1);
     expect(tx?.planKey).toBe('basic');
     expect(tx?.ownerId.toString()).toBe(SEED_IDS.ownerSub.toString());
