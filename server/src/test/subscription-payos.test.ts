@@ -57,12 +57,13 @@ describe('T12 — Thanh toán gói cước bằng PayOS (create-url + webhook)',
   beforeEach(async () => {
     injectPayOSMock();
     await seedPlatformGateway();
-    // Khôi phục trạng thái nhà hàng test về trial
+    // Khôi phục trạng thái nhà hàng test về active + gói Cơ Bản (chưa thanh toán chu kỳ nào)
     await DB_Connection.Restaurant.findByIdAndUpdate(SEED_IDS.tenantSubTrial, {
-      subscription: 'trial',
-      trialEndsAt: new Date(Date.now() + 10 * day),
+      subscription: 'active',
       currentPlanKey: 'basic',
       paidUntil: undefined,
+      pendingPlanKey: undefined,
+      pendingCycleMonths: undefined,
     });
     // Xoá mọi giao dịch pending do test trước tạo (orderCode thay đổi theo giờ)
     await DB_Connection.Transaction.deleteMany({

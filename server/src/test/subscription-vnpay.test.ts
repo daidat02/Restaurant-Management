@@ -37,12 +37,13 @@ async function seedPlatformGatewayVnpay() {
 describe('T13 — Thanh toán gói cước bằng VNPay (create-url + return)', () => {
   beforeEach(async () => {
     await seedPlatformGatewayVnpay();
-    // Khôi phục trạng thái nhà hàng test về trial
+    // Khôi phục trạng thái nhà hàng test về active + gói Cơ Bản (chưa thanh toán chu kỳ nào)
     await DB_Connection.Restaurant.findByIdAndUpdate(SEED_IDS.tenantSubTrial, {
-      subscription: 'trial',
-      trialEndsAt: new Date(Date.now() + 10 * day),
+      subscription: 'active',
       currentPlanKey: 'basic',
       paidUntil: undefined,
+      pendingPlanKey: undefined,
+      pendingCycleMonths: undefined,
     });
     // Xoá mọi giao dịch pending do test trước tạo
     await DB_Connection.Transaction.deleteMany({
