@@ -17,13 +17,17 @@ export function SubscriptionAlertsTable() {
   const alerts = (subscriptions ?? []).filter(
     (s) =>
       s.subscription === 'locked' ||
-      (s.subscription === 'trial' && typeof s.daysLeft === 'number' && s.daysLeft <= 7),
+      (s.subscription === 'active' &&
+        !!s.paidUntil &&
+        typeof s.daysLeft === 'number' &&
+        s.daysLeft >= 0 &&
+        s.daysLeft <= 7),
   );
 
   if (alerts.length === 0) return null;
 
   const lockedCount = alerts.filter((s) => s.subscription === 'locked').length;
-  const trialCount = alerts.length - lockedCount;
+  const expiringCount = alerts.length - lockedCount;
 
   const formatDate = (value?: Date | string) => {
     if (!value) return '—';
@@ -46,8 +50,8 @@ export function SubscriptionAlertsTable() {
             {alerts.length} nhà hàng cần gia hạn thuê bao
           </p>
           <p className="mt-0.5 text-xs text-amber-700">
-            {lockedCount} bị khoá do hết hạn thanh toán{lockedCount > 0 && trialCount > 0 ? ' · ' : ''}
-            {trialCount > 0 ? `${trialCount} đang dùng thử sắp hết hạn` : ''} — xử lý để tránh gián đoạn
+            {lockedCount} bị khoá do hết hạn thanh toán{lockedCount > 0 && expiringCount > 0 ? ' · ' : ''}
+            {expiringCount > 0 ? `${expiringCount} gói sắp hết hạn` : ''} — xử lý để tránh gián đoạn
             vận hành.
           </p>
         </div>
@@ -88,10 +92,10 @@ export function SubscriptionAlertsTable() {
                     <p className="mt-0.5 text-xs text-slate-500">
                       {isLocked
                         ? 'Bị khoá do hết hạn thanh toán'
-                        : `Trial sắp hết hạn — còn ${s.daysLeft} ngày`}
+                        : `Gói sắp hết hạn — còn ${s.daysLeft} ngày`}
                     </p>
                     <p className="mt-0.5 text-[11px] text-slate-400">
-                      Hết hạn: {formatDate(s.trialEndsAt ?? s.paidUntil)}
+                      Hết hạn: {formatDate(s.paidUntil)}
                     </p>
                   </div>
                 </div>

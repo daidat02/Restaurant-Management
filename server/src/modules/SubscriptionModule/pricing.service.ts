@@ -56,7 +56,8 @@ class PricingService {
         return { message: 'Tất cả các gói phải có tên!', code: 400 };
       }
       for (const p of plans) {
-        if (!p.contactOnly) {
+        // Gói trả phí (priceMonthly > 0) phải có giá mọi chu kỳ; gói Miễn Phí (price 0) cho phép chu kỳ = 0.
+        if (!p.contactOnly && Number(p.priceMonthly) > 0) {
           for (const key of VALID_CYCLES) {
             const value = Number(p.cycles?.[String(key)]);
             if (!Number.isFinite(value) || value <= 0) {

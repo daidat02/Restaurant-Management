@@ -103,18 +103,18 @@ describe('T02 — Plan gate (giới hạn số lượng)', () => {
  * basic: KHÔNG có KDS/advanced_report. pro: CÓ KDS. super-admin: bypass.
  */
 describe('T02 — Plan gate (tính năng theo gói)', () => {
-  it('basic: tạo mã KDS → 403 PLAN_LIMIT_REACHED', async () => {
+  it('basic: xem màn hình KDS (đơn bếp) → 403 PLAN_LIMIT_REACHED', async () => {
     const res = await request
-      .post(`/api/settings/${idOf(SEED_IDS.settingY)}/kds-code`)
+      .get(`/api/orders/kds/${idOf(SEED_IDS.tenantSubTrial)}`)
       .set('Authorization', `Bearer ${ownerSubAdmin(TRIAL)}`);
     expect(res.status).toBe(403);
     expect(res.body.errorCode).toBe('PLAN_LIMIT_REACHED');
     expect(res.body.meta).toMatchObject({ feature: 'kds', planKey: 'basic' });
   });
 
-  it('pro: tạo mã KDS OK', async () => {
+  it('pro: xem màn hình KDS OK', async () => {
     const res = await request
-      .post(`/api/settings/${idOf(SEED_IDS.settingX)}/kds-code`)
+      .get(`/api/orders/kds/${idOf(SEED_IDS.tenantX)}`)
       .set('Authorization', `Bearer ${tokenFor('manager', X)}`);
     expect(res.status).toBe(200);
   });

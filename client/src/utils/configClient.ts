@@ -145,10 +145,13 @@ axiosClient.interceptors.response.use(
         );
       }
 
-      // Vượt giới hạn gói (bàn/món/NV hoặc tính năng) → mở upsell gói đề xuất (lưới cuối)
+      // Vượt giới hạn gói (bàn/món/NV hoặc tính năng) → mở upsell gói đề xuất (lưới cuối).
+      // CHỈ cho request thao tác (POST/PUT/PATCH/DELETE); GET đọc dữ liệu (dashboard/analytics)
+      // không được bật modal chặn trang.
       if (
         (data?.errorCode === 'PLAN_LIMIT_REACHED' || data?.code === 'PLAN_LIMIT_REACHED') &&
-        store.getState().auth.user?.role === 'admin'
+        store.getState().auth.user?.role === 'admin' &&
+        (originalRequest.method || 'get').toLowerCase() !== 'get'
       ) {
         store.dispatch(
           openUpsell({

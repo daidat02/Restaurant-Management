@@ -321,6 +321,9 @@ export default function SuperAdminPricing() {
                           : 'chưa nhập giá'}
                       </p>
                     )}
+                    <p className="mt-1 text-[11px] font-medium text-slate-500">
+                      Chu kỳ: {CYCLE_OPTIONS.map((c) => c.label).join(' · ')}
+                    </p>
                   </div>
 
                   {/* Giới hạn */}

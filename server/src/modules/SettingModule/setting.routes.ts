@@ -8,7 +8,6 @@ import {
   settingTenantResolver,
 } from '../../middlewares/auth.middleware.js';
 import { kdsVerifyRateLimit } from '../../middlewares/rateLimit.middleware.js';
-import { assertFeature } from '../../services/plan-gate.service.js';
 
 const router = Router();
 
@@ -18,13 +17,14 @@ router.post('/create', verifyToken, verifyRole(['admin']), SettingController.cre
 // Xác thực mã nhà bếp để vào màn hình KDS (Public - không cần đăng nhập)
 router.post('/kds/verify', kdsVerifyRateLimit, SettingController.verifyKitchenCode);
 
-// Tạo mã nhà bếp mới cho màn hình KDS (Chỉ admin/manager, mã hiển thị đúng 1 lần)
+// Tạo mã nhà bếp mới cho màn hình KDS (Chỉ admin/manager, mã hiển thị đúng 1 lần).
+// KHÔNG gate theo gói: sinh mã là bước cấu hình (onboarding chi nhánh đầu = gói Miễn Phí);
+// việc DÙNG KDS bị gate ở route GET /orders/kds/:restaurantId.
 router.post(
   '/:id/kds-code',
   verifyToken,
   verifyRole(['admin', 'manager']),
   verifyTenant,
-  assertFeature('kds'),
   requireResourceTenant(settingTenantResolver),
   SettingController.generateKitchenCode,
 );

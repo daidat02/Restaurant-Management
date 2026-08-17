@@ -32,7 +32,7 @@ test.describe('T12 — Super-admin', () => {
     await expect(page.getByRole('heading', { name: 'Gói Cước & Giá' })).toBeVisible({
       timeout: 20_000,
     });
-    await expect(page.getByText('1 tháng')).toBeVisible();
+    await expect(page.getByText('1 tháng').first()).toBeVisible();
 
     // Lịch sử giao dịch
     await page.goto('/super-admin/transactions');

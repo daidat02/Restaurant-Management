@@ -7,6 +7,7 @@ import {
   orderTenantResolver,
 } from '../../middlewares/auth.middleware.js';
 import { orderCreateRateLimit, publicRateLimit } from '../../middlewares/rateLimit.middleware.js';
+import { assertFeature } from '../../services/plan-gate.service.js';
 import orderController from './order.controller.js';
 
 const router = Router();
@@ -38,7 +39,13 @@ router.get(
   verifyTenant,
   orderController.getAllOrderByRestaurant,
 );
-router.get('/kds/:restaurantId', verifyToken, verifyTenant, orderController.getKdsOrders);
+router.get(
+  '/kds/:restaurantId',
+  verifyToken,
+  verifyTenant,
+  assertFeature('kds'),
+  orderController.getKdsOrders,
+);
 router.get('/active/:restaurantId', verifyToken, verifyTenant, orderController.getActiveOrders);
 router.get('/table/:tableId', orderController.getOrderByTableId);
 

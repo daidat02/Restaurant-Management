@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { login, API_BASE, PASSWORD } from './helpers';
 
 test.describe('T07 — Wizard onboarding 4 bước', () => {
-  test('owner mới (chưa có nhà hàng) tạo cơ sở đầu tiên qua wizard → trial 30 ngày', async ({ page, request }) => {
+  test('owner mới (chưa có nhà hàng) tạo cơ sở đầu tiên qua wizard → active + gói Miễn Phí', async ({ page, request }) => {
     const unique = Date.now().toString().slice(-6);
     const ownerEmail = `wiz.owner.${unique}@nhamnhi.vn`;
     const tenantName = `NhamNhi Wizard ${unique}`;
@@ -48,15 +48,17 @@ test.describe('T07 — Wizard onboarding 4 bước', () => {
     await page.getByRole('button', { name: /Hoàn tất & vào quản trị/ }).click();
     await page.waitForURL(/\/admin$/);
 
-    // Xác minh tenant mới tồn tại + thuộc owner vừa đăng ký với trạng thái trial
+    // Xác minh tenant mới tồn tại + thuộc owner vừa đăng ký với gói Miễn Phí (không còn trial)
     const restaurants = await request.get(`${API_BASE}/restaurants`);
     expect(restaurants.status()).toBe(200);
     const all = (await restaurants.json()).data || [];
     const created = all.find((r: any) => r.name === tenantName);
     expect(created).toBeTruthy();
     expect(created.status).toBe('active');
-    expect(created.subscription).toBe('trial');
-    expect(created.trialEndsAt).toBeTruthy();
+    expect(created.subscription).toBe('active');
+    expect(created.currentPlanKey).toBe('free');
+    expect(created.trialEndsAt).toBeFalsy();
+    expect(created.paidUntil).toBeFalsy();
     expect(created.ownerId).toBeTruthy();
   });
 });

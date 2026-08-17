@@ -19,7 +19,7 @@ test.describe('T06 — Dashboard /admin: KPI gộp chuỗi + bảng cảnh báo 
     await expect(page.getByText(/Cảnh báo thuê bao/)).toHaveCount(0);
   });
 
-  test('owner.sub (có cơ sở sắp hết hạn + bị khoá) thấy cảnh báo đúng chi nhánh', async ({
+  test('owner.sub (có cơ sở gói sắp hết hạn) thấy cảnh báo đúng chi nhánh', async ({
     page,
   }) => {
     await login(page, 'owner.sub@nhamnhi.vn');
@@ -30,13 +30,12 @@ test.describe('T06 — Dashboard /admin: KPI gộp chuỗi + bảng cảnh báo 
       timeout: 20_000,
     });
 
-    // Bảng cảnh báo: chi nhánh sắp hết hạn + bị khoá
-    await expect(page.getByText(/Cảnh báo thuê bao/)).toBeVisible({ timeout: 15_000 });
+    // Bảng cảnh báo: chi nhánh có gói trả phí sắp hết hạn (vòng đời mới: hết hạn → hạ Miễn Phí)
+    await expect(page.getByText(/nhà hàng cần gia hạn thuê bao/)).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText('NhamNhi Sub Sắp Hết Hạn')).toBeVisible();
-    await expect(page.getByText('NhamNhi Sub Bị Khoá')).toBeVisible();
 
-    // Nút thanh toán điều hướng /admin/billing
-    await page.getByRole('button', { name: /Thanh toán/ }).first().click();
+    // Nút xử lý (banner) điều hướng /admin/billing
+    await page.getByRole('button', { name: 'Xử lý ngay' }).click();
     await expect(page).toHaveURL(/\/admin\/billing/, { timeout: 15_000 });
   });
 });

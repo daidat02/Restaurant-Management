@@ -49,6 +49,17 @@ export const SEED_IDS = {
   menuItemY1: '69fb58d6ca9d7bade016e916',
   orderXActive: '69fccba996a14809070b9ef8',
   orderYActive: '69fb58d6ca9d7bade016e918',
+  categoryX: '69fccba996a14809070b9ef5',
+  settingX: '6a314d4142a2baf0dcd935f8',
+  settingY: '6a6d6b0a660a34d8774b88b5',
+  // Seed owner.sub (vòng đời mới — T04/T07)
+  ownerSub: '69fccba996a14809070b9e00',
+  tenantSubTrial: '69fccba996a14809070b9e01',
+  tenantSubExpiring: '69fccba996a14809070b9e02',
+  tenantSubLocked: '69fccba996a14809070b9e03',
+  tenantSubEnterprise: '69fccba996a14809070b9e04',
+  tenantSubDowngrading: '69fccba996a14809070b9e05',
+  tenantSubExpired: '69fccba996a14809070b9e06',
 } as const;
 
 export const KITCHEN_CODE_X = '456734';

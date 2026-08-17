@@ -65,6 +65,9 @@ export const SEED_IDS = {
   tenantSubExpiring: oid('69fccba996a14809070b9e02'),
   tenantSubLocked: oid('69fccba996a14809070b9e03'),
   tenantSubEnterprise: oid('69fccba996a14809070b9e04'),
+  // Hết hạn (paidUntil quá khứ) để E2E/verify vòng đời mới: hạ gói tự động.
+  tenantSubDowngrading: oid('69fccba996a14809070b9e05'),
+  tenantSubExpired: oid('69fccba996a14809070b9e06'),
 } as const;
 
 const TENANT_X_USERS = [
@@ -90,6 +93,8 @@ const PLATFORM_USERS = [
       SEED_IDS.tenantSubExpiring,
       SEED_IDS.tenantSubLocked,
       SEED_IDS.tenantSubEnterprise,
+      SEED_IDS.tenantSubDowngrading,
+      SEED_IDS.tenantSubExpired,
     ] as Types.ObjectId[],
   },
 ] as const;
@@ -126,7 +131,7 @@ async function seedRestaurants(): Promise<void> {
       ownerId: SEED_IDS.adminX,
       subscription: 'active',
       paidUntil: new Date(now.getTime() + 30 * 24 * 3600 * 1000),
-      currentPlanKey: 'basic',
+      currentPlanKey: 'pro',
     },
     // Chủ test subscription (T7): 3 nhà hàng ở các trạng thái gói khác nhau
     {
@@ -167,6 +172,30 @@ async function seedRestaurants(): Promise<void> {
       subscription: 'active',
       paidUntil: new Date(now.getTime() + 30 * 24 * 3600 * 1000),
       currentPlanKey: 'enterprise',
+    },
+    {
+      // Đã đặt lịch hạ gói Pro→Basic + hết hạn → applySubscriptionState tự áp dụng basic cuối chu kỳ.
+      _id: SEED_IDS.tenantSubDowngrading,
+      name: 'NhamNhi Sub Hạ Gói',
+      email: 'sub.downgrading@nhamnhi.vn',
+      status: 'active',
+      ownerId: SEED_IDS.ownerSub,
+      subscription: 'active',
+      paidUntil: new Date(now.getTime() - 24 * 3600 * 1000),
+      currentPlanKey: 'pro',
+      pendingPlanKey: 'basic',
+      pendingCycleMonths: 1,
+    },
+    {
+      // Hết hạn gói trả phí → applySubscriptionState tự hạ về Miễn Phí (KHÔNG khoá).
+      _id: SEED_IDS.tenantSubExpired,
+      name: 'NhamNhi Sub Hết Hạn',
+      email: 'sub.expired@nhamnhi.vn',
+      status: 'active',
+      ownerId: SEED_IDS.ownerSub,
+      subscription: 'active',
+      paidUntil: new Date(now.getTime() - 24 * 3600 * 1000),
+      currentPlanKey: 'basic',
     },
   ]);
 }
