@@ -64,6 +64,7 @@ export const SEED_IDS = {
   tenantSubTrial: oid('69fccba996a14809070b9e01'),
   tenantSubExpiring: oid('69fccba996a14809070b9e02'),
   tenantSubLocked: oid('69fccba996a14809070b9e03'),
+  tenantSubEnterprise: oid('69fccba996a14809070b9e04'),
 } as const;
 
 const TENANT_X_USERS = [
@@ -88,6 +89,7 @@ const PLATFORM_USERS = [
       SEED_IDS.tenantSubTrial,
       SEED_IDS.tenantSubExpiring,
       SEED_IDS.tenantSubLocked,
+      SEED_IDS.tenantSubEnterprise,
     ] as Types.ObjectId[],
   },
 ] as const;
@@ -155,6 +157,16 @@ async function seedRestaurants(): Promise<void> {
       ownerId: SEED_IDS.ownerSub,
       subscription: 'active',
       currentPlanKey: 'free',
+    },
+    {
+      _id: SEED_IDS.tenantSubEnterprise,
+      name: 'NhamNhi Sub Enterprise',
+      email: 'sub.enterprise@nhamnhi.vn',
+      status: 'active',
+      ownerId: SEED_IDS.ownerSub,
+      subscription: 'active',
+      paidUntil: new Date(now.getTime() + 30 * 24 * 3600 * 1000),
+      currentPlanKey: 'enterprise',
     },
   ]);
 }
