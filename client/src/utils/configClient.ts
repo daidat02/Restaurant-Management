@@ -137,7 +137,26 @@ axiosClient.interceptors.response.use(
         store.getState().auth.user?.role === 'admin'
       ) {
         store.dispatch(
-          openUpsell({ restaurantId: data?.restaurantId || null, message: errorMessage }),
+          openUpsell({
+            type: 'locked',
+            restaurantId: data?.restaurantId || null,
+            message: errorMessage,
+          }),
+        );
+      }
+
+      // Vượt giới hạn gói (bàn/món/NV hoặc tính năng) → mở upsell gói đề xuất (lưới cuối)
+      if (
+        (data?.errorCode === 'PLAN_LIMIT_REACHED' || data?.code === 'PLAN_LIMIT_REACHED') &&
+        store.getState().auth.user?.role === 'admin'
+      ) {
+        store.dispatch(
+          openUpsell({
+            type: 'plan-limit',
+            restaurantId: data?.restaurantId || null,
+            message: errorMessage,
+            meta: data?.meta,
+          }),
         );
       }
 

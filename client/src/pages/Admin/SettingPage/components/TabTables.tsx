@@ -4,6 +4,7 @@ import { LayoutGrid, Loader2, Plus } from 'lucide-react';
 
 import { SettingCard, Field, SelectField } from './settings-ui';
 import { useTable } from '@/hooks/use-table';
+import { usePlan } from '@/hooks/use-plan';
 import { cn } from '@/lib/utils';
 import type { ITable } from '@/types/table.type';
 import { AlertDialogCustom } from '@/components/AlertDialog';
@@ -19,6 +20,7 @@ const STATUSES: Record<ITable['status'], { label: string; className: string }> =
 export default function TabTables({ restaurantId }: { restaurantId?: string }) {
   const { tables, isLoading, fetchTablesByRestaurant, addTable, editTable, removeTable } =
     useTable();
+  const { planKey, plan, limitReached } = usePlan();
 
   const [editing, setEditing] = useState<ITable | null>(null);
   const [formNumber, setFormNumber] = useState('');
@@ -28,6 +30,9 @@ export default function TabTables({ restaurantId }: { restaurantId?: string }) {
   const [deleteTarget, setDeleteTarget] = useState<ITable | null>(null);
 
   const hasTarget = !!restaurantId;
+
+  // Đạt trần bàn của gói → khoá nút "Thêm bàn mới" (server vẫn chặn nếu bypass).
+  const tableLimitHit = !editing && limitReached('tables', tables.length);
 
   useEffect(() => {
     if (restaurantId) fetchTablesByRestaurant(restaurantId);
@@ -184,13 +189,23 @@ export default function TabTables({ restaurantId }: { restaurantId?: string }) {
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={submitting || !hasTarget}
+              disabled={submitting || !hasTarget || tableLimitHit}
+              title={
+                tableLimitHit
+                  ? `Gói ${plan?.name ?? planKey ?? 'Miễn Phí'} đạt ${plan?.limits?.tables ?? 0} bàn — nâng gói để thêm`
+                  : undefined
+              }
               className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-cerulean-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-cerulean-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
               <Plus className="h-4 w-4" />
               {editing ? 'Cập nhật bàn' : 'Thêm bàn mới'}
             </button>
+            {tableLimitHit && (
+              <p className="mt-2 text-center text-xs text-amber-600">
+                Gói {plan?.name ?? 'Miễn Phí'} đã đạt trần {plan?.limits?.tables ?? 0} bàn — nâng gói để thêm.
+              </p>
+            )}
           </div>
         </div>
       </SettingCard>

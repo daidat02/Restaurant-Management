@@ -23,12 +23,15 @@ import {
   Receipt,
   ScrollText,
 } from 'lucide-react';
+import type { FeatureKey } from '@/constants/feature-catalog';
 
 export type MenuItem = {
   title: string;
   icon: LucideIcon;
   path?: string;
   children?: { title: string; path: string }[];
+  /** Tính năng gói yêu cầu — ẩn mục menu khi gói hiện tại không có (không đặt = luôn hiện). */
+  feature?: FeatureKey;
 };
 
 export type MenuGroup = {
@@ -64,14 +67,14 @@ const ADMIN_MENU: MenuGroup[] = [
   {
     label: 'Tài chính',
     items: [
-      { title: 'Báo Cáo Kinh Doanh', icon: ChartLine, path: '/admin/reports' },
+      { title: 'Báo Cáo Kinh Doanh', icon: ChartLine, path: '/admin/reports', feature: 'advanced_report' },
       { title: 'Thanh Toán & Gói', icon: CreditCard, path: '/admin/billing' },
     ],
   },
   {
     label: 'Công cụ',
     items: [
-      { title: 'Tin Nhắn', icon: MessageCircle, path: '/admin/messages' },
+      { title: 'Tin Nhắn', icon: MessageCircle, path: '/admin/messages', feature: 'messaging_group' },
       { title: 'Nhật Ký Hệ Thống', icon: History, path: '/admin/logs' },
       { title: 'Cài Đặt Chung', icon: Settings, path: '/admin/settings' },
     ],
@@ -99,7 +102,7 @@ const MANAGER_MENU: MenuGroup[] = [
   {
     label: 'Công cụ',
     items: [
-      { title: 'Tin Nhắn', icon: MessageCircle, path: '/manager/messages' },
+      { title: 'Tin Nhắn', icon: MessageCircle, path: '/manager/messages', feature: 'messaging_group' },
       { title: 'Nhật Ký Hệ Thống', icon: History, path: '/manager/logs' },
       { title: 'Cài Đặt Chung', icon: Settings, path: '/manager/settings' },
       { title: 'Trợ Giúp', icon: HelpCircle, path: '/manager/help' },
@@ -119,7 +122,7 @@ const STAFF_MENU: MenuGroup[] = [
   {
     label: 'Công cụ',
     items: [
-      { title: 'Tin Nhắn', icon: MessageCircle, path: '/staff/messages' },
+      { title: 'Tin Nhắn', icon: MessageCircle, path: '/staff/messages', feature: 'messaging_group' },
       { title: 'Cài Đặt Chung', icon: Settings, path: '/staff/settings' },
     ],
   },

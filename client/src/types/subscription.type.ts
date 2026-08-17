@@ -9,6 +9,10 @@ export interface ISubscriptionInfo {
   paidUntil?: Date | string;
   /** Gói dịch vụ hiện tại (key) — so sánh khi gia hạn/chuyển gói. */
   currentPlanKey?: string;
+  /** Gói được lên lịch hạ cấp (áp dụng cuối chu kỳ). */
+  pendingPlanKey?: string;
+  /** Chu kỳ (tháng) đã chọn khi lên lịch hạ cấp. */
+  pendingCycleMonths?: number;
   /** Số ngày còn lại (0 nếu locked). */
   daysLeft: number;
 }
@@ -33,6 +37,8 @@ export interface IPlan {
   priceMonthly: number;
   cycles: Record<'1' | '3' | '6' | '12', number>;
   features: string[];
+  /** Key tính năng ĐƯỢC CẤP cho gói — nguồn gate UX (giống server FEATURE_CATALOG). */
+  featureKeys?: string[];
   limits: IPlanLimits;
   sortOrder: number;
 }

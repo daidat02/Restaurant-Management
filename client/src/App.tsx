@@ -54,6 +54,7 @@ import { login, logout } from './redux/slices/authSlice';
 import BillingPage from './pages/Admin/BillingPage/billing';
 import LogsPage from './pages/Admin/LogsPage/logs';
 import SettingsPage from './pages/Admin/SettingPage/SettingsPage';
+import RequireFeature from './components/RequireFeature';
 import type { IUser } from '@/types/user.type';
 
 /**
@@ -236,9 +237,23 @@ export default function App() {
           <Route path="customers/edit/:id" element={<UserFormPage />} />
           <Route path="products" element={<Product />} />
           <Route path="orders" element={<Order />} />
-          <Route path="reports" element={<AnalyticsPage />} />
+          <Route
+            path="reports"
+            element={
+              <RequireFeature feature="advanced_report">
+                <AnalyticsPage />
+              </RequireFeature>
+            }
+          />
           <Route path="logs" element={<LogsPage />} />
-          <Route path="messages" element={<MessagePage />} />
+          <Route
+            path="messages"
+            element={
+              <RequireFeature feature="messaging_group">
+                <MessagePage />
+              </RequireFeature>
+            }
+          />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Route>
@@ -282,7 +297,14 @@ export default function App() {
           <Route path="orders" element={<Order />} />
           <Route path="orders/management" element={<OrderManagerment />} />
           <Route path="orders/edit/:id" element={<OrderDetail />} />
-          <Route path="messages" element={<MessagePage />} />
+          <Route
+            path="messages"
+            element={
+              <RequireFeature feature="messaging_group">
+                <MessagePage />
+              </RequireFeature>
+            }
+          />
           <Route path="logs" element={<LogsPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
@@ -313,7 +335,14 @@ export default function App() {
           <Route path="orders/management" element={<OrderManagerment />} />
           <Route path="orders/edit/:id" element={<OrderDetail />} />
           <Route path="reservations" element={<ReservationPage />} />
-          <Route path="messages" element={<MessagePage />} />
+          <Route
+            path="messages"
+            element={
+              <RequireFeature feature="messaging_group">
+                <MessagePage />
+              </RequireFeature>
+            }
+          />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
 

@@ -3,6 +3,7 @@ import { Search, ListFilter, Download, Plus, Eye, Edit2, ChevronRight } from 'lu
 
 import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
 import { useMenu } from '@/hooks/use-menu';
+import { usePlan } from '@/hooks/use-plan';
 import type { IMenuItem } from '@/types/category.type';
 
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,7 @@ import { FilterToolbar } from '../OrderPage/management-order';
 
 export default function ProductsPage() {
   const activeRestaurantId = useActiveRestaurantId();
+  const { planKey, plan, limitReached, hasFeature } = usePlan();
   const navigate = useNavigate();
   const {
     items,
@@ -114,6 +116,9 @@ export default function ProductsPage() {
   }, [filteredItems, currentPage]);
 
   const totalPages = Math.ceil(filteredItems.length / pageSize) || 1;
+
+  // Đạt trần món của gói → khoá nút "Thêm món mới" (server vẫn chặn nếu bypass).
+  const itemLimitHit = limitReached('items', totalFoodCount);
 
   // Cấu hình các cột hiển thị trong bảng dữ liệu món ăn
   const columns: ColumnDef<IMenuItem>[] = [
@@ -217,12 +222,24 @@ export default function ProductsPage() {
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
-                className="text-slate-700 border-slate-200 bg-white hover:bg-slate-50 h-9 rounded-xl text-sm"
+                disabled={!hasFeature('advanced_report')}
+                title={
+                  !hasFeature('advanced_report')
+                    ? 'Báo cáo nâng cao + Excel không có trong gói hiện tại'
+                    : undefined
+                }
+                className="text-slate-700 border-slate-200 bg-white hover:bg-slate-50 h-9 rounded-xl text-sm disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Download className="mr-2 h-4 w-4 text-slate-500" /> Xuất file
               </Button>
               <Button
-                className="bg-cerulean-blue-600 hover:bg-cerulean-blue-700 text-white h-9 rounded-xl text-sm shadow-sm"
+                disabled={itemLimitHit}
+                title={
+                  itemLimitHit
+                    ? `Gói ${plan?.name ?? planKey ?? 'Miễn Phí'} đạt ${plan?.limits?.items ?? 0} món — nâng gói để thêm`
+                    : undefined
+                }
+                className="bg-cerulean-blue-600 hover:bg-cerulean-blue-700 text-white h-9 rounded-xl text-sm shadow-sm disabled:cursor-not-allowed disabled:opacity-60"
                 onClick={() => navigate('/manager/menu/items/create')}
               >
                 Thêm món mới <Plus className="ml-2 h-4 w-4" />

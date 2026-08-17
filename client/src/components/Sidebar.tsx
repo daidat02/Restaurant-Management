@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import {
@@ -17,13 +17,15 @@ import {
 import { ChevronDown, Moon, Store, LogOut, UtensilsCrossed } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
-import { getMenuForRole, getRoleLabel, type MenuItem } from '@/configs/adminMenu';
+import { getMenuForRole, getRoleLabel, type MenuItem, type MenuGroup } from '@/configs/adminMenu';
+import { usePlan } from '@/hooks/use-plan';
 import { extractId } from '@/utils/helpers';
 import type { IRestaurant } from '@/types/restaurant.type';
 
 export default function SidebarApp() {
   const { user, logout } = useAuth();
   const activeRestaurantId = useActiveRestaurantId();
+  const { hasFeature } = usePlan();
 
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -31,7 +33,17 @@ export default function SidebarApp() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const menuGroups = getMenuForRole(user?.role);
+  // Ẩn mục menu yêu cầu tính năng mà gói hiện tại không có (gate tầng menu).
+  const menuGroups: MenuGroup[] = useMemo(
+    () =>
+      getMenuForRole(user?.role)
+        .map((group) => ({
+          ...group,
+          items: group.items.filter((item) => !item.feature || hasFeature(item.feature)),
+        }))
+        .filter((group) => group.items.length > 0),
+    [user?.role, hasFeature],
+  );
 
   // Nội dung card scope dưới logo, theo role (admin = toàn hệ thống, super-admin = nền tảng).
   const scopeInfo = (() => {
