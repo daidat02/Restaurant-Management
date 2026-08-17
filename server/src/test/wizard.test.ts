@@ -22,6 +22,8 @@ describe('T14 — Wizard onboarding: tạo tenant mới hoạt động (nhà hà
         address: '123 Test Street',
         capacity: 50,
         operatingHours: '08:00 - 22:00',
+        // Chi nhánh 2+ bắt buộc gói trả phí — KDS/mã nhà bếp chỉ có từ gói Pro
+        planKey: 'pro',
       });
 
     expect(res.status).toBe(201);

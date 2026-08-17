@@ -157,6 +157,26 @@ class MenuService {
       }
     }
 
+    // Gate giới hạn theo gói: đếm món hiện có của chi nhánh trước khi tạo.
+    const rid = menuItemData?.restaurant || menuCat?.restaurant;
+    if (rid) {
+      const { assertLimit, countResource } = await import('../../services/plan-gate.service.js');
+      const used = await countResource(rid.toString(), 'items');
+      try {
+        await assertLimit(rid.toString(), 'items', used, 1);
+      } catch (error: any) {
+        if (error?.code === 'PLAN_LIMIT_REACHED') {
+          return {
+            code: 403,
+            errorCode: 'PLAN_LIMIT_REACHED',
+            message: error.message,
+            meta: { ...error.meta, restaurantId: rid.toString() },
+          };
+        }
+        throw error;
+      }
+    }
+
     const newMenuItem = await menuRepository.createMenuItem(menuItemData);
     // Menu thay đổi → xoá cache menu của nhà hàng đó (fire-and-forget; Redis tắt → no-op)
     this.invalidateMenuCache(newMenuItem.restaurant?.toString());

@@ -64,8 +64,13 @@ class RestaurantSerice {
       }
     }
 
-    // Gói chính thức của nhà hàng mới: theo gói đã chọn, nếu không chọn thì gói rẻ nhất.
-    const assignedPlanKey = planId || (await pricingService.getDefaultPlanKey());
+    // Gói chính thức của nhà hàng mới: theo gói đã chọn; chi nhánh 2+ mặc định gói trả phí rẻ nhất
+    // (Miễn Phí chỉ dành cho chi nhánh đầu), chi nhánh đầu mặc định Miễn Phí.
+    const assignedPlanKey =
+      planId ||
+      (isFirstRestaurant
+        ? await pricingService.getDefaultPlanKey()
+        : await pricingService.getDefaultPaidPlanKey());
 
     const restaurant = await restaurantRepository.createRestaurant({
       ...restaurantData,

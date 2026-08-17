@@ -1,6 +1,7 @@
 import type { ITable } from '../../models/Schema/TableSchema.js';
 import type { ServiceResponse } from '../../shared/type.js';
 import tableRepository from './table.repository.js';
+import { assertLimit, countResource } from '../../services/plan-gate.service.js';
 
 class TableService {
   async createTableService(tableData: Partial<ITable>): Promise<ServiceResponse<ITable>> {
@@ -12,6 +13,26 @@ class TableService {
     if (tables.length > 0) {
       return { code: 400, message: `Bàn số ${tableData.tableNumber} đã tồn tại` };
     }
+
+    // Gate giới hạn theo gói: đếm bàn hiện có của chi nhánh trước khi tạo.
+    const restaurantId = tableData.restaurant?.toString();
+    if (restaurantId) {
+      const used = await countResource(restaurantId, 'tables');
+      try {
+        await assertLimit(restaurantId, 'tables', used, 1);
+      } catch (error: any) {
+        if (error?.code === 'PLAN_LIMIT_REACHED') {
+          return {
+            code: 403,
+            errorCode: 'PLAN_LIMIT_REACHED',
+            message: error.message,
+            meta: { ...error.meta, restaurantId },
+          };
+        }
+        throw error;
+      }
+    }
+
     const newTable = await tableRepository.createTable(tableData);
     return { code: 201, message: 'Thêm một bàn mới thành công', data: newTable };
   }

@@ -13,6 +13,8 @@ export interface ServiceResponse<T>{
     errorCode?: string;
     /** HTTP status ưu tiên khi khác `code`. */
     statusCode?: number;
+    /** Dữ liệu phụ của lỗi nghiệp vụ (vd giới hạn gói khi PLAN_LIMIT_REACHED). */
+    meta?: Record<string, unknown>;
 }
 
 // types/cloudinary.ts

@@ -195,6 +195,19 @@ class ConversationService {
       return { code: 400, message: "Loại hội thoại không hợp lệ" };
     }
 
+    // Gate tính năng: chat nhóm chỉ từ gói có messaging_group (1-1 mở cho mọi gói).
+    if (type === "group") {
+      const { assertFeatureRestaurant } = await import("../../services/plan-gate.service.js");
+      try {
+        await assertFeatureRestaurant(restaurantId, "messaging_group");
+      } catch (gateError: any) {
+        if (gateError?.code === "PLAN_LIMIT_REACHED") {
+          return { code: 403, errorCode: "PLAN_LIMIT_REACHED", message: gateError.message, meta: gateError.meta };
+        }
+        throw gateError;
+      }
+    }
+
     const memberIds = (body.memberIds ?? [])
       .map((id) => String(id))
       .filter((id) => id && id !== String(actorUserId));

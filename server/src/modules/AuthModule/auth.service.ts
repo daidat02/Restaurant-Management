@@ -425,6 +425,26 @@ class AuthService {
       return { message: error, code: 400 };
     }
 
+    // Gate giới hạn theo gói: đếm nhân viên hiện có của chi nhánh trước khi tạo.
+    const rid = restaurantIds[0]?.toString();
+    if (rid) {
+      const { assertLimit, countResource } = await import('../../services/plan-gate.service.js');
+      const used = await countResource(rid, 'staff');
+      try {
+        await assertLimit(rid, 'staff', used, 1);
+      } catch (gateError: any) {
+        if (gateError?.code === 'PLAN_LIMIT_REACHED') {
+          return {
+            code: 403,
+            errorCode: 'PLAN_LIMIT_REACHED',
+            message: gateError.message,
+            meta: { ...gateError.meta, restaurantId: rid },
+          };
+        }
+        throw gateError;
+      }
+    }
+
     const { restaurant: _legacyRestaurant, ...rest } = userData;
     const createData: Partial<IUser> = {
       ...rest,

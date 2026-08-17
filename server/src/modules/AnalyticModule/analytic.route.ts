@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import analyticController from './analytic.controller.js'; // 🌟 Import Analytic Controller bạn vừa tạo
 import { verifyRole, verifyTenant, verifyToken, intersectRestaurantIds } from '../../middlewares/auth.middleware.js';
+import { assertFeature } from '../../services/plan-gate.service.js';
 
 const router = Router();
 
@@ -10,6 +11,7 @@ router.get(
   verifyRole(['manager', 'admin']),
   verifyTenant,
   intersectRestaurantIds,
+  assertFeature('advanced_report'),
   analyticController.getOverviewStats,
 );
 
@@ -19,6 +21,7 @@ router.get(
   verifyRole(['manager', 'admin']),
   verifyTenant,
   intersectRestaurantIds,
+  assertFeature('advanced_report'),
   analyticController.getRevenueHourly,
 );
 
@@ -28,6 +31,7 @@ router.get(
   verifyRole(['manager', 'admin']),
   verifyTenant,
   intersectRestaurantIds,
+  assertFeature('advanced_report'),
   analyticController.getOrderChannels,
 );
 router.get(
@@ -44,6 +48,7 @@ router.get(
   verifyRole(['manager', 'admin']),
   verifyTenant,
   intersectRestaurantIds,
+  assertFeature('advanced_report'),
   analyticController.getBranchRevenueByIds,
 );
 // Dashboard gộp toàn hệ thống — chỉ super-admin (quyền nền tảng)

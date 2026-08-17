@@ -118,6 +118,15 @@ class PricingService {
       .sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
     return plans[0]?.key;
   }
+
+  /** Key gói trả phí rẻ nhất (bỏ gói Miễn Phí) — dùng làm mặc định cho chi nhánh 2+ bắt buộc trả phí. */
+  async getDefaultPaidPlanKey(): Promise<string | undefined> {
+    const config = await pricingRepository.getOrCreate();
+    const plans = (config.plans || [])
+      .filter((p: any) => p.isActive !== false && p.contactOnly !== true && p.priceMonthly > 0)
+      .sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    return plans[0]?.key;
+  }
 }
 
 export default new PricingService();

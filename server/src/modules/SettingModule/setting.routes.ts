@@ -8,6 +8,7 @@ import {
   settingTenantResolver,
 } from '../../middlewares/auth.middleware.js';
 import { kdsVerifyRateLimit } from '../../middlewares/rateLimit.middleware.js';
+import { assertFeature } from '../../services/plan-gate.service.js';
 
 const router = Router();
 
@@ -23,6 +24,7 @@ router.post(
   verifyToken,
   verifyRole(['admin', 'manager']),
   verifyTenant,
+  assertFeature('kds'),
   requireResourceTenant(settingTenantResolver),
   SettingController.generateKitchenCode,
 );
