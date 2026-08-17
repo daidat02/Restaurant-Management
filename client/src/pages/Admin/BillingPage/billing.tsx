@@ -3,7 +3,6 @@ import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import {
   Check,
-  CheckCircle2,
   CreditCard,
   Crown,
   Loader2,
@@ -29,6 +28,7 @@ import {
 import { cn } from '@/lib/utils';
 import { PaymentDialog, type PaymentMethod } from './PaymentDialog';
 import { StatusTag } from '@/components/StatusTag';
+import { PaymentSuccessDialog } from '@/components/PaymentSuccessDialog';
 
 const CYCLE_MONTHS: (1 | 3 | 6 | 12)[] = [1, 3, 6, 12];
 
@@ -39,6 +39,7 @@ const STATE_LABEL: Record<string, { text: string; className: string }> = {
   active: { text: 'Đang hoạt động', className: 'bg-emerald-50 text-emerald-700' },
   trial: { text: 'Dùng thử', className: 'bg-amber-50 text-amber-700' },
   locked: { text: 'Bị khoá', className: 'bg-rose-50 text-rose-700' },
+  pending: { text: 'Chờ thanh toán', className: 'bg-orange-50 text-orange-700' },
 };
 
 const METHOD_LABEL: Record<PaymentMethod, { text: string; desc: string }> = {
@@ -212,60 +213,7 @@ export default function BillingPage() {
     }
   };
 
-  // ---- Màn hình thanh toán thành công ----
-  if (lastPayment) {
-    return (
-      <div className="h-full overflow-y-auto">
-        <div className="min-h-screen bg-slate-50 p-4 md:p-8">
-          <div className="mx-auto max-w-xl rounded-2xl border border-emerald-200 bg-white p-8 text-center shadow-sm">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
-              <CheckCircle2 className="h-9 w-9 text-emerald-600" />
-            </div>
-            <h1 className="mt-4 text-2xl font-extrabold text-gray-900">Thanh toán thành công</h1>
-            <p className="mt-1 text-sm text-slate-500">
-              {lastPayment.restaurantName} đã được mở lại và hoạt động bình thường.
-            </p>
-            <div className="mt-6 space-y-3 rounded-xl bg-slate-50 p-5 text-left text-sm">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Nhà hàng</span>
-                <span className="font-semibold text-slate-800">{lastPayment.restaurantName}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Số tiền</span>
-                <span className="font-bold text-cerulean-blue-600">
-                  {fmtVND(lastPayment.amount)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Thanh toán tới ngày</span>
-                <span className="font-semibold text-slate-800">
-                  {fmtDate(lastPayment.paidUntil)}
-                </span>
-              </div>
-            </div>
-            <div className="mt-6 flex flex-col gap-2.5">
-              <Button
-                onClick={() => {
-                  setLastPayment(null);
-                  void refresh();
-                }}
-                className="h-11 w-full rounded-xl bg-cerulean-blue-600 text-white hover:bg-cerulean-blue-700"
-              >
-                Xem lịch sử hoá đơn
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => window.history.back()}
-                className="h-11 w-full rounded-xl text-slate-600"
-              >
-                Quay lại quản trị
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // ---- Màn hình thanh toán thành công: hiển thị bằng PaymentSuccessDialog overlay (không swap page) ----
 
   const renewDate = selected
     ? selected.subscription === 'trial'
@@ -398,7 +346,9 @@ export default function BillingPage() {
                               ? 'Bị khoá'
                               : s.subscription === 'trial'
                                 ? `Trial còn ${s.daysLeft} ngày`
-                                : 'Đang hoạt động'}
+                                : s.subscription === 'pending'
+                                  ? 'Chờ thanh toán'
+                                  : 'Đang hoạt động'}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -754,6 +704,34 @@ export default function BillingPage() {
           qrCodeData={qrCodeData}
           paying={paying}
           onOpenCheckout={handleOpenCheckout}
+        />
+
+        {/* DIALOG THÀNH CÔNG — overlay, ở nguyên trang */}
+        <PaymentSuccessDialog
+          open={!!lastPayment}
+          title="Thanh toán thành công"
+          subtitle={`${lastPayment?.restaurantName ?? ''} đã được kích hoạt và hoạt động bình thường.`}
+          rows={
+            lastPayment
+              ? [
+                  { label: 'Nhà hàng', value: lastPayment.restaurantName },
+                  {
+                    label: 'Số tiền',
+                    value: (
+                      <span className="font-bold text-cerulean-blue-600">
+                        {fmtVND(lastPayment.amount)}
+                      </span>
+                    ),
+                  },
+                  { label: 'Thanh toán tới ngày', value: fmtDate(lastPayment.paidUntil) },
+                ]
+              : []
+          }
+          confirmLabel="Xem lịch sử hoá đơn"
+          onConfirm={() => {
+            setLastPayment(null);
+            void refresh();
+          }}
         />
       </div>
     </div>

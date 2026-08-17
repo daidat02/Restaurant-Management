@@ -109,7 +109,7 @@ export async function applySubscriptionState(restaurantId: string): Promise<Subs
   return result;
 }
 
-/** Kiểm tra nhà hàng còn dùng được không (trial/active). Nếu locked → ném lỗi chuẩn RESTAURANT_LOCKED. */
+/** Kiểm tra nhà hàng còn dùng được không (trial/active). Nếu locked/pending → ném lỗi chuẩn RESTAURANT_LOCKED. */
 export async function assertRestaurantUsable(restaurantId: string): Promise<IRestaurant> {
   const state = await applySubscriptionState(restaurantId);
   if (!state) {
@@ -117,8 +117,12 @@ export async function assertRestaurantUsable(restaurantId: string): Promise<IRes
     err.statusCode = 404;
     throw err;
   }
-  if (state.subscription === 'locked') {
-    const err: any = new Error('Nhà hàng bị khoá do hết hạn thanh toán');
+  if (state.subscription === 'locked' || state.subscription === 'pending') {
+    const err: any = new Error(
+      state.subscription === 'pending'
+        ? 'Nhà hàng đang chờ thanh toán'
+        : 'Nhà hàng bị khoá do hết hạn thanh toán',
+    );
     err.statusCode = 403;
     err.code = 'RESTAURANT_LOCKED';
     throw err;

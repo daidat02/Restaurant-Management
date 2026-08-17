@@ -10,7 +10,9 @@ class RestaurantSerice {
   /**
    * Tạo nhà hàng cho chủ (role admin):
    * - Nhà hàng ĐẦU TIÊN → trial (trialEndsAt = now + 30 ngày), không tính phí.
-   * - Nhà hàng 2+ → yêu cầu `cycleMonths` (mặc định 1), tạo Transaction(paid) + subscription = active.
+   * - Nhà hàng 2+ → yêu cầu `cycleMonths` (mặc định 1):
+   *   - `activation: 'pending'` (mặc định 'paid') → tạo ở trạng thái chờ thanh toán, KHÔNG tạo Transaction.
+   *   - `activation: 'paid'` → tạo Transaction(paid) + subscription = active (hành vi hiện tại).
    * - Chặn nếu tài khoản chủ bị khoá (isActive=false).
    */
   async createRestaurantService(restaurantData: any, userId?: string): Promise<any> {
@@ -28,9 +30,11 @@ class RestaurantSerice {
 
     const existingIds = (owner.restaurantIds || []).map((id: any) => id.toString());
     const isFirstRestaurant = existingIds.length === 0;
+    // Trang tạo chi nhánh mới (2+) thanh toán thật → tạo pending; modal/wizard giữ mặc định 'paid'.
+    const isPending = restaurantData?.activation === 'pending';
 
     const now = new Date();
-    let subscription: 'trial' | 'active' = 'trial';
+    let subscription: 'trial' | 'active' | 'pending' = 'trial';
     let trialEndsAt: Date | undefined;
     let paidUntil: Date | undefined;
     const planId = restaurantData?.planId || restaurantData?.planKey;
@@ -51,8 +55,13 @@ class RestaurantSerice {
           code: 400,
         };
       }
-      subscription = 'active';
-      paidUntil = new Date(now.getTime() + cycleMonths * 30 * 24 * 3600 * 1000);
+      if (isPending) {
+        // Chờ thanh toán: kích hoạt sau khi webhook PayOS/VNPay hoàn tất (completeSubscription)
+        subscription = 'pending';
+      } else {
+        subscription = 'active';
+        paidUntil = new Date(now.getTime() + cycleMonths * 30 * 24 * 3600 * 1000);
+      }
     }
 
     // Gói chính thức của nhà hàng mới: theo gói đã chọn, nếu không chọn thì gói rẻ nhất.
@@ -97,7 +106,9 @@ class RestaurantSerice {
     return {
       message: isFirstRestaurant
         ? 'Tạo nhà hàng thành công! Bạn đang dùng thử miễn phí 30 ngày.'
-        : 'Tạo nhà hàng thành công! Nhà hàng đã được kích hoạt.',
+        : isPending
+          ? 'Tạo nhà hàng thành công! Nhà hàng đang chờ thanh toán.'
+          : 'Tạo nhà hàng thành công! Nhà hàng đã được kích hoạt.',
       data: restaurant,
       transaction: transaction ? { id: String(transaction._id), amount: transaction.amount } : undefined,
       code: 201,

@@ -11,7 +11,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 // IMPORT COMPONENT IN HÓA ĐƠN
 import ReceiptTemplate from './ReceiptTemplate';
-import { DialogCustom } from '@/components/DialogCustom';
+import { PaymentSuccessDialog } from '@/components/PaymentSuccessDialog';
 import { useAuth } from '@/hooks/use-auth';
 import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
 import { useSetting } from '@/hooks/use-setting';
@@ -167,62 +167,44 @@ export default function PaymentForm({ paymentId, onCancel, onConfirm }: PaymentF
     fetchSettingById(activeRestaurantId);
   }, [paymentId, activeRestaurantId]);
 
+  // ========================== DIALOG THÀNH CÔNG (dùng chung PaymentSuccessDialog) ==========================
+  const paymentSuccess =
+    paymentSocketResult?.data?.code === '00' ||
+    paymentSocketResult?.data?.webhookData?.code === '00' ||
+    paymentSocketResult?.success;
+  const webhookData = paymentSocketResult?.data?.webhookData;
+  const successRows = [
+    {
+      label: 'Số tiền:',
+      value: (
+        <span className="font-bold text-[#16c52a] text-base sm:text-lg">
+          {(webhookData?.amount ?? 0).toLocaleString('vi-VN')} VNĐ
+        </span>
+      ),
+    },
+    {
+      label: 'Người chuyển:',
+      value: (
+        <span className="uppercase truncate max-w-[180px]">
+          {webhookData?.counterAccountName || 'N/A'}
+        </span>
+      ),
+    },
+    { label: 'Mã đơn (OrderCode):', value: webhookData?.orderCode ?? '—' },
+    { label: 'Thời gian:', value: webhookData?.transactionDateTime ?? '—' },
+  ];
+
   return (
     <div className="flex flex-col md:flex-row h-screen md:h-[90vh] w-full overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-sm relative supports-[height:100dvh]:h-dvh">
       {/* DIALOG THÔNG BÁO THANH TOÁN THÀNH CÔNG REALTIME */}
-      {(paymentSocketResult?.data?.code === '00' ||
-        paymentSocketResult?.data.webhookData?.code === '00' ||
-        paymentSocketResult?.success) && (
-        <DialogCustom
-          open={true}
-          content={
-            <div className="flex flex-col items-center justify-center p-2 sm:p-4 max-w-full">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-green-100 rounded-full flex items-center justify-center mb-4 border-4 border-green-50 shadow-sm">
-                <Check color="#16c52a" className="h-8 w-8 sm:h-10 sm:w-10" />
-              </div>
-
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-1 text-center">
-                Thanh toán thành công!
-              </h2>
-              <p className="text-gray-500 text-xs sm:text-sm mb-4 sm:text-center">
-                Đơn hàng của bạn đã được xác nhận qua hệ thống tài khoản.
-              </p>
-
-              <div className="w-full bg-gray-50 border border-gray-100 rounded-xl p-3 sm:p-4 mb-4 sm:mb-6 space-y-2.5 sm:space-y-3 text-xs sm:text-sm">
-                <div className="flex justify-between items-center border-b border-gray-200 pb-2">
-                  <span className="text-gray-500">Số tiền:</span>
-                  <span className="font-bold text-[#16c52a] text-base sm:text-lg">
-                    {paymentSocketResult.data.webhookData.amount.toLocaleString('vi-VN')} VNĐ
-                  </span>
-                </div>
-                <div className="flex justify-between items-center border-b border-gray-200 pb-2">
-                  <span className="text-gray-500">Người chuyển:</span>
-                  <span className="font-medium text-gray-800 uppercase truncate max-w-[180px]">
-                    {paymentSocketResult.data.webhookData.counterAccountName || 'N/A'}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center border-b border-gray-200 pb-2">
-                  <span className="text-gray-500">Mã đơn (OrderCode):</span>
-                  <span className="font-medium text-gray-800">
-                    {paymentSocketResult.data.webhookData.orderCode}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-500">Thời gian:</span>
-                  <span className="font-medium text-gray-800 text-right">
-                    {paymentSocketResult.data.webhookData.transactionDateTime}
-                  </span>
-                </div>
-              </div>
-
-              <button
-                onClick={handleCloseSuccessModal}
-                className="w-full bg-blue-600 text-white font-semibold py-2.5 sm:py-3 px-4 rounded-lg shadow hover:bg-blue-700 transition-colors duration-200 text-sm"
-              >
-                Hoàn tất & Xuất hóa đơn
-              </button>
-            </div>
-          }
+      {paymentSuccess && (
+        <PaymentSuccessDialog
+          open
+          title="Thanh toán thành công!"
+          subtitle="Đơn hàng của bạn đã được xác nhận qua hệ thống tài khoản."
+          rows={successRows}
+          confirmLabel="Hoàn tất & Xuất hóa đơn"
+          onConfirm={handleCloseSuccessModal}
         />
       )}
 

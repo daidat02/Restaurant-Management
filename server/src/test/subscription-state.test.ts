@@ -78,6 +78,23 @@ describe('T3 — State machine subscription', () => {
     });
   });
 
+  it('pending (chờ thanh toán) → applySubscriptionState giữ nguyên, không đổi trạng thái', async () => {
+    const r = await makeRestaurant({ subscription: 'pending', trialEndsAt: new Date(Date.now() - day) });
+    const state = await applySubscriptionState(String(r._id));
+    expect(state?.subscription).toBe('pending');
+    expect(state?.changed).toBe(false);
+    const fresh = await DB_Connection.Restaurant.findById(r._id).lean();
+    expect((fresh as any).subscription).toBe('pending');
+  });
+
+  it('assertRestaurantUsable ném RESTAURANT_LOCKED khi pending', async () => {
+    const r = await makeRestaurant({ subscription: 'pending' });
+    await expect(assertRestaurantUsable(String(r._id))).rejects.toMatchObject({
+      statusCode: 403,
+      code: 'RESTAURANT_LOCKED',
+    });
+  });
+
   it('assertRestaurantUsable trả restaurant khi còn dùng được', async () => {
     const r = await makeRestaurant({ trialEndsAt: new Date(Date.now() + 10 * day) });
     const rest = await assertRestaurantUsable(String(r._id));

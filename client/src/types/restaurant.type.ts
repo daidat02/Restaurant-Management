@@ -1,6 +1,6 @@
 import type { IUser } from './user.type';
 
-export type RestaurantSubscription = 'trial' | 'active' | 'locked';
+export type RestaurantSubscription = 'trial' | 'active' | 'locked' | 'pending';
 
 export interface IRestaurant {
   _id: string;
@@ -17,7 +17,7 @@ export interface IRestaurant {
   logoUrl?: string;
   /** Chủ sở hữu nhà hàng (role admin). */
   ownerId?: string;
-  /** Trạng thái thuê bao: trial (dùng thử) / active (đã thanh toán) / locked (khoá). */
+  /** Trạng thái thuê bao: trial (dùng thử) / active (đã thanh toán) / locked (khoá) / pending (chờ thanh toán). */
   subscription?: RestaurantSubscription;
   /** Hết hạn dùng thử (nhà hàng đầu). */
   trialEndsAt?: Date | string;

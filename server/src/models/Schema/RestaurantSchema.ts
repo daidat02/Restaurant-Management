@@ -5,7 +5,7 @@ export interface IRestaurantDocument extends IRestaurant {
   _id: Types.ObjectId;
 }
 
-export type RestaurantSubscription = 'trial' | 'active' | 'locked';
+export type RestaurantSubscription = 'trial' | 'active' | 'locked' | 'pending';
 
 export interface IRestaurant extends Document {
   name: string;
@@ -21,7 +21,7 @@ export interface IRestaurant extends Document {
   logoUrl?: string;
   /** Chủ sở hữu nhà hàng (role admin). */
   ownerId?: Types.ObjectId | string | IUser;
-  /** Trạng thái thuê bao: trial (nhà hàng đầu), active (đã trả phí), locked (hết hạn). */
+  /** Trạng thái thuê bao: trial (nhà hàng đầu), active (đã trả phí), locked (hết hạn), pending (chờ thanh toán khi mở chi nhánh mới). */
   subscription: RestaurantSubscription;
   /** Hạn dùng thử (chỉ nhà hàng đầu tiên của chủ). */
   trialEndsAt?: Date;
@@ -49,7 +49,7 @@ const RestaurantSchema = new Schema<IRestaurant>(
     ownerId: { type: Schema.Types.ObjectId, ref: 'User', index: true },
     subscription: {
       type: String,
-      enum: ['trial', 'active', 'locked'],
+      enum: ['trial', 'active', 'locked', 'pending'],
       default: 'trial',
       index: true,
     },

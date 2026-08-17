@@ -21,6 +21,31 @@ export function SubscriptionBanner() {
 
   const { subscription, daysLeft } = state;
 
+  // Chờ thanh toán (chi nhánh mới tạo chưa trả phí) → cam
+  if (subscription === 'pending') {
+    return (
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-orange-200 bg-orange-50 px-5 py-4 mb-6">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="mt-0.5 h-5 w-5 text-orange-600 shrink-0" />
+          <div>
+            <p className="text-sm font-bold text-orange-800">
+              Nhà hàng đang chờ thanh toán
+            </p>
+            <p className="text-xs text-orange-600 mt-0.5">
+              Hoàn tất thanh toán để kích hoạt chi nhánh và bắt đầu vận hành.
+            </p>
+          </div>
+        </div>
+        <Button
+          onClick={() => navigate('/admin/billing')}
+          className="bg-orange-600 hover:bg-orange-700 text-white rounded-xl h-10 shrink-0 font-semibold"
+        >
+          <CreditCard className="mr-2 h-4 w-4" /> Thanh toán
+        </Button>
+      </div>
+    );
+  }
+
   // Bị khoá → đỏ
   if (subscription === 'locked') {
     return (

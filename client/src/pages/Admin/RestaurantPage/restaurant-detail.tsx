@@ -328,7 +328,9 @@ export default function RestaurantDetailPage() {
                     ? `Dùng thử đến ${fmtDate(restaurant.trialEndsAt)}`
                     : restaurant.subscription === 'active'
                       ? `Hoạt động đến ${fmtDate(restaurant.paidUntil)}`
-                      : 'Đã khoá — cần gia hạn'}
+                      : restaurant.subscription === 'pending'
+                        ? 'Chờ thanh toán — hoàn tất tại trang Thanh toán'
+                        : 'Đã khoá — cần gia hạn'}
                 </span>
               </span>
             </div>

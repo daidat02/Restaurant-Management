@@ -1,15 +1,28 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, CreditCard, Gift, Loader2, MapPin, Store } from 'lucide-react';
+import {
+  ArrowLeft,
+  Check,
+  CreditCard,
+  Gift,
+  Landmark,
+  Loader2,
+  MapPin,
+  QrCode,
+  Store,
+} from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { CustomInput } from '@/components/FormInput';
 import { CustomTextarea } from '@/components/CustomTextArea';
 import { FormSelect } from '@/components/FormSelect';
-import { useRestaurant } from '@/hooks/use-restaurant';
 import { useSubscription } from '@/hooks/use-subscription';
 import { useUser } from '@/hooks/use-user';
+import { createRestaurant as createRestaurantApi } from '@/api/restaurants.api';
+import { PaymentDialog, type PaymentMethod } from '@/pages/Admin/BillingPage/PaymentDialog';
+import { PaymentSuccessDialog } from '@/components/PaymentSuccessDialog';
 import type { IPlan } from '@/types/subscription.type';
+import type { IRestaurant } from '@/types/restaurant.type';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -24,13 +37,20 @@ const statusOptions = [
 /**
  * Trang tạo nhà hàng mới:
  * - Nhà hàng ĐẦU TIÊN → dùng thử 30 ngày (không hiển thị phần gói/thanh toán).
- * - Nhà hàng 2+ → chọn gói + chu kỳ, thanh toán mock rồi kích hoạt.
- * Kèm đầy đủ thông tin chi nhánh: quản lý, sức chứa, giờ hoạt động, mô tả, logo...
+ * - Nhà hàng 2+ → chọn gói + chu kỳ + cổng thanh toán (PayOS/VNPay), tạo nhà hàng ở trạng thái
+ *   chờ thanh toán, mở PaymentDialog để thanh toán thật; xong → PaymentSuccessDialog → về danh sách.
  */
 export default function CreateRestaurantPage() {
   const navigate = useNavigate();
-  const { createRestaurant } = useRestaurant();
-  const { subscriptions, pricing, isLoading: subscriptionsLoading } = useSubscription();
+  const {
+    subscriptions,
+    pricing,
+    isLoading: subscriptionsLoading,
+    createPayosUrl,
+    createVnpayUrl,
+    listenPaymentResult,
+    stopListeningPaymentResult,
+  } = useSubscription();
   const { users, fetchUsersWithFilter } = useUser();
 
   // Thông tin nhà hàng
@@ -49,6 +69,15 @@ export default function CreateRestaurantPage() {
   const [selectedPlanKey, setSelectedPlanKey] = useState<string>('');
   const [cycleMonths, setCycleMonths] = useState<1 | 3 | 6 | 12>(1);
   const [submitting, setSubmitting] = useState(false);
+
+  // Thanh toán thật cho chi nhánh mới (PayOS / VNPay)
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('payos');
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const [checkoutUrl, setCheckoutUrl] = useState('');
+  const [qrCodeData, setQrCodeData] = useState('');
+  const [paying, setPaying] = useState(false);
+  const [pendingRestaurant, setPendingRestaurant] = useState<IRestaurant | null>(null);
+  const [successOpen, setSuccessOpen] = useState(false);
 
   // Lấy danh sách tài khoản quản lý để gán cho chi nhánh mới
   useEffect(() => {
@@ -94,6 +123,59 @@ export default function CreateRestaurantPage() {
     return Math.max(0, Math.round((1 - p / months / selectedPlan.priceMonthly) * 100));
   };
 
+  const cycleText = cycleMonths === 1 ? '1 tháng' : `${cycleMonths} tháng`;
+
+  /** Kết quả thanh toán từ webhook/return qua socket: đóng PaymentDialog, mở SuccessDialog. */
+  const handlePaymentResult = (ev: { status: 'success' | 'cancelled' }) => {
+    stopListeningPaymentResult();
+    setPaymentOpen(false);
+    if (ev.status === 'success') {
+      setSuccessOpen(true);
+    }
+  };
+
+  /** Tạo link thanh toán theo cổng đã chọn rồi lắng nghe kết quả thanh toán. */
+  const openPaymentLinkFor = async (restaurant: IRestaurant) => {
+    setPaymentOpen(true);
+    setPaying(true);
+    setCheckoutUrl('');
+    setQrCodeData('');
+    stopListeningPaymentResult();
+    try {
+      if (paymentMethod === 'payos') {
+        const res = await createPayosUrl(restaurant._id, cycleMonths, selectedPlan!.key);
+        if (res.success && res.data) {
+          setCheckoutUrl(res.data.checkoutUrl);
+          setQrCodeData(res.data.qrCodeData);
+          listenPaymentResult(res.data.transactionId, handlePaymentResult);
+        } else {
+          handleCreateLinkFail();
+        }
+      } else {
+        const res = await createVnpayUrl(restaurant._id, cycleMonths, selectedPlan!.key);
+        if (res.success && res.data) {
+          setCheckoutUrl(res.data.checkoutUrl);
+          listenPaymentResult(res.data.transactionId, handlePaymentResult);
+        } else {
+          handleCreateLinkFail();
+        }
+      }
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  /**
+   * Tạo link thất bại (vd gateway chưa cấu hình): nhà hàng vẫn ở trạng thái "chờ thanh toán",
+   * chủ hoàn tất sau tại trang Thanh toán & Gói dịch vụ.
+   */
+  const handleCreateLinkFail = () => {
+    toast.error('Chưa thể tạo link thanh toán. Bạn có thể hoàn tất sau tại trang Thanh toán.', {
+      position: 'top-right',
+    });
+    setPaymentOpen(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !address.trim()) {
@@ -120,18 +202,22 @@ export default function CreateRestaurantPage() {
     if (!isFirstRestaurant) {
       payload.cycleMonths = cycleMonths;
       payload.planId = selectedPlan!.key;
+      // Nhà hàng 2+: tạo trước ở trạng thái chờ thanh toán, kích hoạt sau khi webhook hoàn tất.
+      payload.activation = 'pending';
     }
 
     setSubmitting(true);
     try {
-      const ok = await createRestaurant(payload);
-      if (ok) {
-        toast.success(
-          isFirstRestaurant
-            ? 'Tạo nhà hàng thành công! Bạn đang dùng thử miễn phí 30 ngày.'
-            : 'Tạo nhà hàng thành công! Chi nhánh đã được kích hoạt.',
-        );
-        navigate('/admin/restaurants');
+      const created = await createRestaurantApi(payload);
+      if (created?._id) {
+        if (isFirstRestaurant) {
+          toast.success('Tạo nhà hàng thành công! Bạn đang dùng thử miễn phí 30 ngày.');
+          navigate('/admin/restaurants');
+        } else {
+          // Chi nhánh 2+: chờ thanh toán → mở PaymentDialog thanh toán thật ngay.
+          setPendingRestaurant(created);
+          await openPaymentLinkFor(created);
+        }
       }
     } finally {
       setSubmitting(false);
@@ -367,6 +453,60 @@ export default function CreateRestaurantPage() {
                     </div>
                   )}
 
+                  {/* Phương thức thanh toán */}
+                  {selectedPlan && !selectedPlan.contactOnly && (
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                        Phương thức thanh toán
+                      </p>
+                      <div className="space-y-2">
+                        {(
+                          [
+                            ['payos', 'PayOS', <QrCode key="p" className="h-4 w-4" />],
+                            ['vnpay', 'VNPay', <Landmark key="v" className="h-4 w-4" />],
+                          ] as [PaymentMethod, string, React.ReactNode][]
+                        ).map(([m, label, icon]) => {
+                          const active = paymentMethod === m;
+                          return (
+                            <button
+                              key={m}
+                              type="button"
+                              onClick={() => setPaymentMethod(m)}
+                              className={cn(
+                                'flex w-full items-center gap-2.5 rounded-xl border-2 px-3 py-2.5 text-left transition-all',
+                                active
+                                  ? 'border-cerulean-blue-600 bg-cerulean-blue-50'
+                                  : 'border-slate-200 bg-white hover:border-cerulean-blue-300',
+                              )}
+                            >
+                              <span
+                                className={cn(
+                                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+                                  m === 'payos'
+                                    ? 'bg-cerulean-blue-600 text-white'
+                                    : 'bg-amber-100 text-amber-700',
+                                )}
+                              >
+                                {icon}
+                              </span>
+                              <span className="flex-1 text-sm font-bold text-gray-900">{label}</span>
+                              <span
+                                className={cn(
+                                  'flex h-4 w-4 items-center justify-center rounded-full border-2 transition',
+                                  active
+                                    ? 'border-cerulean-blue-600 bg-cerulean-blue-600'
+                                    : 'border-slate-300',
+                                )}
+                              >
+                                {active && <Check className="h-2.5 w-2.5 text-white" />}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Tổng tiền */}
                   <div className="flex items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
                     <span className="text-sm text-slate-500">
@@ -400,6 +540,48 @@ export default function CreateRestaurantPage() {
             </div>
           </div>
         </form>
+
+        {/* MODAL THANH TOÁN CHO CHI NHÁNH MỚI (2+) */}
+        <PaymentDialog
+          open={paymentOpen}
+          onOpenChange={setPaymentOpen}
+          planName={selectedPlan?.name ?? 'Gói dịch vụ'}
+          cycleText={cycleText}
+          restaurantName={pendingRestaurant?.name ?? ''}
+          price={price}
+          method={paymentMethod}
+          checkoutUrl={checkoutUrl}
+          qrCodeData={qrCodeData}
+          paying={paying}
+          onOpenCheckout={() => {
+            if (checkoutUrl) window.open(checkoutUrl, '_blank', 'noopener,noreferrer');
+          }}
+        />
+
+        {/* DIALOG THÀNH CÔNG — overlay, xác nhận → về danh sách nhà hàng */}
+        <PaymentSuccessDialog
+          open={successOpen}
+          title="Thanh toán thành công!"
+          subtitle={`${pendingRestaurant?.name ?? ''} đã được kích hoạt và sẵn sàng hoạt động.`}
+          rows={
+            pendingRestaurant
+              ? [
+                  { label: 'Nhà hàng', value: pendingRestaurant.name },
+                  { label: 'Số tiền', value: <span className="font-bold text-[#16c52a]">{fmtVND(price)}</span> },
+                  {
+                    label: 'Gói dịch vụ',
+                    value: `${selectedPlan?.name ?? ''} · ${cycleText}`,
+                  },
+                ]
+              : []
+          }
+          confirmLabel="Hoàn tất"
+          onConfirm={() => {
+            setSuccessOpen(false);
+            setPendingRestaurant(null);
+            navigate('/admin/restaurants');
+          }}
+        />
       </div>
     </div>
   );

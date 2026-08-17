@@ -17,6 +17,10 @@ const SUBSCRIPTION_CONFIG: Record<
     label: 'Bị khoá',
     className: 'bg-rose-100 text-rose-700 border-rose-300',
   },
+  pending: {
+    label: 'Chờ thanh toán',
+    className: 'bg-orange-100 text-orange-700 border-orange-300',
+  },
 };
 
 interface SubscriptionBadgeProps {
@@ -26,7 +30,7 @@ interface SubscriptionBadgeProps {
   className?: string;
 }
 
-/** Badge trạng thái thuê bao: Trial / Đang hoạt động / Bị khoá. */
+/** Badge trạng thái thuê bao: Trial / Đang hoạt động / Bị khoá / Chờ thanh toán. */
 export function SubscriptionBadge({ subscription, hint, className }: SubscriptionBadgeProps) {
   if (!subscription) return null;
   const config = SUBSCRIPTION_CONFIG[subscription];

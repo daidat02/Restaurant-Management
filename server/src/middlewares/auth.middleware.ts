@@ -98,9 +98,12 @@ const assertRestaurantActive = async (
   }
   // Cập nhật trạng thái subscription theo ngày (trial/active hết hạn → locked)
   const state = await applySubscriptionState(restaurantId);
-  if (restaurant.status === 'inactive' || state?.subscription === 'locked') {
+  if (restaurant.status === 'inactive' || state?.subscription === 'locked' || state?.subscription === 'pending') {
     res.status(403).json({
-      message: 'Nhà hàng bị khoá do hết hạn thanh toán. Vui lòng thanh toán để mở lại.',
+      message:
+        state?.subscription === 'pending'
+          ? 'Nhà hàng đang chờ thanh toán. Vui lòng hoàn tất thanh toán để kích hoạt.'
+          : 'Nhà hàng bị khoá do hết hạn thanh toán. Vui lòng thanh toán để mở lại.',
       code: 'RESTAURANT_LOCKED',
     });
     return false;
@@ -245,6 +248,17 @@ export const verifyTenant = async (req: AuthRequest, res: Response, next: NextFu
           return res
             .status(403)
             .json({ message: "Bạn không sở hữu nhà hàng này!" });
+        }
+        // Nhà hàng chờ thanh toán (chi nhánh mới chưa trả): chặn vận hành —
+        // admin chỉ được phép xử lý thanh toán tại /admin/billing (không qua verifyTenant).
+        const tenantDoc = await DB_Connection.Restaurant.findById(requestedTenant)
+          .select("subscription")
+          .exec();
+        if (tenantDoc?.subscription === "pending") {
+          return res.status(403).json({
+            message: "Nhà hàng đang chờ thanh toán. Vui lòng hoàn tất thanh toán để kích hoạt.",
+            code: "RESTAURANT_LOCKED",
+          });
         }
         req.tenantId = requestedTenant;
       } else {
