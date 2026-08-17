@@ -79,7 +79,7 @@ describe('T1 — Tạo nhà hàng chờ thanh toán (activation=pending)', () =>
     expect(res.body.result.transaction).toBeTruthy();
   });
 
-  it('Nhà hàng đầu tiên vẫn là trial dù activation="pending" (không áp dụng cho chi nhánh đầu)', async () => {
+  it('Nhà hàng đầu tiên vẫn active + gói Miễn Phí dù activation="pending" (không áp dụng cho chi nhánh đầu)', async () => {
     const reg = await request.post('/api/auth/register-owner').send({
       name: 'Chủ Pending Đầu',
       email: 'owner.pending.first@nhamnhi.vn',
@@ -96,8 +96,9 @@ describe('T1 — Tạo nhà hàng chờ thanh toán (activation=pending)', () =>
         activation: 'pending',
       });
     expect(res.status).toBe(201);
-    expect(res.body.result.data.subscription).toBe('trial');
-    expect(res.body.result.data.trialEndsAt).toBeTruthy();
+    expect(res.body.result.data.subscription).toBe('active');
+    expect(res.body.result.data.currentPlanKey).toBe('free');
+    expect(res.body.result.data.paidUntil).toBeUndefined();
   });
 });
 

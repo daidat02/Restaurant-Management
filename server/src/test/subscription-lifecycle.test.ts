@@ -7,10 +7,11 @@ const day = 24 * 3600 * 1000;
 
 /**
  * T11 — Verify toàn diện chuỗi "chống production":
- * đăng ký chủ mới → nhà hàng đầu (trial) → phục vụ OK → (mock) hết hạn → locked + khoá đơn
- * → thanh toán → active + phục vụ lại → super-admin thấy KPI/giao dịch → block/unblock chủ.
+ * đăng ký chủ mới → nhà hàng đầu (active + Miễn Phí) → phục vụ OK → nâng gói Basic (trả phí)
+ * → (mock) hết hạn → TỰ HẠ về Miễn Phí (KHÔNG khoá) → vẫn phục vụ được
+ * → super-admin thấy KPI/giao dịch → block/unblock chủ.
  */
-describe('T11 — Verify lifecycle subscription (trial → locked → pay → active)', () => {
+describe('T11 — Verify lifecycle subscription (free → upgrade → hết hạn → hạ về free)', () => {
   it('toàn bộ vòng đời thuê bao + super-admin giám sát', async () => {
     // 0. Đăng ký chủ mới (role admin, chưa có nhà hàng)
     const reg = await request.post('/api/auth/register-owner').send({
@@ -24,14 +25,17 @@ describe('T11 — Verify lifecycle subscription (trial → locked → pay → ac
     const ownerId = reg.body.data._id as string;
     const ownerToken = signToken(ownerId, 'admin');
 
-    // 1. Nhà hàng đầu tiên → trial 30 ngày (không tính phí)
+    // 1. Nhà hàng đầu tiên → active + gói Miễn Phí (không trial, không paidUntil)
     const createRes = await request
       .post('/api/restaurants')
       .set('Authorization', `Bearer ${ownerToken}`)
       .send({ name: 'Nhà hàng lifecycle', email: 'lc@nhamnhi.vn', operatingHours: '8-22' });
     expect(createRes.status).toBe(201);
     const restaurant = createRes.body.result.data;
-    expect(restaurant.subscription).toBe('trial');
+    expect(restaurant.subscription).toBe('active');
+    expect(restaurant.currentPlanKey).toBe('free');
+    expect(restaurant.trialEndsAt).toBeUndefined();
+    expect(restaurant.paidUntil).toBeUndefined();
     expect(restaurant.ownerId?.toString()).toBe(ownerId);
     const rid = String(restaurant._id);
 
@@ -52,44 +56,53 @@ describe('T11 — Verify lifecycle subscription (trial → locked → pay → ac
       items: [{ menuItem: String(menuItem._id), quantity: 1 }],
     };
 
-    // 2. Trial đang hiệu lực → tạo đơn được
+    // 2. Gói Miễn Phí đang hiệu lực → tạo đơn được
     const orderOk = await request.post('/api/orders').send(orderPayload);
     expect(orderOk.status).toBe(201);
 
-    // 3. (Mock) hết hạn: đẩy trialEndsAt về quá khứ → lần đọc sau tự chuyển locked
+    // 3. Nâng lên gói Basic (trả phí 1 tháng) → active + currentPlanKey basic + Transaction + audit
+    const pay = await request
+      .post('/api/subscriptions/pay')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ restaurantId: rid, cycleMonths: 1, planId: 'basic' });
+    expect(pay.status).toBe(200);
+    expect(pay.body.data.restaurant.subscription).toBe('active');
+    expect(pay.body.data.restaurant.currentPlanKey).toBe('basic');
+    expect(pay.body.data.transaction.amount).toBe(190000);
+    expect(pay.body.data.paidUntil).toBeDefined();
+    const txLog = await DB_Connection.AuditLog.exists({ action: 'transaction.create' });
+    expect(txLog).toBeTruthy();
+
+    // 4. (Mock) hết hạn: đẩy paidUntil về quá khứ → lần đọc sau tự HẠ về Miễn Phí (KHÔNG khoá)
     await DB_Connection.Restaurant.findByIdAndUpdate(rid, {
-      trialEndsAt: new Date(Date.now() - day),
+      paidUntil: new Date(Date.now() - day),
     });
 
-    // Tạo đơn bị chặn RESTAURANT_LOCKED + trạng thái tự chuyển sang locked
-    const orderBlocked = await request.post('/api/orders').send(orderPayload);
-    expect(orderBlocked.status).toBe(403);
-    expect(orderBlocked.body.errorCode).toBe('RESTAURANT_LOCKED');
+    // Vẫn tạo đơn được (free không hết hạn)
+    const orderAfterExpiry = await request.post('/api/orders').send(orderPayload);
+    expect(orderAfterExpiry.status).toBe(201);
 
-    // Chủ thấy nhà hàng của mình đã bị locked
+    // Nhà hàng đã tự hạ về Miễn Phí + audit subscription.downgrade
+    const restAfter = (await DB_Connection.Restaurant.findById(rid).lean()) as any;
+    expect(restAfter.subscription).toBe('active');
+    expect(restAfter.currentPlanKey).toBe('free');
+    expect(restAfter.paidUntil).toBeUndefined();
+    const downgradeLog = await DB_Connection.AuditLog.exists({
+      action: 'subscription.downgrade',
+      'meta.reason': 'paid-expired',
+    });
+    expect(downgradeLog).toBeTruthy();
+
+    // Chủ thấy nhà hàng của mình vẫn active + Miễn Phí
     const me = await request
       .get('/api/subscriptions/me')
       .set('Authorization', `Bearer ${ownerToken}`);
     expect(me.status).toBe(200);
     const mine = me.body.data.find((r: any) => String(r._id) === rid);
-    expect(mine.subscription).toBe('locked');
+    expect(mine.subscription).toBe('active');
+    expect(mine.currentPlanKey).toBe('free');
 
-    // 4. Thanh toán chu kỳ 1 tháng → active + Transaction + audit unlock
-    const pay = await request
-      .post('/api/subscriptions/pay')
-      .set('Authorization', `Bearer ${ownerToken}`)
-      .send({ restaurantId: rid, cycleMonths: 1 });
-    expect(pay.status).toBe(200);
-    expect(pay.body.data.restaurant.subscription).toBe('active');
-    expect(pay.body.data.transaction.amount).toBe(190000);
-    const unlockLog = await DB_Connection.AuditLog.exists({ action: 'subscription.unlocked' });
-    expect(unlockLog).toBeTruthy();
-
-    // 5. Mở lại → tạo đơn được trở lại
-    const orderAfterPay = await request.post('/api/orders').send(orderPayload);
-    expect(orderAfterPay.status).toBe(201);
-
-    // 6. Super-admin thấy KPI + giao dịch vừa tạo
+    // 5. Super-admin thấy KPI + giao dịch vừa tạo
     const saToken = signToken(SEED_IDS.superAdmin.toString(), 'super-admin');
     const dash = await request
       .get('/api/admin/dashboard')
@@ -108,8 +121,9 @@ describe('T11 — Verify lifecycle subscription (trial → locked → pay → ac
     expect(newTx).toBeTruthy();
     expect(newTx.amount).toBe(190000);
     expect(newTx.status).toBe('paid');
+    expect(newTx.planKey).toBe('basic');
 
-    // 7. Super-admin khoá chủ → toàn bộ user chủ không đăng nhập được → mở lại → đăng nhập OK
+    // 6. Super-admin khoá chủ → toàn bộ user chủ không đăng nhập được → mở lại → đăng nhập OK
     await request
       .patch(`/api/admin/users/${ownerId}/block`)
       .set('Authorization', `Bearer ${saToken}`)

@@ -37,13 +37,13 @@ class RestaurantController {
           });
         } else {
           await writeAuditLog({
-            action: 'subscription.trial.started',
+            action: 'subscription.free.assigned',
             restaurant: String(newId || ''),
             actor: req.user?.userId || null,
             actorInfo: { name: req.user?.name, role: req.user?.role },
             targetType: 'restaurant',
             targetId: newId || null,
-            summary: `Bắt đầu dùng thử 30 ngày cho nhà hàng (${restaurantData?.name || ''})`,
+            summary: `Gán gói Miễn Phí cho nhà hàng (${restaurantData?.name || ''})`,
           });
         }
       }

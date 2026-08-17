@@ -3,13 +3,12 @@ import restaurantRepository from './restaurant.repository.js';
 import authRepository from '../AuthModule/auth.repository.js';
 import pricingService from '../SubscriptionModule/pricing.service.js';
 import DB_Connection from '../../models/DB_Connection.js';
-import { TRIAL_DAYS } from '../../services/subscription.service.js';
 import { generateTransactionId } from '../../services/transaction-id.service.js';
 
 class RestaurantSerice {
   /**
    * Tạo nhà hàng cho chủ (role admin):
-   * - Nhà hàng ĐẦU TIÊN → trial (trialEndsAt = now + 30 ngày), không tính phí.
+   * - Nhà hàng ĐẦU TIÊN → active + gói Miễn Phí, không trial, không paidUntil.
    * - Nhà hàng 2+ → yêu cầu `cycleMonths` (mặc định 1):
    *   - `activation: 'pending'` (mặc định 'paid') → tạo ở trạng thái chờ thanh toán, KHÔNG tạo Transaction.
    *   - `activation: 'paid'` → tạo Transaction(paid) + subscription = active (hành vi hiện tại).
@@ -34,15 +33,13 @@ class RestaurantSerice {
     const isPending = restaurantData?.activation === 'pending';
 
     const now = new Date();
-    let subscription: 'trial' | 'active' | 'pending' = 'trial';
-    let trialEndsAt: Date | undefined;
+    let subscription: 'active' | 'pending' = 'pending';
     let paidUntil: Date | undefined;
     const planId = restaurantData?.planId || restaurantData?.planKey;
 
     if (isFirstRestaurant) {
-      // Nhà hàng đầu tiên: trial 30 ngày
-      subscription = 'trial';
-      trialEndsAt = new Date(now.getTime() + TRIAL_DAYS * 24 * 3600 * 1000);
+      // Nhà hàng đầu tiên: active + gói Miễn Phí ngay, không dùng thử.
+      subscription = 'active';
     } else {
       // Nhà hàng 2+: bắt buộc trả trước theo chu kỳ + gói (mặc định gói rẻ nhất, chu kỳ 1 tháng)
       const cycleMonths = Number(restaurantData?.cycleMonths ?? restaurantData?.cycle ?? 1);
@@ -76,7 +73,6 @@ class RestaurantSerice {
       ...restaurantData,
       ownerId: owner._id,
       subscription,
-      trialEndsAt,
       paidUntil,
       // Mọi nhà hàng đều có gói mặc định (thấp nhất) làm mốc so sánh khi chuyển gói.
       currentPlanKey: assignedPlanKey ?? undefined,
@@ -110,7 +106,7 @@ class RestaurantSerice {
     }
     return {
       message: isFirstRestaurant
-        ? 'Tạo nhà hàng thành công! Bạn đang dùng thử miễn phí 30 ngày.'
+        ? 'Tạo nhà hàng thành công! Bạn đang dùng gói Miễn Phí.'
         : isPending
           ? 'Tạo nhà hàng thành công! Nhà hàng đang chờ thanh toán.'
           : 'Tạo nhà hàng thành công! Nhà hàng đã được kích hoạt.',

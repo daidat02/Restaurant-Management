@@ -29,10 +29,10 @@ describe('T4 — Đăng ký chủ + tạo nhà hàng', () => {
     expect(res.status).toBe(400);
   });
 
-  it('Tạo nhà hàng đầu tiên → trial 30 ngày + gắn owner + audit trial.started', async () => {
+  it('Tạo nhà hàng đầu tiên → active + gói Miễn Phí + gắn owner + audit free.assigned', async () => {
     const reg = await request.post('/api/auth/register-owner').send({
-      name: 'Chủ Trial',
-      email: 'owner.trial@nhamnhi.vn',
+      name: 'Chủ Mới Free',
+      email: 'owner.free@nhamnhi.vn',
       password: 'Test@NhamNhi2026',
     });
     const ownerId = reg.body.data._id;
@@ -41,15 +41,17 @@ describe('T4 — Đăng ký chủ + tạo nhà hàng', () => {
     const res = await request
       .post('/api/restaurants')
       .set('Authorization', `Bearer ${token}`)
-      .send({ name: 'Nhà hàng trial đầu', email: 'trial@nhamnhi.vn', operatingHours: '8-22' });
+      .send({ name: 'Nhà hàng đầu tiên', email: 'first@nhamnhi.vn', operatingHours: '8-22' });
     expect(res.status).toBe(201);
     const r = res.body.result.data;
-    expect(r.subscription).toBe('trial');
+    expect(r.subscription).toBe('active');
     expect(r.ownerId?.toString()).toBe(ownerId);
-    expect(r.trialEndsAt).toBeTruthy();
+    expect(r.trialEndsAt).toBeUndefined();
+    expect(r.paidUntil).toBeUndefined();
+    expect(r.currentPlanKey).toBe('free');
 
-    const trialLog = await DB_Connection.AuditLog.exists({ action: 'subscription.trial.started' });
-    expect(trialLog).toBeTruthy();
+    const freeLog = await DB_Connection.AuditLog.exists({ action: 'subscription.free.assigned' });
+    expect(freeLog).toBeTruthy();
 
     // user được gắn restaurantIds
     const owner = await DB_Connection.User.findById(ownerId).lean();

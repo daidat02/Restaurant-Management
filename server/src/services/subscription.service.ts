@@ -4,9 +4,10 @@ import type {
   RestaurantSubscription,
 } from '../models/Schema/RestaurantSchema.js';
 import { writeAuditLog } from './auditLog.service.js';
+import pricingService from '../modules/SubscriptionModule/pricing.service.js';
 
-export const TRIAL_DAYS = 30;
 export const EXPIRING_WARNING_DAYS = 7;
+export const MONTH_MS = 30 * 24 * 3600 * 1000;
 
 export interface SubscriptionStateResult {
   restaurant: IRestaurant;
@@ -16,9 +17,11 @@ export interface SubscriptionStateResult {
 
 /**
  * Tính toán & cập nhật trạng thái subscription của nhà hàng theo ngày hiện tại.
- * - trial & quá trialEndsAt → locked (+ audit subscription.locked + notification)
- * - active & quá paidUntil → locked (+ audit + notification)
- * - trial & còn ≤ 7 ngày → ghi nhận trạng thái expiring (audit subscription.expiring + notification) 1 lần
+ * - active & quá paidUntil:
+ *   - có pendingPlanKey → áp dụng gói đã lên lịch hạ cấp, tính paidUntil theo chu kỳ đã chọn.
+ *   - còn lại (gói trả phí) → hạ về gói Miễn Phí, paidUntil = null. KHÔNG khoá.
+ *   - đã là gói Miễn Phí → không làm gì.
+ * - pending/locked: giữ nguyên (khoá thủ công hoặc chờ thanh toán).
  * Idempotent: nếu trạng thái không đổi thì không ghi gì.
  */
 export async function applySubscriptionState(restaurantId: string): Promise<SubscriptionStateResult | null> {
@@ -26,90 +29,79 @@ export async function applySubscriptionState(restaurantId: string): Promise<Subs
   if (!restaurant) return null;
 
   const now = new Date();
-  const { subscription, trialEndsAt, paidUntil } = restaurant;
+  const { subscription, paidUntil } = restaurant;
   const result: SubscriptionStateResult = {
     restaurant,
     subscription: subscription as RestaurantSubscription,
     changed: false,
   };
 
-  // ---- trial hết hạn → locked ----
-  if (subscription === 'trial' && trialEndsAt && now.getTime() > trialEndsAt.getTime()) {
-    restaurant.subscription = 'locked';
-    await restaurant.save();
-    result.subscription = 'locked';
-    result.changed = true;
-    await writeAuditLog({
-      action: 'subscription.locked',
-      restaurant: String(restaurant._id),
-      actor: null,
-      actorInfo: { role: 'system' },
-      targetType: 'restaurant',
-      targetId: String(restaurant._id),
-      summary: `Nhà hàng "${restaurant.name}" hết hạn dùng thử — đã khoá`,
-      meta: { reason: 'trial-expired', trialEndsAt },
-    });
-    await createSubscriptionNotification(restaurant, 'subscription.locked', 'Trial đã hết hạn — nhà hàng bị khoá');
-    return result;
-  }
-
-  // ---- active hết hạn paidUntil → locked ----
+  // ---- active hết hạn paidUntil → hạ gói (KHÔNG khoá) ----
   if (subscription === 'active' && paidUntil && now.getTime() > paidUntil.getTime()) {
-    restaurant.subscription = 'locked';
-    await restaurant.save();
-    result.subscription = 'locked';
-    result.changed = true;
-    await writeAuditLog({
-      action: 'subscription.locked',
-      restaurant: String(restaurant._id),
-      actor: null,
-      actorInfo: { role: 'system' },
-      targetType: 'restaurant',
-      targetId: String(restaurant._id),
-      summary: `Nhà hàng "${restaurant.name}" hết hạn thanh toán — đã khoá`,
-      meta: { reason: 'paid-expired', paidUntil },
-    });
-    await createSubscriptionNotification(restaurant, 'subscription.locked', 'Đã hết hạn thanh toán — nhà hàng bị khoá');
-    return result;
-  }
+    const freePlanKey = (await pricingService.getDefaultPlanKey()) ?? 'free';
 
-  // ---- trial sắp hết (≤ 7 ngày) → expiring ----
-  if (subscription === 'trial' && trialEndsAt) {
-    const remainingDays = Math.ceil(
-      (trialEndsAt.getTime() - now.getTime()) / (24 * 3600 * 1000),
-    );
-    if (remainingDays <= EXPIRING_WARNING_DAYS && remainingDays > 0) {
-      result.subscription = 'trial';
-      result.changed = false;
-      const exists = await DB_Connection.Notification.exists({
-        restaurant: restaurant._id,
-        type: 'subscription',
-        'data.event': 'subscription.expiring',
+    // Có gói đã lên lịch hạ cấp → áp dụng cuối chu kỳ
+    if (restaurant.pendingPlanKey) {
+      const appliedPlanKey = restaurant.pendingPlanKey;
+      const cycleMonths = restaurant.pendingCycleMonths || 1;
+      restaurant.currentPlanKey = appliedPlanKey;
+      restaurant.paidUntil = new Date(now.getTime() + cycleMonths * MONTH_MS);
+      restaurant.pendingPlanKey = undefined;
+      restaurant.pendingCycleMonths = undefined;
+      result.changed = true;
+      await restaurant.save();
+      const planName = (await pricingService.getPlanName(appliedPlanKey)) ?? appliedPlanKey;
+      await writeAuditLog({
+        action: 'subscription.downgrade',
+        restaurant: String(restaurant._id),
+        actor: null,
+        actorInfo: { role: 'system' },
+        targetType: 'restaurant',
+        targetId: String(restaurant._id),
+        summary: `Nhà hàng "${restaurant.name}" đã hạ xuống gói "${planName}" theo lịch trình`,
+        meta: { reason: 'pending-downgrade-applied', plan: appliedPlanKey, cycleMonths },
       });
-      if (!exists) {
-        await writeAuditLog({
-          action: 'subscription.expiring',
-          restaurant: String(restaurant._id),
-          actor: null,
-          actorInfo: { role: 'system' },
-          targetType: 'restaurant',
-          targetId: String(restaurant._id),
-          summary: `Nhà hàng "${restaurant.name}" sắp hết hạn dùng thử (còn ${remainingDays} ngày)`,
-          meta: { remainingDays, trialEndsAt },
-        });
-        await createSubscriptionNotification(
-          restaurant,
-          'subscription.expiring',
-          `Trial sắp hết hạn (còn ${remainingDays} ngày) — thanh toán để không bị gián đoạn`,
-        );
-      }
+      await createSubscriptionNotification(
+        restaurant,
+        'subscription.downgrade',
+        `Đã hạ gói xuống "${planName}" theo lịch trình (${cycleMonths} tháng)`,
+      );
+      return result;
     }
+
+    // Gói trả phí hết hạn → hạ về Miễn Phí (KHÔNG khoá)
+    if (restaurant.currentPlanKey && restaurant.currentPlanKey !== freePlanKey) {
+      const oldPlanKey = restaurant.currentPlanKey;
+      restaurant.currentPlanKey = freePlanKey;
+      restaurant.paidUntil = undefined;
+      result.changed = true;
+      await restaurant.save();
+      const oldPlanName = (await pricingService.getPlanName(oldPlanKey)) ?? oldPlanKey;
+      await writeAuditLog({
+        action: 'subscription.downgrade',
+        restaurant: String(restaurant._id),
+        actor: null,
+        actorInfo: { role: 'system' },
+        targetType: 'restaurant',
+        targetId: String(restaurant._id),
+        summary: `Hết hạn gói "${oldPlanName}" — nhà hàng "${restaurant.name}" đã chuyển sang gói Miễn Phí`,
+        meta: { reason: 'paid-expired', plan: oldPlanKey, newPlan: freePlanKey },
+      });
+      await createSubscriptionNotification(
+        restaurant,
+        'subscription.downgrade',
+        'Gói trả phí đã hết hạn — nhà hàng chuyển sang gói Miễn Phí',
+      );
+      return result;
+    }
+
+    // Đã là gói Miễn Phí (không có paidUntil) → không làm gì
   }
 
   return result;
 }
 
-/** Kiểm tra nhà hàng còn dùng được không (trial/active). Nếu locked/pending → ném lỗi chuẩn RESTAURANT_LOCKED. */
+/** Kiểm tra nhà hàng còn dùng được không (active — Miễn Phí hoặc trả phí). Nếu locked/pending → ném lỗi chuẩn RESTAURANT_LOCKED. */
 export async function assertRestaurantUsable(restaurantId: string): Promise<IRestaurant> {
   const state = await applySubscriptionState(restaurantId);
   if (!state) {

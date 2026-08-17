@@ -104,6 +104,22 @@ class SubscriptionPayosService {
       if (!prepared.ok) return prepared.result;
       const data = prepared.data as PreparedSubscription;
 
+      // Downgrade: đã lưu lịch hạ cấp (pendingPlanKey) trong prepareSubscription — không tạo link thanh toán.
+      if (data.changeType === 'downgrade') {
+        return {
+          success: true,
+          message: 'Đã lên lịch hạ gói — gói mới sẽ áp dụng khi hết hạn chu kỳ hiện tại.',
+          data: {
+            transactionId: null,
+            orderCode: null,
+            pendingPlanKey: data.restaurant.pendingPlanKey,
+            pendingCycleMonths: data.restaurant.pendingCycleMonths,
+            paidUntil: data.paidUntil,
+          },
+          code: 200,
+        };
+      }
+
       const orderCode = this.generateOrderCode(data.restaurant._id.toString());
 
       // Gói hiệu lực: planId hoặc gói hiện tại của nhà hàng (fallback gói mặc định).
@@ -205,6 +221,7 @@ class SubscriptionPayosService {
           paidUntil: transaction.paidUntil,
           wasLocked: restaurant.subscription === 'locked',
           cycleMonths: transaction.cycleMonths,
+          changeType: 'renew',
         };
         // Webhook → actor là hệ thống, ghi null actor.
         await completeSubscription(

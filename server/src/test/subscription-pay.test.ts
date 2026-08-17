@@ -44,21 +44,29 @@ describe('T5 — Thanh toán mock + khoá đơn/món khi locked', () => {
     expect(res.status).toBe(403);
   });
 
-  it('POST /api/subscriptions/pay — chặn hạ gói khi còn hạn (Pro → Cơ bản): 400', async () => {
+  it('POST /api/subscriptions/pay — hạ gói khi còn hạn (Pro → Cơ bản): lưu pendingPlanKey, không trừ tiền, giữ gói hiện tại', async () => {
     await DB_Connection.Restaurant.findByIdAndUpdate(SEED_IDS.tenantX, {
       subscription: 'active',
       paidUntil: new Date(Date.now() + 30 * day),
       currentPlanKey: 'pro',
+      pendingPlanKey: undefined,
+      pendingCycleMonths: undefined,
     });
     const res = await request
       .post('/api/subscriptions/pay')
       .set('Authorization', `Bearer ${adminXToken}`)
       .send({ restaurantId: SEED_IDS.tenantX.toString(), cycleMonths: 1, planId: 'basic' });
-    expect(res.status).toBe(400);
-    expect(res.body.message).toContain('Không thể hạ gói');
+    expect(res.status).toBe(200);
+    expect(res.body.message).toContain('áp dụng khi hết hạn');
+    expect(res.body.data.pendingPlanKey).toBe('basic');
+    expect(res.body.data.transaction).toBeUndefined();
+    const rest = await DB_Connection.Restaurant.findById(SEED_IDS.tenantX);
+    expect(rest?.currentPlanKey).toBe('pro');
+    expect(rest?.pendingPlanKey).toBe('basic');
+    expect(rest?.pendingCycleMonths).toBe(1);
   });
 
-  it('POST /api/subscriptions/pay — nâng cấp gói khi còn hạn (Cơ bản → Pro): 200 + currentPlanKey cập nhật', async () => {
+  it('POST /api/subscriptions/pay — nâng cấp gói khi còn hạn (Cơ bản → Pro): 200 + currentPlanKey cập nhật, paidUntil không cộng dồn', async () => {
     await DB_Connection.Restaurant.findByIdAndUpdate(SEED_IDS.tenantX, {
       subscription: 'active',
       paidUntil: new Date(Date.now() + 30 * day),
@@ -72,6 +80,9 @@ describe('T5 — Thanh toán mock + khoá đơn/món khi locked', () => {
     expect(res.body.data.restaurant.currentPlanKey).toBe('pro');
     const rest = await DB_Connection.Restaurant.findById(SEED_IDS.tenantX);
     expect(rest?.currentPlanKey).toBe('pro');
+    // Upgrade chỉ tính chênh lệch theo thời gian còn lại — KHÔNG cộng dồn chu kỳ mới.
+    expect(rest?.paidUntil).toBeDefined();
+    expect((rest!.paidUntil as any).getTime()).toBeLessThan(Date.now() + 45 * day);
   });
 
   it('POST /api/subscriptions/pay — đã hết hạn thì được nhận gói thấp hơn: 200', async () => {

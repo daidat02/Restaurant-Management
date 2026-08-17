@@ -92,6 +92,22 @@ class SubscriptionVnpayService {
       if (!prepared.ok) return prepared.result;
       const data = prepared.data as PreparedSubscription;
 
+      // Downgrade: đã lưu lịch hạ cấp (pendingPlanKey) trong prepareSubscription — không tạo link thanh toán.
+      if (data.changeType === 'downgrade') {
+        return {
+          success: true,
+          message: 'Đã lên lịch hạ gói — gói mới sẽ áp dụng khi hết hạn chu kỳ hiện tại.',
+          data: {
+            transactionId: null,
+            orderCode: null,
+            pendingPlanKey: data.restaurant.pendingPlanKey,
+            pendingCycleMonths: data.restaurant.pendingCycleMonths,
+            paidUntil: data.paidUntil,
+          },
+          code: 200,
+        };
+      }
+
       const { merchant, secretKey } = await this.getGatewayVnpay();
 
       // Gói hiệu lực: planId hoặc gói hiện tại (fallback mặc định).
@@ -220,6 +236,7 @@ class SubscriptionVnpayService {
           paidUntil: transaction.paidUntil,
           wasLocked: restaurant.subscription === 'locked',
           cycleMonths: transaction.cycleMonths,
+          changeType: 'renew',
         };
         await completeSubscription(prepared, undefined, transaction.planKey, transaction._id.toString());
         this.emitPaymentEvent(

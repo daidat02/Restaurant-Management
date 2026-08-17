@@ -47,7 +47,7 @@ describe('T18 — Guard onboarding: chặn Admin chưa có nhà hàng (NEEDS_ONB
       .set('Authorization', `Bearer ${token}`)
       .send({ name: 'Cơ sở đầu tiên', email: 'first@nhamnhi.vn', operatingHours: '8-22' });
     expect(res.status).toBe(201);
-    expect(res.body.result.data.subscription).toBe('trial');
+    expect(res.body.result.data.subscription).toBe('active');
   });
 
   it('Admin đã có nhà hàng → API vẫn hoạt động (không bị chặn)', async () => {

@@ -5,6 +5,7 @@ import { writeAuditLog } from './auditLog.service.js';
 import { generateTransactionId } from './transaction-id.service.js';
 
 const VALID_CYCLES = [1, 3, 6, 12];
+const DAY_MS = 24 * 3600 * 1000;
 
 export interface PreparedSubscription {
   restaurant: any;
@@ -13,11 +14,18 @@ export interface PreparedSubscription {
   paidUntil: Date;
   wasLocked: boolean;
   cycleMonths: number;
+  /** Loại thay đổi: renew (mua mới/gia hạn), upgrade (nâng gói khi còn hạn), downgrade (lên lịch hạ gói cuối chu kỳ). */
+  changeType: 'renew' | 'upgrade' | 'downgrade';
 }
 
 /**
- * Kiểm tra quyền sở hữu + tính giá + thời gian hết hạn + ràng buộc hạ gói.
+ * Kiểm tra quyền sở hữu + tính giá + thời gian hết hạn.
  * Dùng chung cho thanh toán mock (payService) và PayOS (createUrl/webhook).
+ * - Còn hạn & chuyển sang gói cao hơn (upgrade): hiệu lực ngay, chỉ tính phần chênh lệch thời gian còn lại,
+ *   paidUntil giữ nguyên (không cộng dồn chu kỳ mới).
+ * - Còn hạn & chuyển sang gói thấp hơn (downgrade): KHÔNG chặn — lưu pendingPlanKey + pendingCycleMonths,
+ *   áp dụng cuối chu kỳ, KHÔNG trừ tiền, trả về changeType='downgrade' để caller không tạo thanh toán.
+ * - Còn lại (renew): paidUntil = max(now, paidUntil) + chu kỳ.
  */
 export async function prepareSubscription(
   restaurantId: string,
@@ -39,6 +47,39 @@ export async function prepareSubscription(
     return { ok: false, result: { message: 'Bạn không sở hữu nhà hàng này!', code: 403 } };
   }
 
+  const now = new Date();
+  const stillActive =
+    restaurant.subscription === 'active' &&
+    restaurant.paidUntil &&
+    restaurant.paidUntil.getTime() > now.getTime();
+
+  // ---- Downgrade: còn hạn & chuyển xuống gói thấp hơn → lưu lịch hạ cấp, không tính tiền ----
+  if (stillActive && planId) {
+    const currentPlanKey = restaurant.currentPlanKey || (await pricingService.getDefaultPlanKey());
+    if (currentPlanKey) {
+      const currentSort = await pricingService.getPlanSortOrder(currentPlanKey);
+      const newSort = await pricingService.getPlanSortOrder(planId);
+      const planName = await pricingService.getPlanName(planId);
+      if (newSort < currentSort) {
+        restaurant.pendingPlanKey = planId;
+        restaurant.pendingCycleMonths = cycleMonths;
+        await restaurant.save();
+        return {
+          ok: true,
+          data: {
+            restaurant,
+            price: 0,
+            planName,
+            paidUntil: restaurant.paidUntil!,
+            wasLocked: false,
+            cycleMonths,
+            changeType: 'downgrade',
+          },
+        };
+      }
+    }
+  }
+
   // Giá theo gói đã chọn (planId), fallback về giá chu kỳ mặc định.
   const price = planId
     ? await pricingService.getPlanPriceForCycle(planId, cycleMonths)
@@ -48,37 +89,49 @@ export async function prepareSubscription(
   }
   const planName = planId ? await pricingService.getPlanName(planId) : null;
 
-  const now = new Date();
-  const wasLocked = restaurant.subscription === 'locked';
-  // Gia hạn: paidUntil tối đa giữa now và paidUntil hiện tại + chu kỳ (không mất thời gian còn lại)
-  const base = restaurant.paidUntil && restaurant.paidUntil.getTime() > now.getTime()
-    ? restaurant.paidUntil
-    : now;
-  const paidUntil = new Date(base.getTime() + cycleMonths * 30 * 24 * 3600 * 1000);
-
-  // Còn hạn (active + chưa hết hạn) thì KHÔNG được hạ xuống gói thấp hơn gói hiện tại.
-  const currentPlanKey = restaurant.currentPlanKey || (await pricingService.getDefaultPlanKey());
-  if (
-    planId &&
-    currentPlanKey &&
-    restaurant.subscription === 'active' &&
-    restaurant.paidUntil &&
-    restaurant.paidUntil.getTime() > now.getTime()
-  ) {
-    const currentSort = await pricingService.getPlanSortOrder(currentPlanKey);
-    const newSort = await pricingService.getPlanSortOrder(planId);
-    if (newSort < currentSort) {
-      return {
-        ok: false,
-        result: {
-          message: 'Không thể hạ gói khi còn hạn! Bạn có thể nâng cấp gói cao hơn hoặc chờ hết hạn để đổi gói.',
-          code: 400,
-        },
-      };
+  // ---- Upgrade: còn hạn & chuyển lên gói cao hơn → chỉ tính chênh lệch theo thời gian còn lại,
+  //      paidUntil giữ nguyên, gói mới hiệu lực ngay (completeSubscription cập nhật currentPlanKey).
+  if (stillActive && planId) {
+    const currentPlanKey = restaurant.currentPlanKey || (await pricingService.getDefaultPlanKey());
+    if (currentPlanKey) {
+      const currentSort = await pricingService.getPlanSortOrder(currentPlanKey);
+      const newSort = await pricingService.getPlanSortOrder(planId);
+      if (newSort > currentSort) {
+        const currentMonthly = await pricingService.getPlanPriceForCycle(currentPlanKey, 1);
+        const newMonthly = await pricingService.getPlanPriceForCycle(planId, 1);
+        if (currentMonthly && newMonthly && currentMonthly > 0 && newMonthly > 0) {
+          const daysLeft = Math.ceil(
+            (restaurant.paidUntil!.getTime() - now.getTime()) / DAY_MS,
+          );
+          const diffPrice = Math.round(((newMonthly - currentMonthly) * daysLeft) / 30);
+          return {
+            ok: true,
+            data: {
+              restaurant,
+              price: diffPrice > 0 ? diffPrice : 0,
+              planName,
+              paidUntil: restaurant.paidUntil!,
+              wasLocked: false,
+              cycleMonths,
+              changeType: 'upgrade',
+            },
+          };
+        }
+      }
     }
   }
 
-  return { ok: true, data: { restaurant, price, planName, paidUntil, wasLocked, cycleMonths } };
+  // ---- Renew / mua mới: paidUntil = max(now, paidUntil) + chu kỳ ----
+  const wasLocked = restaurant.subscription === 'locked';
+  const base = restaurant.paidUntil && restaurant.paidUntil.getTime() > now.getTime()
+    ? restaurant.paidUntil
+    : now;
+  const paidUntil = new Date(base.getTime() + cycleMonths * 30 * DAY_MS);
+
+  return {
+    ok: true,
+    data: { restaurant, price, planName, paidUntil, wasLocked, cycleMonths, changeType: 'renew' },
+  };
 }
 
 /**
@@ -129,6 +182,9 @@ export async function completeSubscription(
   restaurant.subscription = 'active';
   restaurant.paidUntil = paidUntil;
   restaurant.trialEndsAt = undefined;
+  // Một khoản thanh toán mới (gia hạn/nâng cấp) thay thế mọi lịch hạ cấp đã đặt trước đó.
+  restaurant.pendingPlanKey = undefined;
+  restaurant.pendingCycleMonths = undefined;
   // Cập nhật gói hiện tại: theo gói đã chọn, hoặc gói mặc định nếu thanh toán legacy không có gói.
   const resolvedPlanKey = planId || (await pricingService.getDefaultPlanKey());
   if (resolvedPlanKey) restaurant.currentPlanKey = resolvedPlanKey;
@@ -173,6 +229,20 @@ class SubscriptionService {
     const prepared = await prepareSubscription(restaurantId, cycleMonths, actorUserId, planId);
     if (!prepared.ok) return prepared.result;
 
+    // Downgrade: đã lưu lịch hạ cấp (pendingPlanKey), không tạo thanh toán/transaction.
+    if (prepared.data.changeType === 'downgrade') {
+      return {
+        message: 'Đã lên lịch hạ gói — gói mới sẽ áp dụng khi hết hạn chu kỳ hiện tại.',
+        data: {
+          restaurant: prepared.data.restaurant,
+          pendingPlanKey: prepared.data.restaurant.pendingPlanKey,
+          pendingCycleMonths: prepared.data.restaurant.pendingCycleMonths,
+          paidUntil: prepared.data.paidUntil,
+        },
+        code: 200,
+      };
+    }
+
     const result = await completeSubscription(prepared.data, actorUserId, planId);
 
     return {
@@ -194,11 +264,11 @@ class SubscriptionService {
       trialEndsAt: r.trialEndsAt,
       paidUntil: r.paidUntil,
       currentPlanKey: r.currentPlanKey ?? undefined,
-      daysLeft: r.subscription === 'trial' && r.trialEndsAt
-        ? Math.ceil((r.trialEndsAt.getTime() - now) / (24 * 3600 * 1000))
-        : r.subscription === 'active' && r.paidUntil
-          ? Math.ceil((r.paidUntil.getTime() - now) / (24 * 3600 * 1000))
-          : 0,
+      pendingPlanKey: r.pendingPlanKey ?? undefined,
+      pendingCycleMonths: r.pendingCycleMonths ?? undefined,
+      daysLeft: r.subscription === 'active' && r.paidUntil
+        ? Math.ceil((r.paidUntil.getTime() - now) / (24 * 3600 * 1000))
+        : 0,
     }));
     return { message: 'Lấy trạng thái thuê bao thành công', data: items, code: 200 };
   }

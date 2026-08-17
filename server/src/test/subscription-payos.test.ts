@@ -131,18 +131,32 @@ describe('T12 — Thanh toán gói cước bằng PayOS (create-url + webhook)',
     expect(res.status).toBe(404);
   });
 
-  it('POST /subscriptions/payos/create-url — chặn hạ gói khi còn hạn → 400', async () => {
+  it('POST /subscriptions/payos/create-url — hạ gói khi còn hạn → lưu pendingPlanKey, không tạo link thanh toán', async () => {
     await DB_Connection.Restaurant.findByIdAndUpdate(SEED_IDS.tenantSubTrial, {
       subscription: 'active',
       paidUntil: new Date(Date.now() + 30 * day),
       currentPlanKey: 'pro',
+      pendingPlanKey: undefined,
+      pendingCycleMonths: undefined,
     });
     const res = await request
       .post('/api/subscriptions/payos/create-url')
       .set('Authorization', `Bearer ${ownerToken}`)
       .send({ restaurantId: SEED_IDS.tenantSubTrial.toString(), cycleMonths: 1, planId: 'basic' });
-    expect(res.status).toBe(400);
-    expect(res.body.message).toContain('Không thể hạ gói');
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.message).toContain('áp dụng khi hết hạn');
+    expect(res.body.data.pendingPlanKey).toBe('basic');
+    expect(res.body.data.transactionId).toBeNull();
+    const rest = await DB_Connection.Restaurant.findById(SEED_IDS.tenantSubTrial);
+    expect(rest?.currentPlanKey).toBe('pro');
+    expect(rest?.pendingPlanKey).toBe('basic');
+    // Không tạo giao dịch pending nào
+    const tx = await DB_Connection.Transaction.exists({
+      restaurant: SEED_IDS.tenantSubTrial,
+      status: 'pending',
+    });
+    expect(tx).toBeFalsy();
   });
 
   it('POST /subscriptions/webhook — không cấu hình gateway → ack 200 + success:false (không crash)', async () => {

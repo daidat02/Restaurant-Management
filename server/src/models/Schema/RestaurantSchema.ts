@@ -21,14 +21,18 @@ export interface IRestaurant extends Document {
   logoUrl?: string;
   /** Chủ sở hữu nhà hàng (role admin). */
   ownerId?: Types.ObjectId | string | IUser;
-  /** Trạng thái thuê bao: trial (nhà hàng đầu), active (đã trả phí), locked (hết hạn), pending (chờ thanh toán khi mở chi nhánh mới). */
+  /** Trạng thái thuê bao: trial (chỉ giữ enum, không dùng trong flow mới), active (free hoặc đã trả phí), locked (khoá thủ công/vi phạm), pending (chờ thanh toán khi mở chi nhánh mới). */
   subscription: RestaurantSubscription;
-  /** Hạn dùng thử (chỉ nhà hàng đầu tiên của chủ). */
+  /** Hạn dùng thử — không dùng trong flow mới (chi nhánh đầu vào thẳng free). */
   trialEndsAt?: Date;
-  /** Hạn thanh toán hiện tại — quá hạn là locked. */
+  /** Hạn thanh toán hiện tại — chỉ có ở gói trả phí; hết hạn sẽ hạ về free. */
   paidUntil?: Date;
   /** Gói dịch vụ hiện tại của nhà hàng (key trong PricingConfig.plans) — dùng để so sánh khi gia hạn/chuyển gói. */
   currentPlanKey?: string;
+  /** Gói được lên lịch hạ cấp (áp dụng cuối chu kỳ khi paidUntil hết hạn). */
+  pendingPlanKey?: string;
+  /** Chu kỳ (tháng) đã chọn khi lên lịch hạ cấp — dùng để tính paidUntil mới khi áp dụng. */
+  pendingCycleMonths?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -56,6 +60,8 @@ const RestaurantSchema = new Schema<IRestaurant>(
     trialEndsAt: { type: Date },
     paidUntil: { type: Date, index: true },
     currentPlanKey: { type: String, index: true },
+    pendingPlanKey: { type: String, index: true },
+    pendingCycleMonths: { type: Number },
   },
   { timestamps: true },
 );
