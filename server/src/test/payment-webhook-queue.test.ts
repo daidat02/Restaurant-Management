@@ -106,13 +106,15 @@ describe('T13 — Queue payment-webhook: webhook verify-sync + complete job (ide
     expect(order?.status).toBe('completed');
   });
 
-  it('Webhook với orderCode không tồn tại → 400 (không ack 200, không crash)', async () => {
+  it('Webhook với orderCode không tồn tại → vẫn ack 200 (no-op, PayOS cần 2XX để đánh dấu thành công)', async () => {
     const res = await request.post('/api/payments/webhook').send({
       code: '00',
       data: { orderCode: 999999999, amount: 100 },
       signature: 'mock-signature',
     });
-    expect(res.status).toBe(400);
+    // PayOS chỉ xác nhận webhook gửi thành công khi nhận 2XX — không được trả 4xx/5xx ở đây.
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(false);
   });
 
   it('Sample webhook PayOS thật (raw) → không 401 (route public giữ nguyên)', async () => {

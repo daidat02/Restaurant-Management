@@ -172,6 +172,9 @@ class PaymentController {
       res.status(200).json({ success: true, data: webhookDataVerified });
     } catch (error) {
       console.error('Lỗi webhook PayOS:', error);
+      // PayOS chỉ đánh dấu webhook thành công khi nhận HTTP 2XX — KHI KHÔNG trả 200 PayOS
+      // sẽ retry tối đa rồi dừng, trạng thái thanh toán trên cổng không được xác nhận.
+      // Vì vậy LUÔN ack 200: webhook không tồn tại / không xử lý được → no-op, log để theo dõi.
       res.status(200).json({ success: false, error: (error as Error)?.message });
     }
   };

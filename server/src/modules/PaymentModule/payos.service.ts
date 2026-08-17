@@ -34,7 +34,6 @@ class PayOsService {
 
     const realApiKey = decryptKey(apiKey);
     const realChecksumKey = decryptKey(checksumKey);
-    console.log(realApiKey, realChecksumKey);
     process.env.PAYOS_CLIENT_ID = clientId;
     process.env.PAYOS_API_KEY = realApiKey;
     process.env.PAYOS_CHECKSUM_KEY = realChecksumKey;
@@ -111,7 +110,8 @@ class PayOsService {
   /**
    * Verify chữ ký webhook PayOS (SYNC tại route). KHÔNG hoàn tất thanh toán ở đây —
    * sau khi verify xong route gọi `addJob('payment-webhook','complete-payment',...)`
-   * rồi ack 200. Lỗi (chữ ký sai / không tìm thấy đơn) → throw, route trả lỗi để gateway biết.
+   * rồi ack 200. Lỗi (chữ ký sai / không tìm thấy đơn) → throw; route catch rồi vẫn ack 200
+   * (no-op) vì PayOS chỉ đánh dấu webhook thành công khi nhận 2XX.
    */
   async verifyWebhookSignature(webhookData: any) {
     const { orderCode: incomingOrderCode } = webhookData?.data || webhookData;
