@@ -35,7 +35,7 @@ test.describe('T05 — Admin frontend shell: sidebar mới + Settings Modal', ()
     }
   });
 
-  test('"Cài Đặt Chung" admin mở Settings Modal — chỉ tab cá nhân + đăng xuất (ticket 05)', async ({
+  test('"Cài Đặt Chung" admin mở trang Cài Đặt — chỉ tab cá nhân + thông báo (ticket 05)', async ({
     page,
   }) => {
     await login(page, USERS.admin.email);
@@ -43,17 +43,16 @@ test.describe('T05 — Admin frontend shell: sidebar mới + Settings Modal', ()
     await waitAuthPersisted(page, null);
 
     await page.getByRole('button', { name: /Cài Đặt Chung/ }).click();
-
-    const dialog = page.getByRole('dialog');
-    await expect(dialog).toBeVisible({ timeout: 10_000 });
+    await expect(page).toHaveURL(/\/admin\/settings/, { timeout: 10_000 });
+    await expect(page.getByRole('heading', { name: 'Cài Đặt' })).toBeVisible({ timeout: 10_000 });
 
     // Tab cá nhân có; tab cấu hình nhà hàng KHÔNG có với admin (ticket 05)
-    await expect(page.getByRole('button', { name: 'Thông Tin Cá Nhân' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Mật Khẩu & Bảo Mật' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Thông Tin Nhà Hàng' })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Sơ Đồ & Tạo Bàn Mới' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Tài khoản' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Thông báo & Giao diện' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Cửa hàng & Hệ thống' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Sơ đồ bàn' })).toHaveCount(0);
 
-    // Nút đăng xuất ở cuối thanh bên modal
+    // Nút đăng xuất ở cuối thanh bên
     await expect(page.getByRole('button', { name: 'Đăng Xuất' })).toBeVisible();
   });
 
@@ -68,7 +67,7 @@ test.describe('T05 — Admin frontend shell: sidebar mới + Settings Modal', ()
     await expect(page.getByRole('dialog')).toHaveCount(0);
   });
 
-  test('manager "Cài Đặt Chung" mở Settings Modal kèm tab cấu hình nhà hàng (ticket 05)', async ({
+  test('manager "Cài Đặt Chung" mở trang Cài Đặt kèm tab cấu hình nhà hàng (ticket 05)', async ({
     page,
   }) => {
     await login(page, USERS.manager.email);
@@ -76,15 +75,15 @@ test.describe('T05 — Admin frontend shell: sidebar mới + Settings Modal', ()
     await waitAuthPersisted(page, '69fccba996a14809070b9ef2');
 
     await page.getByRole('button', { name: /Cài Đặt Chung/ }).click();
-
-    const dialog = page.getByRole('dialog');
-    await expect(dialog).toBeVisible({ timeout: 10_000 });
+    await expect(page).toHaveURL(/\/manager\/settings/, { timeout: 10_000 });
+    const main = page.getByRole('main');
+    await expect(main.getByRole('heading', { name: 'Cài Đặt' })).toBeVisible({ timeout: 10_000 });
 
     // Manager thấy cá nhân + đủ tab cấu hình nhà hàng (ticket 05)
-    await expect(page.getByRole('button', { name: 'Thông Tin Cá Nhân' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Thông Tin Nhà Hàng' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Sơ Đồ & Tạo Bàn Mới' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Cấu Hình Hóa Đơn' })).toBeVisible();
+    await expect(main.getByRole('button', { name: 'Tài khoản' })).toBeVisible();
+    await expect(main.getByRole('button', { name: 'Cửa hàng & Hệ thống' })).toBeVisible();
+    await expect(main.getByRole('button', { name: 'Sơ đồ bàn' })).toBeVisible();
+    await expect(main.getByRole('button', { name: 'Thanh toán' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Đăng Xuất' })).toBeVisible();
   });
 });

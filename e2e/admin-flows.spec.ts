@@ -17,13 +17,13 @@ test.describe('T12/T13 — Admin & manager flows', () => {
 
     // Điền form
     const uniqueName = `Món E2E ${Date.now()}`;
-    await page.getByPlaceholder('Input product name').fill(uniqueName);
-    await page.getByPlaceholder('Input Price').fill('55000');
+    await page.getByPlaceholder('VD: Cà phê sữa đá, Lẩu Thái...').fill(uniqueName);
+    await page.getByPlaceholder('0').first().fill('55000');
     // Danh mục: chọn danh mục X ("Đồ uống") — trigger là Radix combobox
     await page.getByRole('combobox').first().click();
     await page.getByRole('option', { name: /Đồ uống/ }).click();
 
-    await page.getByRole('button', { name: 'Lưu Món Ăn' }).click();
+    await page.getByRole('button', { name: /Lưu món/ }).click();
 
     // Quay lại danh sách, món mới xuất hiện
     await expect(page.getByRole('heading', { name: 'Quản Lý Thực Đơn' })).toBeVisible({
@@ -78,10 +78,10 @@ test.describe('T12/T13 — Admin & manager flows', () => {
 
     // Vào trang chi tiết đơn vừa tạo
     await page.goto(`/manager/orders/edit/${order._id}`);
-    await expect(page.getByText(/Đơn hàng #/)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText('Cập nhật trạng thái')).toBeVisible({ timeout: 20_000 });
 
-    // Đổi status qua select ẩn (options: Chờ xác nhận / Đã xác nhận / Đã giao hàng / Đã hủy)
-    await page.locator('select').last().selectOption('confirmed');
+    // Đổi status qua stepper: bấm bước "Đã xác nhận" (chấm tròn đầu tiên kích hoạt onStatusChange)
+    await page.getByRole('button', { name: 'Đã xác nhận' }).first().click();
 
     // Xác nhận status thực sự đổi qua API (poll vì request async)
     await expect
