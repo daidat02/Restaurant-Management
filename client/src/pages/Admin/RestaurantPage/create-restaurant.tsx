@@ -145,17 +145,21 @@ export default function CreateRestaurantPage() {
       if (paymentMethod === 'payos') {
         const res = await createPayosUrl(restaurant._id, cycleMonths, selectedPlan!.key);
         if (res.success && res.data) {
-          setCheckoutUrl(res.data.checkoutUrl);
-          setQrCodeData(res.data.qrCodeData);
-          listenPaymentResult(res.data.transactionId, handlePaymentResult);
+          setCheckoutUrl(res.data.checkoutUrl || '');
+          setQrCodeData(res.data.qrCodeData || '');
+          if (res.data.transactionId) {
+            listenPaymentResult(res.data.transactionId, handlePaymentResult);
+          }
         } else {
           handleCreateLinkFail();
         }
       } else {
         const res = await createVnpayUrl(restaurant._id, cycleMonths, selectedPlan!.key);
         if (res.success && res.data) {
-          setCheckoutUrl(res.data.checkoutUrl);
-          listenPaymentResult(res.data.transactionId, handlePaymentResult);
+          setCheckoutUrl(res.data.checkoutUrl || '');
+          if (res.data.transactionId) {
+            listenPaymentResult(res.data.transactionId, handlePaymentResult);
+          }
         } else {
           handleCreateLinkFail();
         }

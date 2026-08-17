@@ -252,24 +252,40 @@ class SubscriptionService {
     };
   }
 
-  /** Trạng thái các nhà hàng của chủ (kèm số ngày còn lại). */
+  /** Trạng thái các nhà hàng của chủ (kèm số ngày còn lại + mức sử dụng bàn/món/NV). */
   async meService(ownerId: string | undefined): Promise<ServiceResponse<any>> {
     if (!ownerId) return { message: 'Thiếu chủ sở hữu!', code: 403 };
     const restaurants = await DB_Connection.Restaurant.find({ ownerId }).exec();
     const now = Date.now();
-    const items = restaurants.map((r) => ({
-      _id: r._id,
-      name: r.name,
-      subscription: r.subscription,
-      trialEndsAt: r.trialEndsAt,
-      paidUntil: r.paidUntil,
-      currentPlanKey: r.currentPlanKey ?? undefined,
-      pendingPlanKey: r.pendingPlanKey ?? undefined,
-      pendingCycleMonths: r.pendingCycleMonths ?? undefined,
-      daysLeft: r.subscription === 'active' && r.paidUntil
-        ? Math.ceil((r.paidUntil.getTime() - now) / (24 * 3600 * 1000))
-        : 0,
-    }));
+    // Mức sử dụng hiện tại để hiển thị "Đang dùng X/Y" trên trang thanh toán.
+    const usageList = await Promise.all(
+      restaurants.map(async (r) => ({
+        restaurantId: String(r._id),
+        tables: await DB_Connection.Table.countDocuments({ restaurant: r._id }),
+        items: await DB_Connection.MenuItem.countDocuments({ restaurant: r._id }),
+        staff: await DB_Connection.User.countDocuments({ restaurantIds: r._id, role: 'staff' }),
+      })),
+    );
+    const usageByRestaurant = new Map(usageList.map((u) => [u.restaurantId, u]));
+    const items = restaurants.map((r) => {
+      const usage = usageByRestaurant.get(String(r._id));
+      return {
+        _id: r._id,
+        name: r.name,
+        subscription: r.subscription,
+        trialEndsAt: r.trialEndsAt,
+        paidUntil: r.paidUntil,
+        currentPlanKey: r.currentPlanKey ?? undefined,
+        pendingPlanKey: r.pendingPlanKey ?? undefined,
+        pendingCycleMonths: r.pendingCycleMonths ?? undefined,
+        daysLeft: r.subscription === 'active' && r.paidUntil
+          ? Math.ceil((r.paidUntil.getTime() - now) / (24 * 3600 * 1000))
+          : 0,
+        usage: usage
+          ? { tables: usage.tables, items: usage.items, staff: usage.staff }
+          : undefined,
+      };
+    });
     return { message: 'Lấy trạng thái thuê bao thành công', data: items, code: 200 };
   }
 

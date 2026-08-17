@@ -108,6 +108,13 @@ describe('T5 — Thanh toán mock + khoá đơn/món khi locked', () => {
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.data)).toBe(true);
     expect(res.body.data.length).toBeGreaterThanOrEqual(2);
+    // Kèm mức sử dụng bàn/món/NV (cho "Đang dùng X/Y")
+    const tenantX = res.body.data.find((r: any) => String(r._id) === SEED_IDS.tenantX.toString());
+    expect(tenantX).toBeTruthy();
+    expect(tenantX.usage).toBeDefined();
+    expect(tenantX.usage.tables).toBeGreaterThanOrEqual(2); // tableX1 + tableX2 seed
+    expect(tenantX.usage.items).toBeGreaterThanOrEqual(2); // menuItemX1 + menuItemX2 seed
+    expect(tenantX.usage.staff).toBeGreaterThanOrEqual(1); // staffX
   });
 
   it('GET /api/subscriptions/transactions — chủ xem đúng lịch sử giao dịch của mình', async () => {

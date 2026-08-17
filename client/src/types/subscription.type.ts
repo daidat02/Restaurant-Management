@@ -1,5 +1,12 @@
 import type { RestaurantSubscription } from './restaurant.type';
 
+/** Mức sử dụng hiện tại của 1 nhà hàng (bàn/món/NV) — để hiển thị "Đang dùng X/Y". */
+export interface IPlanUsage {
+  tables: number;
+  items: number;
+  staff: number;
+}
+
 /** Trạng thái thuê bao của 1 nhà hàng thuộc chủ (GET /subscriptions/me). */
 export interface ISubscriptionInfo {
   _id: string;
@@ -15,6 +22,8 @@ export interface ISubscriptionInfo {
   pendingCycleMonths?: number;
   /** Số ngày còn lại (0 nếu locked). */
   daysLeft: number;
+  /** Mức sử dụng bàn/món/NV (nếu server trả). */
+  usage?: IPlanUsage;
 }
 
 /** Giới hạn theo gói cho 1 nhà hàng (0 = không giới hạn). Mô hình trả phí theo chi nhánh nên không có giới hạn chi nhánh. */
@@ -71,25 +80,31 @@ export interface ITransaction {
 
 /** Phản hồi tạo link thanh toán gói cước bằng PayOS (POST /subscriptions/payos/create-url). */
 export interface IPayosCreateUrlResult {
-  transactionId: string;
-  orderCode: number;
-  checkoutUrl: string;
-  qrCodeData: string;
-  paymentLinkId: string;
+  transactionId: string | null;
+  orderCode: number | null;
+  checkoutUrl?: string;
+  qrCodeData?: string;
+  paymentLinkId?: string;
   amount: number;
   planKey?: string | null;
   planName?: string | null;
   paidUntil: Date | string;
+  /** Downgrade: gói đã lên lịch hạ cấp (không có link thanh toán). */
+  pendingPlanKey?: string | null;
+  pendingCycleMonths?: number | null;
 }
 
 /** Phản hồi tạo link thanh toán gói cước bằng VNPay (POST /subscriptions/vnpay/create-url). */
 export interface IVnpayCreateUrlResult {
-  transactionId: string;
-  orderCode: number;
-  checkoutUrl: string;
-  paymentLinkId: string;
+  transactionId: string | null;
+  orderCode: number | null;
+  checkoutUrl?: string;
+  paymentLinkId?: string;
   amount: number;
   planKey?: string | null;
   planName?: string | null;
   paidUntil: Date | string;
+  /** Downgrade: gói đã lên lịch hạ cấp (không có link thanh toán). */
+  pendingPlanKey?: string | null;
+  pendingCycleMonths?: number | null;
 }

@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import {
@@ -10,6 +11,7 @@ import {
   RotateCcw,
   QrCode,
   Landmark,
+  CalendarClock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -53,6 +55,7 @@ export default function BillingPage() {
     transactions,
     pricing,
     isLoading,
+    pay,
     createPayosUrl,
     createVnpayUrl,
     listenPaymentResult,
@@ -60,6 +63,7 @@ export default function BillingPage() {
     refresh,
   } = useSubscription();
 
+  const [searchParams, setSearchParams] = useSearchParams();
   const [restaurantId, setRestaurantId] = useState('');
   const [cycleMonths, setCycleMonths] = useState<1 | 3 | 6 | 12>(1);
 
@@ -72,6 +76,9 @@ export default function BillingPage() {
   // Link thanh toán hiện tại (PayOS có qrCodeData).
   const [checkoutUrl, setCheckoutUrl] = useState('');
   const [qrCodeData, setQrCodeData] = useState('');
+  // Số tiền thực tế server tính (pro-rate khi nâng gói giữa chu kỳ).
+  const [paymentAmount, setPaymentAmount] = useState(0);
+  const [paymentPriceNote, setPaymentPriceNote] = useState<string | undefined>(undefined);
   const [lastPayment, setLastPayment] = useState<{
     restaurantName: string;
     amount: number;
@@ -112,7 +119,7 @@ export default function BillingPage() {
     return plans.find((p) => p.isPopular) ?? plans[0];
   }, [selected, transactions, plans]);
 
-  // Còn hạn (active + chưa hết hạn) → không được hạ gói.
+  // Còn hạn (active + chưa hết hạn) → có thể đổi gói giữa chu kỳ (upgrade pro-rate / downgrade cuối kỳ).
   const inTerm = useMemo(
     () =>
       !!selected &&
@@ -122,12 +129,16 @@ export default function BillingPage() {
     [selected],
   );
 
-  // Gói thấp hơn gói hiện tại (so theo sortOrder) → chặn khi còn hạn.
-  const isDowngrade = (plan: IPlan) =>
-    !!currentPlan &&
-    currentPlan.key !== plan.key &&
-    inTerm &&
-    (currentPlan.sortOrder ?? 0) > (plan.sortOrder ?? 0);
+  // Loại thay đổi khi chọn 1 gói so với gói đang dùng (so theo sortOrder).
+  const changeTypeFor = (plan: IPlan): 'current' | 'renew' | 'upgrade' | 'downgrade' => {
+    if (!currentPlan || currentPlan.key === plan.key) return 'current';
+    // Hết hạn/locked → coi như mua mới (renew) dù gói thấp hơn.
+    if (!inTerm) return 'renew';
+    return (currentPlan.sortOrder ?? 0) > (plan.sortOrder ?? 0) ? 'downgrade' : 'upgrade';
+  };
+
+  const isDowngrade = (plan: IPlan) => changeTypeFor(plan) === 'downgrade';
+  const isUpgrade = (plan: IPlan) => changeTypeFor(plan) === 'upgrade';
 
   // Mức giảm so với trả theo tháng (chỉ hiển thị khi thực sự rẻ hơn)
   const cycleSavingPct = (months: number, p: number) => {
@@ -143,10 +154,12 @@ export default function BillingPage() {
   const handlePaymentResult = (ev: { status: 'success' | 'cancelled' }) => {
     setPaymentOpen(false);
     setPaymentPlan(undefined);
+    setPaymentAmount(0);
+    setPaymentPriceNote(undefined);
     stopListeningPaymentResult();
 
     if (ev.status === 'success') {
-      const amount = paymentPlan?.cycles[cycleMonths] ?? 0;
+      const amount = paymentAmount || paymentPlan?.cycles[cycleMonths] || 0;
       const updated = subscriptions.find(
         (s) => selected && String(s._id) === String(selected._id),
       );
@@ -164,6 +177,23 @@ export default function BillingPage() {
     }
   };
 
+  /** Lên lịch hạ gói (downgrade): không qua thanh toán, pendingPlanKey lưu cuối chu kỳ. */
+  const scheduleDowngrade = async (plan: IPlan) => {
+    if (!selected) return;
+    setPaying(true);
+    try {
+      const result = await pay(selected._id, cycleMonths, plan.key);
+      if (result.success) {
+        toast.success('Đã lên lịch hạ gói — gói mới áp dụng khi hết hạn chu kỳ hiện tại.', {
+          position: 'top-right',
+        });
+        void refresh();
+      }
+    } finally {
+      setPaying(false);
+    }
+  };
+
   const openPayDialog = async (plan?: IPlan) => {
     if (!plan) {
       toast.info('Hãy chọn một gói ở phần Nâng cấp gói', { position: 'top-right' });
@@ -178,9 +208,20 @@ export default function BillingPage() {
       toast.error('Vui lòng chọn nhà hàng cần thanh toán', { position: 'top-right' });
       return;
     }
+
+    // Downgrade giữa chu kỳ: không thanh toán, chỉ lưu lịch hạ gói.
+    if (isDowngrade(plan)) {
+      await scheduleDowngrade(plan);
+      return;
+    }
+
+    // Upgrade / renew: mở modal thanh toán.
+    const isUpgradePlan = isUpgrade(plan);
     setPaymentPlan(plan);
     setCheckoutUrl('');
     setQrCodeData('');
+    setPaymentAmount(0);
+    setPaymentPriceNote(isUpgradePlan ? 'Giá hôm nay (pro-rate)' : undefined);
     stopListeningPaymentResult();
     setPaymentOpen(true);
 
@@ -190,15 +231,21 @@ export default function BillingPage() {
       if (paymentMethod === 'payos') {
         const res = await createPayosUrl(selected._id, cycleMonths, plan.key);
         if (res.success && res.data) {
-          setCheckoutUrl(res.data.checkoutUrl);
-          setQrCodeData(res.data.qrCodeData);
-          listenPaymentResult(res.data.transactionId, handlePaymentResult);
+          setPaymentAmount(res.data.amount);
+          setCheckoutUrl(res.data.checkoutUrl || '');
+          setQrCodeData(res.data.qrCodeData || '');
+          if (res.data.transactionId) {
+            listenPaymentResult(res.data.transactionId, handlePaymentResult);
+          }
         }
       } else {
         const res = await createVnpayUrl(selected._id, cycleMonths, plan.key);
         if (res.success && res.data) {
-          setCheckoutUrl(res.data.checkoutUrl);
-          listenPaymentResult(res.data.transactionId, handlePaymentResult);
+          setPaymentAmount(res.data.amount);
+          setCheckoutUrl(res.data.checkoutUrl || '');
+          if (res.data.transactionId) {
+            listenPaymentResult(res.data.transactionId, handlePaymentResult);
+          }
         }
       }
     } finally {
@@ -212,6 +259,24 @@ export default function BillingPage() {
       window.open(checkoutUrl, '_blank', 'noopener,noreferrer');
     }
   };
+
+  // Tự mở modal thanh toán khi vào từ upsell (?plan=<key>&cycle=<n>) với gói đề xuất.
+  const autoOpenRef = useRef(false);
+  useEffect(() => {
+    const planKey = searchParams.get('plan');
+    if (autoOpenRef.current || !planKey) return;
+    const cycle = Number(searchParams.get('cycle') || 1);
+    const plan = plans.find((p) => p.key === planKey);
+    if (!plan || !selected) return; // chờ pricing + subscription load
+    autoOpenRef.current = true;
+    const nextCycle = [1, 3, 6, 12].includes(cycle) ? cycle : 1;
+    setSearchParams({}, { replace: true });
+    const t = window.setTimeout(() => {
+      setCycleMonths(nextCycle as 1 | 3 | 6 | 12);
+      void openPayDialog(plan);
+    }, 250);
+    return () => window.clearTimeout(t);
+  }, [plans, selected, searchParams, setSearchParams, openPayDialog]);
 
   // ---- Màn hình thanh toán thành công: hiển thị bằng PaymentSuccessDialog overlay (không swap page) ----
 
@@ -301,8 +366,58 @@ export default function BillingPage() {
                       <span>Chọn một gói bên dưới để gia hạn hoặc mở lại chi nhánh.</span>
                     )}
                   </p>
+                  {/* Đang chờ hạ gói cuối chu kỳ */}
+                  {selected?.pendingPlanKey && (
+                    <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
+                      <CalendarClock className="h-3.5 w-3.5" />
+                      Đã lên lịch hạ gói — áp dụng khi hết hạn chu kỳ
+                    </span>
+                  )}
                 </div>
               </div>
+
+              {/* Đang dùng X/Y theo gói */}
+              {selected?.usage && currentPlan && (
+                <div className="mt-4 grid grid-cols-3 gap-3">
+                  {(
+                    [
+                      { label: 'Bàn', key: 'tables' },
+                      { label: 'Món', key: 'items' },
+                      { label: 'Nhân viên', key: 'staff' },
+                    ] as const
+                  ).map(({ label, key }) => {
+                    const limit = currentPlan.limits?.[key] ?? 0;
+                    const used = selected.usage?.[key] ?? 0;
+                    const unlimited = limit <= 0;
+                    const hit = !unlimited && used >= limit;
+                    return (
+                      <div
+                        key={key}
+                        className={cn(
+                          'rounded-xl border p-3',
+                          hit ? 'border-amber-200 bg-amber-50/60' : 'border-slate-100 bg-slate-50',
+                        )}
+                      >
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                          {label} đang dùng
+                        </p>
+                        <p
+                          className={cn(
+                            'mt-1 text-lg font-extrabold',
+                            hit ? 'text-amber-700' : 'text-gray-900',
+                          )}
+                        >
+                          {used}
+                          <span className="text-sm font-semibold text-slate-400">
+                            {unlimited ? ' / ∞' : ` / ${limit}`}
+                          </span>
+                        </p>
+                        {hit && <p className="text-[10px] font-semibold text-amber-600">Đã đạt trần</p>}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
               <div className="mt-5 grid grid-cols-2 gap-3">
                 <div className="rounded-xl bg-slate-50 p-4">
@@ -500,7 +615,7 @@ export default function BillingPage() {
                   {plans.map((plan) => {
                     const isCurrent = currentPlan?.key === plan.key;
                     const isPopularNow = plan.isPopular && !isCurrent;
-                    const blockedDowngrade = isDowngrade(plan);
+                    const changeType = changeTypeFor(plan);
                     const price = plan.cycles[cycleMonths];
                     const saving = cycleSavingPct(cycleMonths, price);
                     return (
@@ -566,32 +681,33 @@ export default function BillingPage() {
 
                         <div className="mt-auto pt-5">
                           <Button
-                            disabled={isCurrent || blockedDowngrade}
+                            disabled={isCurrent}
                             onClick={() => openPayDialog(plan)}
                             className={cn(
                               'w-full rounded-xl text-sm font-semibold',
-                              isCurrent || blockedDowngrade
+                              isCurrent
                                 ? 'border border-slate-200 bg-white text-slate-400'
-                                : isPopularNow
-                                  ? 'bg-cerulean-blue-600 text-white shadow-lg shadow-cerulean-blue-200 hover:bg-cerulean-blue-700'
-                                  : 'border border-slate-200 bg-white text-slate-600 hover:border-cerulean-blue-300 hover:text-cerulean-blue-600',
+                                : changeType === 'downgrade'
+                                  ? 'border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
+                                  : isPopularNow
+                                    ? 'bg-cerulean-blue-600 text-white shadow-lg shadow-cerulean-blue-200 hover:bg-cerulean-blue-700'
+                                    : 'border border-slate-200 bg-white text-slate-600 hover:border-cerulean-blue-300 hover:text-cerulean-blue-600',
                             )}
-                            variant={
-                              isCurrent || blockedDowngrade
-                                ? 'outline'
-                                : isPopularNow
-                                  ? 'default'
-                                  : 'outline'
-                            }
+                            variant={isCurrent ? 'outline' : isPopularNow ? 'default' : 'outline'}
                           >
                             {isCurrent
                               ? 'Gói hiện tại'
                               : plan.contactOnly
                                 ? 'Liên hệ bán hàng'
-                                : blockedDowngrade
-                                  ? 'Còn hạn — không hạ gói'
+                                : changeType === 'downgrade'
+                                  ? 'Lên lịch hạ gói'
                                   : 'Nâng cấp'}
                           </Button>
+                          {changeType === 'downgrade' && (
+                            <p className="mt-2 text-center text-[11px] text-amber-600">
+                              Sẽ áp dụng khi hết hạn chu kỳ hiện tại
+                            </p>
+                          )}
                         </div>
                       </div>
                     );
@@ -694,11 +810,18 @@ export default function BillingPage() {
         {/* MODAL THANH TOÁN */}
         <PaymentDialog
           open={paymentOpen}
-          onOpenChange={setPaymentOpen}
+          onOpenChange={(val) => {
+            setPaymentOpen(val);
+            if (!val) {
+              setPaymentAmount(0);
+              setPaymentPriceNote(undefined);
+            }
+          }}
           planName={paymentPlan?.name ?? currentPlan?.name ?? 'Gói dịch vụ'}
           cycleText={cycleText}
           restaurantName={selected?.name ?? ''}
-          price={paymentPlan?.cycles[cycleMonths] ?? currentPlan?.cycles[cycleMonths] ?? 0}
+          price={paymentAmount || paymentPlan?.cycles[cycleMonths] || currentPlan?.cycles[cycleMonths] || 0}
+          priceNote={paymentPriceNote}
           method={paymentMethod}
           checkoutUrl={checkoutUrl}
           qrCodeData={qrCodeData}

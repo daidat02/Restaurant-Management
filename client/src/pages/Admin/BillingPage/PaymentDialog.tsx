@@ -30,6 +30,8 @@ interface IPaymentDialogProps {
   qrCodeData?: string;
   paying: boolean;
   onOpenCheckout: () => void;
+  /** Ghi chú giá (vd: "Giá hôm nay (pro-rate)") — hiển thị dưới số tiền khi nâng gói giữa chu kỳ. */
+  priceNote?: string;
 }
 
 /** Modal "Hoàn tất thanh toán" — PayOS (QR + mở trang) / VNPay (mở cổng thanh toán). */
@@ -45,6 +47,7 @@ export function PaymentDialog({
   qrCodeData,
   paying,
   onOpenCheckout,
+  priceNote,
 }: IPaymentDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -82,6 +85,9 @@ export function PaymentDialog({
               Số tiền cần thanh toán
             </p>
             <p className="mt-1 text-2xl font-extrabold tracking-tight">{fmtVND(price)}</p>
+            {priceNote && (
+              <p className="mt-0.5 text-[11px] font-medium text-cerulean-blue-100">{priceNote}</p>
+            )}
             <p className="mt-1 text-xs text-cerulean-blue-100/90">
               {planName} · {cycleText} · {restaurantName}
             </p>

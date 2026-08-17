@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { getPricingConfig, updatePricingConfig } from '@/api/superadmin.api';
 import type { IPlan } from '@/types/subscription.type';
 import { formatVND } from '@/utils/helpers';
+import { FEATURE_CATALOG } from '@/constants/feature-catalog';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -46,6 +47,7 @@ function newPlan(): IPlan {
     priceMonthly: 0,
     cycles: { 1: 0, 3: 0, 6: 0, 12: 0 },
     features: [],
+    featureKeys: [],
     limits: { tables: 0, items: 0, staff: 0 },
     sortOrder: 0,
   };
@@ -78,6 +80,14 @@ export default function SuperAdminPricing() {
   const updateLimit = (index: number, key: keyof IPlan['limits'], value: number) => {
     setPlans((prev) =>
       prev.map((p, i) => (i === index ? { ...p, limits: { ...p.limits, [key]: value } } : p)),
+    );
+  };
+
+  const toggleFeatureKey = (index: number, key: string) => {
+    const keys = plans[index].featureKeys ?? [];
+    updatePlan(
+      index,
+      keys.includes(key) ? { featureKeys: keys.filter((k) => k !== key) } : { featureKeys: [...keys, key] },
     );
   };
 
@@ -162,7 +172,8 @@ export default function SuperAdminPricing() {
               <div className="flex items-center gap-2 text-xs text-slate-500">
                 <Info className="h-4 w-4 text-cerulean-blue-600" />
                 Gói "Liên hệ" không cần nhập giá — trang thanh toán sẽ hiển thị "Liên hệ bán hàng".
-                Số 0 trong giới hạn có nghĩa là không giới hạn.
+                Số 0 trong giới hạn có nghĩa là không giới hạn. "Tính năng được cấp" là quyền truy cập
+                thật, còn "Tính năng" chỉ hiển thị trên card bán hàng.
               </div>
               <Button
                 onClick={handleSave}
@@ -372,6 +383,48 @@ export default function SuperAdminPricing() {
                           Chưa có tính năng nào
                         </p>
                       )}
+                    </div>
+                  </div>
+
+                  {/* Quyền tính năng (featureKeys) */}
+                  <div className="lg:col-span-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="text-xs font-semibold text-slate-600">
+                          Tính năng được cấp (featureKeys)
+                        </Label>
+                        <p className="text-[11px] text-slate-400">
+                          Quyền truy cập THẬT (gate menu/route/action). Khác với "Tính năng" ở trên chỉ là
+                          mô tả trên card bán hàng.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                      {FEATURE_CATALOG.map((f) => {
+                        const checked = (plan.featureKeys ?? []).includes(f.key);
+                        return (
+                          <label
+                            key={f.key}
+                            className={cn(
+                              'flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 transition',
+                              checked
+                                ? 'border-cerulean-blue-300 bg-cerulean-blue-50/60'
+                                : 'border-slate-200 bg-white hover:border-cerulean-blue-200',
+                            )}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleFeatureKey(index, f.key)}
+                              className="h-4 w-4 rounded border-slate-300 text-cerulean-blue-600 focus:ring-cerulean-blue-500"
+                            />
+                            <div className="min-w-0">
+                              <p className="truncate text-xs font-semibold text-slate-700">{f.label}</p>
+                              <p className="text-[10px] text-slate-400">{f.group}</p>
+                            </div>
+                          </label>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>

@@ -3,6 +3,8 @@ import { CreditCard, Lock, Sparkles } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/hooks/redux-hook';
 import { closeUpsell } from '@/redux/slices/upsellSlice';
 import { LIMIT_RESOURCE_LABEL } from '@/constants/feature-catalog';
+import { useSubscription } from '@/hooks/use-subscription';
+import type { IPlan } from '@/types/subscription.type';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -20,10 +22,36 @@ export default function UpsellSubscriptionModal() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { open, type, message, meta } = useAppSelector((state) => state.upsell);
+  const { pricing } = useSubscription();
+
+  /** Gợi ý gói tối thiểu đủ limit (so theo meta từ server) → mở PaymentDialog với gói đó. */
+  const suggestedPlanKey = (() => {
+    if (type !== 'plan-limit' || !meta || !meta.limit) return '';
+    const limit = meta.limit;
+    const resource = meta.resource as keyof IPlan['limits'] | undefined;
+    const plans = pricing?.plans ?? [];
+    const currentSort = meta.planKey
+      ? (plans.find((p) => p.key === meta.planKey)?.sortOrder ?? 0)
+      : 0;
+    const candidate = plans
+      .filter((p) => {
+        if (p.isActive === false || p.contactOnly) return false;
+        if ((p.sortOrder ?? 0) <= currentSort) return false;
+        if (!resource) return true;
+        const pLimit = p.limits?.[resource] ?? 0;
+        return pLimit === 0 || pLimit > limit;
+      })
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))[0];
+    return candidate?.key ?? '';
+  })();
 
   const handleUpgrade = () => {
     dispatch(closeUpsell());
-    navigate('/admin/billing');
+    if (suggestedPlanKey) {
+      navigate(`/admin/billing?plan=${suggestedPlanKey}&cycle=1`);
+    } else {
+      navigate('/admin/billing');
+    }
   };
 
   // Copy + hành động theo loại upsell
