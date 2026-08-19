@@ -85,22 +85,22 @@ describe('T9 — Payment', () => {
     });
   });
 
-  describe('Các route công khai (public) — không cần token', () => {
-    it('POST /banking/:orderId → không đòi 401', async () => {
+  describe('Route yêu cầu token (auth) — banking + check-connect', () => {
+    it('POST /banking/:orderId không token → 401', async () => {
       const res = await request.post(`/api/payments/banking/${idOf(SEED_IDS.orderXPaid)}`);
-      expect(res.status).not.toBe(401);
+      expect(res.status).toBe(401);
     });
 
+    it('POST /check-connect không token → 401', async () => {
+      const res = await request.post('/api/payments/check-connect').send({});
+      expect(res.status).toBe(401);
+    });
+  });
+
+  describe('Các route công khai (public) — không cần token', () => {
     it('POST /:orderId/cancel → không đòi 401', async () => {
       const res = await request.post(`/api/payments/${idOf(SEED_IDS.orderXPaid)}/cancel`);
       expect(res.status).not.toBe(401);
-    });
-
-    it('POST /check-connect thiếu payload → ghi nhận hiện tại 500 (destructure undefined)', async () => {
-      const res = await request.post('/api/payments/check-connect').send({});
-      // Controller destructure payload từ body {} → undefined → service throw → 500.
-      // Kỳ vọng đúng phải là 400. Chưa thuộc phạm vi tenant.
-      expect(res.status).toBe(500);
     });
 
     it('POST /webhook → không đòi 401', async () => {

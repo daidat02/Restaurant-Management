@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useOrder } from '@/hooks/use-order';
 import { useAuth } from '@/hooks/use-auth';
 import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
+import PlanGate from '@/components/PlanGate';
 import type { IOrder } from '@/types/order.type';
 
 import { PaymentModal } from '../components/PaymentModal';
@@ -65,7 +66,7 @@ export default function Order() {
       {/* DANH SÁCH ĐƠN HÀNG */}
       <div className="flex-1 p-4 lg:p-6 overflow-y-auto w-full">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4">
-          <div className="overflow-x-auto pb-1 sm:pb-0 hide-scrollbar w-full">
+          <div className="overflow-x-auto pb-1 sm:pb-0 hide-scrollbar w-[90%]">
             <CustomTabs
               tabs={[
                 { id: 'all', label: 'Tất cả' },
@@ -82,12 +83,14 @@ export default function Order() {
           </div>
 
           {/* Nút tạo đơn nhanh */}
-          <button
-            onClick={() => navigate(`/${currentRole}/orders/pos`)}
-            className="bg-cerulean-blue-600 hover:bg-cerulean-blue-500 text-white px-4 py-2.5 sm:py-2 rounded-lg text-[13px] sm:text-[12px] font-semibold shadow-md transition-all shrink-0 w-full sm:w-auto text-center"
-          >
-            + Đơn mới
-          </button>
+          <PlanGate resource="daily_orders" fallbackMode="upsell">
+            <button
+              onClick={() => navigate(`/${currentRole}/orders/pos`)}
+              className="bg-cerulean-blue-600 hover:bg-cerulean-blue-500 text-white px-4 py-2.5 sm:py-2 rounded-lg text-[13px] sm:text-[12px] font-semibold shadow-md transition-all shrink-0 w-full sm:w-auto text-center"
+            >
+              + Đơn mới
+            </button>
+          </PlanGate>
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">

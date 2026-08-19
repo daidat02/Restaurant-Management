@@ -4,6 +4,7 @@ import { Plus, Printer } from 'lucide-react';
 import { extractId, getTimeAgo } from '@/utils/helpers';
 import { QRCodeSVG } from 'qrcode.react';
 import { useReactToPrint } from 'react-to-print';
+import PlanGate from '@/components/PlanGate';
 import type { IOrder } from '@/types/order.type';
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
@@ -141,16 +142,18 @@ export const TableCard = ({
         <span className="text-[11px] text-slate-400">{timeLabel}</span>
         <div className="flex gap-1.5">
           {isAvailable ? (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onCreateOrder) onCreateOrder(table._id);
-              }}
-              className="flex items-center gap-1 rounded-lg bg-cerulean-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-cerulean-blue-700"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Tạo đơn
-            </button>
+            <PlanGate resource="daily_orders" fallbackMode="upsell">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onCreateOrder) onCreateOrder(table._id);
+                }}
+                className="flex items-center gap-1 rounded-lg bg-cerulean-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-cerulean-blue-700"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Tạo đơn
+              </button>
+            </PlanGate>
           ) : isReserved ? (
             <button
               onClick={(e) => {

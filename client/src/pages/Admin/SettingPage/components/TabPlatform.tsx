@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { SettingCard, Field, ToggleSwitch } from './settings-ui';
 import { usePayment } from '@/hooks/use-payment';
 import { getGatewayConfig, saveGatewayConfig } from '@/api/setting.api';
+import PlanGate from '@/components/PlanGate';
 
 /** Ký hiệu che key — server giữ nguyên key cũ khi nhận giá trị này. */
 const MASK = '••••••••••••••••';
@@ -147,6 +148,11 @@ export default function TabPlatform({ onDirty, registerSave }: TabPlatformProps)
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
       {/* PayOS */}
+      <PlanGate
+        featureKey="payos"
+        fallbackMode="upsell"
+        disabledTooltip="Tính năng Chuyển khoản QR PayOS không có trong gói hiện tại. Nâng gói để sử dụng."
+      >
       <div className="rounded-2xl border border-cerulean-blue-200 bg-white p-6 shadow-card">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
@@ -223,6 +229,7 @@ export default function TabPlatform({ onDirty, registerSave }: TabPlatformProps)
           )}
         </div>
       </div>
+      </PlanGate>
 
       {/* VNPay */}
       <SettingCard

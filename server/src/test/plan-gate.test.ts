@@ -163,12 +163,215 @@ describe('T02 — Plan gate (tính năng theo gói)', () => {
     expect(direct.body.errorCode).not.toBe('PLAN_LIMIT_REACHED');
   });
 
-  it('pro: tạo hội thoại nhóm OK', async () => {
+  it('pro: tạo hội thoại nhóm OK (nhà hàng pro mới — tránh tích luỹ group_chats)', async () => {
+    const pro = await makeRestaurant('pro');
+    const proId = idOf(pro._id);
+    await DB_Connection.User.findByIdAndUpdate(SEED_IDS.adminX, {
+      $addToSet: { restaurantIds: pro._id },
+    });
     const res = await request
       .post('/api/conversations')
-      .set('Authorization', `Bearer ${tokenFor('manager', X)}`)
-      .send({ type: 'group', restaurantId: X, name: 'Group pro' });
+      .set('Authorization', `Bearer ${tokenFor('admin', proId)}`)
+      .send({ type: 'group', restaurantId: proId, name: 'Group pro' });
     expect(res.status).toBe(201);
     expect(res.body.data.type).toBe('group');
+  });
+
+  it('pro: đạt 5 nhóm chat → tạo nhóm thứ 6 bị chặn 403 PLAN_LIMIT_REACHED (group_chats)', async () => {
+    const pro = await makeRestaurant('pro');
+    const proId = idOf(pro._id);
+    await DB_Connection.User.findByIdAndUpdate(SEED_IDS.adminX, {
+      $addToSet: { restaurantIds: pro._id },
+    });
+    for (let i = 1; i <= 5; i += 1) {
+      const ok = await request
+        .post('/api/conversations')
+        .set('Authorization', `Bearer ${tokenFor('admin', proId)}`)
+        .send({ type: 'group', restaurantId: proId, name: `Group ${i}` });
+      expect(ok.status).toBe(201);
+    }
+
+    const blocked = await request
+      .post('/api/conversations')
+      .set('Authorization', `Bearer ${tokenFor('admin', proId)}`)
+      .send({ type: 'group', restaurantId: proId, name: 'Group 6' });
+    expect(blocked.status).toBe(403);
+    expect(blocked.body.errorCode).toBe('PLAN_LIMIT_REACHED');
+    expect(blocked.body.meta).toMatchObject({
+      resource: 'group_chats',
+      limit: 5,
+      used: 5,
+      planKey: 'pro',
+    });
+  });
+
+  it('free: đủ 30 đơn hôm nay → tạo đơn thứ 31 bị chặn 403 PLAN_LIMIT_REACHED (daily_orders)', async () => {
+    const free = await makeRestaurant('free');
+    const freeId = idOf(free._id);
+    const table = await DB_Connection.Table.create({
+      restaurant: free._id,
+      tableNumber: Date.now(),
+      status: 'available',
+    });
+
+    const seeds = Array.from({ length: 30 }, (_, i) => ({
+      orderId: `PO-${freeId}-${i}`,
+      restaurant: free._id,
+      orderType: 'dine-in',
+      status: 'confirmed',
+      items: [],
+      totalAmount: 10000,
+    }));
+    await DB_Connection.Order.insertMany(seeds);
+
+    const res = await request.post('/api/orders').send({
+      restaurant: freeId,
+      table: idOf(table._id),
+      orderType: 'dine-in',
+      items: [{ menuItem: idOf(SEED_IDS.menuItemX1), quantity: 1 }],
+    });
+    expect(res.status).toBe(403);
+    expect(res.body.errorCode).toBe('PLAN_LIMIT_REACHED');
+    expect(res.body.meta).toMatchObject({
+      resource: 'daily_orders',
+      limit: 30,
+      used: 30,
+      planKey: 'free',
+    });
+  });
+
+  it('pro: daily_orders = 0 (không giới hạn) → vẫn tạo đơn OK', async () => {
+    const pro = await makeRestaurant('pro');
+    const proId = idOf(pro._id);
+    const table = await DB_Connection.Table.create({
+      restaurant: pro._id,
+      tableNumber: Date.now(),
+      status: 'available',
+    });
+    const res = await request.post('/api/orders').send({
+      restaurant: proId,
+      table: idOf(table._id),
+      orderType: 'dine-in',
+      items: [{ menuItem: idOf(SEED_IDS.menuItemX1), quantity: 1 }],
+    });
+    expect(res.status).toBe(201);
+  });
+
+  it('free: cài đặt phương thức thanh toán PayOS → 403 PLAN_LIMIT_REACHED (feature payos)', async () => {
+    const free = await makeRestaurant('free');
+    const freeId = idOf(free._id);
+    await DB_Connection.User.findByIdAndUpdate(SEED_IDS.adminX, {
+      $addToSet: { restaurantIds: free._id },
+    });
+    const setting = await DB_Connection.Setting.create({
+      scope: 'restaurant',
+      targetModel: 'Restaurant',
+      targetId: free._id,
+      paymentMethodType: 'none',
+    });
+
+    const res = await request
+      .patch(`/api/settings/${idOf(setting._id)}/payment-method`)
+      .set('Authorization', `Bearer ${tokenFor('admin', freeId)}`)
+      .send({
+        paymentMethodType: 'payos',
+        payload: {
+          integrations: {
+            payOS: { clientId: 'c', apiKey: 'a', checksumKey: 's' },
+          },
+        },
+      });
+    expect(res.status).toBe(403);
+    expect(res.body.errorCode).toBe('PLAN_LIMIT_REACHED');
+    expect(res.body.meta).toMatchObject({ feature: 'payos', planKey: 'free' });
+  });
+
+  it('pro: cài đặt phương thức thanh toán PayOS → 200', async () => {
+    const pro = await makeRestaurant('pro');
+    const proId = idOf(pro._id);
+    await DB_Connection.User.findByIdAndUpdate(SEED_IDS.adminX, {
+      $addToSet: { restaurantIds: pro._id },
+    });
+    const setting = await DB_Connection.Setting.create({
+      scope: 'restaurant',
+      targetModel: 'Restaurant',
+      targetId: pro._id,
+      paymentMethodType: 'none',
+    });
+
+    const res = await request
+      .patch(`/api/settings/${idOf(setting._id)}/payment-method`)
+      .set('Authorization', `Bearer ${tokenFor('admin', proId)}`)
+      .send({
+        paymentMethodType: 'payos',
+        payload: {
+          integrations: {
+            payOS: { clientId: 'c', apiKey: 'a', checksumKey: 's' },
+          },
+        },
+      });
+    expect(res.status).toBe(200);
+  });
+
+  it('free: cài đặt Chuyển khoản ngân hàng (QR thủ công) → 403 PLAN_LIMIT_REACHED (qr_manual||payos)', async () => {
+    const free = await makeRestaurant('free');
+    const freeId = idOf(free._id);
+    await DB_Connection.User.findByIdAndUpdate(SEED_IDS.adminX, {
+      $addToSet: { restaurantIds: free._id },
+    });
+    const setting = await DB_Connection.Setting.create({
+      scope: 'restaurant',
+      targetModel: 'Restaurant',
+      targetId: free._id,
+      paymentMethodType: 'none',
+    });
+
+    const res = await request
+      .patch(`/api/settings/${idOf(setting._id)}/payment-method`)
+      .set('Authorization', `Bearer ${tokenFor('admin', freeId)}`)
+      .send({
+        paymentMethodType: 'bank_transfer',
+        payload: {
+          bankAccount: {
+            bankName: 'Vietcombank',
+            accountNumber: '1234567890',
+            accountName: 'TEST',
+            bin: '970436',
+          },
+        },
+      });
+    expect(res.status).toBe(403);
+    expect(res.body.errorCode).toBe('PLAN_LIMIT_REACHED');
+    expect(res.body.meta).toMatchObject({ planKey: 'free', anyOf: true });
+  });
+
+  it('pro: cài đặt Chuyển khoản ngân hàng → 200 (có payos → OR pass)', async () => {
+    const pro = await makeRestaurant('pro');
+    const proId = idOf(pro._id);
+    await DB_Connection.User.findByIdAndUpdate(SEED_IDS.adminX, {
+      $addToSet: { restaurantIds: pro._id },
+    });
+    const setting = await DB_Connection.Setting.create({
+      scope: 'restaurant',
+      targetModel: 'Restaurant',
+      targetId: pro._id,
+      paymentMethodType: 'none',
+    });
+
+    const res = await request
+      .patch(`/api/settings/${idOf(setting._id)}/payment-method`)
+      .set('Authorization', `Bearer ${tokenFor('admin', proId)}`)
+      .send({
+        paymentMethodType: 'bank_transfer',
+        payload: {
+          bankAccount: {
+            bankName: 'Vietcombank',
+            accountNumber: '1234567890',
+            accountName: 'TEST',
+            bin: '970436',
+          },
+        },
+      });
+    expect(res.status).toBe(200);
   });
 });

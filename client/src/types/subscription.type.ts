@@ -1,10 +1,12 @@
 import type { RestaurantSubscription } from './restaurant.type';
 
-/** Mức sử dụng hiện tại của 1 nhà hàng (bàn/món/NV) — để hiển thị "Đang dùng X/Y". */
+/** Mức sử dụng hiện tại của 1 nhà hàng (bàn/món/NV/đơn/nhóm) — để hiển thị "Đang dùng X/Y". */
 export interface IPlanUsage {
   tables: number;
   items: number;
   staff: number;
+  daily_orders?: number;
+  group_chats?: number;
 }
 
 /** Trạng thái thuê bao của 1 nhà hàng thuộc chủ (GET /subscriptions/me). */
@@ -31,6 +33,10 @@ export interface IPlanLimits {
   tables: number;
   items: number;
   staff: number;
+  /** Số đơn tối đa mỗi ngày (0 = không giới hạn). */
+  daily_orders: number;
+  /** Số hội thoại nhóm tối đa (0 = không giới hạn). */
+  group_chats: number;
 }
 
 /** Một gói dịch vụ (plan). */

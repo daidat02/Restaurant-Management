@@ -11,8 +11,7 @@ import { DataTable, type ColumnDef } from '@/components/TableData';
 import { StatusTag } from '@/components/StatusTag';
 import { useAuth } from '@/hooks/use-auth';
 import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
-import { usePlan } from '@/hooks/use-plan';
-
+import PlanGate from '@/components/PlanGate';
 import {
   Select,
   SelectContent,
@@ -61,10 +60,10 @@ function RestaurantBadge({
 export default function UsersPage() {
   const navigate = useNavigate();
   const { users, isLoading, fetchUsersWithFilter } = useUser();
+
   const { user } = useAuth();
   const activeRestaurantId = useActiveRestaurantId();
   const { restaurants, fetchRestaurants } = useRestaurant();
-  const { planKey, plan, limitReached } = usePlan();
 
   // State quản lý bộ lọc & tìm kiếm
   const [searchTerm, setSearchTerm] = useState('');
@@ -91,7 +90,7 @@ export default function UsersPage() {
       rolesToFetch = ['staff', 'manager'];
       restaurantId = activeRestaurantId;
     } else if (user.role === 'admin') {
-      rolesToFetch = ['manager', 'admin'];
+      rolesToFetch = ['manager', 'staff'];
       restaurantId = selectedRestaurantId !== 'all' ? selectedRestaurantId : undefined;
     }
 
@@ -143,9 +142,6 @@ export default function UsersPage() {
   const handleCreateNew = () => {
     navigate(user?.role === 'admin' ? '/admin/customers/new' : '/manager/staff/new');
   };
-
-  // Đạt trần nhân viên của gói → khoá nút "Thêm nhân viên" (server vẫn chặn nếu bypass).
-  const staffLimitHit = limitReached('staff', users.length);
 
   const handleEdit = (id: string) => {
     navigate(user?.role === 'admin' ? `/admin/customers/edit/${id}` : `/manager/staff/edit/${id}`);
@@ -289,18 +285,14 @@ export default function UsersPage() {
                 <Download className="mr-2 h-4 w-4 text-slate-500" /> Xuất file
               </Button>
 
-              <Button
-                disabled={staffLimitHit}
-                title={
-                  staffLimitHit
-                    ? `Gói ${plan?.name ?? planKey ?? 'Miễn Phí'} đạt ${plan?.limits?.staff ?? 0} nhân viên — nâng gói để thêm`
-                    : undefined
-                }
-                className="bg-cerulean-blue-600 hover:bg-cerulean-blue-700 text-white h-9 rounded-xl text-sm shadow-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
-                onClick={handleCreateNew}
-              >
-                Thêm nhân viên <Plus className="ml-2 h-4 w-4" />
-              </Button>
+              <PlanGate resource="staff" currentCount={users.length} fallbackMode="upsell">
+                <Button
+                  className="bg-cerulean-blue-600 hover:bg-cerulean-blue-700 text-white h-9 rounded-xl text-sm shadow-sm font-medium disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={handleCreateNew}
+                >
+                  Thêm nhân viên <Plus className="ml-2 h-4 w-4" />
+                </Button>
+              </PlanGate>
             </div>
           }
         >

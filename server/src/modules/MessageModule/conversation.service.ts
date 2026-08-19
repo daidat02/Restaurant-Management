@@ -196,10 +196,13 @@ class ConversationService {
     }
 
     // Gate tính năng: chat nhóm chỉ từ gói có messaging_group (1-1 mở cho mọi gói).
+    // + Giới hạn số nhóm chat theo gói (group_chats).
     if (type === "group") {
-      const { assertFeatureRestaurant } = await import("../../services/plan-gate.service.js");
+      const { assertFeatureRestaurant, assertLimit, countResource } = await import("../../services/plan-gate.service.js");
       try {
         await assertFeatureRestaurant(restaurantId, "messaging_group");
+        const used = await countResource(restaurantId, "group_chats");
+        await assertLimit(restaurantId, "group_chats", used, 1);
       } catch (gateError: any) {
         if (gateError?.code === "PLAN_LIMIT_REACHED") {
           return { code: 403, errorCode: "PLAN_LIMIT_REACHED", message: gateError.message, meta: gateError.meta };

@@ -19,7 +19,10 @@ import { FormSelect } from '@/components/FormSelect';
 import { useSubscription } from '@/hooks/use-subscription';
 import { useUser } from '@/hooks/use-user';
 import { createRestaurant as createRestaurantApi } from '@/api/restaurants.api';
-import { PaymentDialog, type PaymentMethod } from '@/pages/Admin/BillingPage/PaymentDialog';
+import {
+  PaymentDialog,
+  type PaymentMethod,
+} from '@/pages/Admin/BillingPage/components/PaymentDialog';
 import { PaymentSuccessDialog } from '@/components/PaymentSuccessDialog';
 import type { IPlan } from '@/types/subscription.type';
 import type { IRestaurant } from '@/types/restaurant.type';
@@ -86,7 +89,10 @@ export default function CreateRestaurantPage() {
 
   const isFirstRestaurant = subscriptions.length === 0;
 
-  const plans = useMemo(() => (pricing?.plans ?? []).filter((p) => p.isActive !== false), [pricing]);
+  const plans = useMemo(
+    () => (pricing?.plans ?? []).filter((p) => p.isActive !== false),
+    [pricing],
+  );
   const defaultPlan = useMemo(
     () => plans.find((p) => p.isPopular && !p.contactOnly) ?? plans.find((p) => !p.contactOnly),
     [plans],
@@ -241,7 +247,9 @@ export default function CreateRestaurantPage() {
             <ArrowLeft className="h-4 w-4" />
           </button>
           <div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">Tạo nhà hàng mới</h1>
+            <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">
+              Tạo nhà hàng mới
+            </h1>
             <p className="text-sm text-slate-500">
               Điền thông tin chi nhánh và chọn gói dịch vụ để kích hoạt hệ thống.
             </p>
@@ -311,7 +319,9 @@ export default function CreateRestaurantPage() {
                 <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
                   <FormSelect
                     label="Quản lý chi nhánh"
-                    placeholder={managerOptions.length > 0 ? 'Chọn quản lý' : 'Đang tải danh sách...'}
+                    placeholder={
+                      managerOptions.length > 0 ? 'Chọn quản lý' : 'Đang tải danh sách...'
+                    }
                     options={managerOptions}
                     value={managerId}
                     disabled={managerOptions.length === 0}
@@ -361,10 +371,12 @@ export default function CreateRestaurantPage() {
                   <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-cerulean-blue-600 shadow-sm">
                     <Gift className="h-6 w-6" />
                   </span>
-                  <p className="text-sm font-bold text-cerulean-blue-800">Miễn phí 30 ngày dùng thử</p>
+                  <p className="text-sm font-bold text-cerulean-blue-800">
+                    Miễn phí 30 ngày dùng thử
+                  </p>
                   <p className="text-xs leading-relaxed text-slate-500">
-                    Nhà hàng đầu tiên của bạn được dùng thử tất cả tính năng trong 30 ngày. Sau đó chọn gói phù hợp
-                    để tiếp tục sử dụng.
+                    Nhà hàng đầu tiên của bạn được dùng thử tất cả tính năng trong 30 ngày. Sau đó
+                    chọn gói phù hợp để tiếp tục sử dụng.
                   </p>
                 </div>
               ) : plans.length === 0 ? (
@@ -375,7 +387,9 @@ export default function CreateRestaurantPage() {
                 <div className="space-y-4">
                   {/* Danh sách gói */}
                   <div>
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Chọn gói dịch vụ</p>
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                      Chọn gói dịch vụ
+                    </p>
                     <div className="space-y-2">
                       {plans.map((plan: IPlan) => {
                         const active = selectedPlanKey === plan.key;
@@ -402,12 +416,17 @@ export default function CreateRestaurantPage() {
                             <div className="flex items-center justify-between">
                               <span className="text-sm font-bold text-gray-900">{plan.name}</span>
                               <span className="text-sm font-extrabold text-gray-900">
-                                {plan.contactOnly ? 'Liên hệ' : `${fmtVND(plan.priceMonthly)}/tháng`}
+                                {plan.contactOnly
+                                  ? 'Liên hệ'
+                                  : `${fmtVND(plan.priceMonthly)}/tháng`}
                               </span>
                             </div>
                             <ul className="mt-2 space-y-1">
                               {plan.features.slice(0, 3).map((f) => (
-                                <li key={f} className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                                <li
+                                  key={f}
+                                  className="flex items-center gap-1.5 text-[11px] text-slate-500"
+                                >
                                   <Check className="h-3 w-3 shrink-0 text-emerald-500" /> {f}
                                 </li>
                               ))}
@@ -441,14 +460,26 @@ export default function CreateRestaurantPage() {
                                   : 'border-slate-200 hover:border-cerulean-blue-300',
                               )}
                             >
-                              <span className={cn('text-xs font-bold', active ? 'text-cerulean-blue-700' : 'text-slate-700')}>
+                              <span
+                                className={cn(
+                                  'text-xs font-bold',
+                                  active ? 'text-cerulean-blue-700' : 'text-slate-700',
+                                )}
+                              >
                                 {m} tháng
                               </span>
-                              <span className={cn('mt-0.5 text-[11px] font-semibold', active ? 'text-cerulean-blue-700' : 'text-slate-500')}>
+                              <span
+                                className={cn(
+                                  'mt-0.5 text-[11px] font-semibold',
+                                  active ? 'text-cerulean-blue-700' : 'text-slate-500',
+                                )}
+                              >
                                 {fmtVND(p)}
                               </span>
                               {saving > 0 && (
-                                <span className="mt-0.5 text-[10px] font-semibold text-emerald-600">tiết kiệm {saving}%</span>
+                                <span className="mt-0.5 text-[10px] font-semibold text-emerald-600">
+                                  tiết kiệm {saving}%
+                                </span>
                               )}
                             </button>
                           );
@@ -493,7 +524,9 @@ export default function CreateRestaurantPage() {
                               >
                                 {icon}
                               </span>
-                              <span className="flex-1 text-sm font-bold text-gray-900">{label}</span>
+                              <span className="flex-1 text-sm font-bold text-gray-900">
+                                {label}
+                              </span>
                               <span
                                 className={cn(
                                   'flex h-4 w-4 items-center justify-center rounded-full border-2 transition',
@@ -516,14 +549,23 @@ export default function CreateRestaurantPage() {
                     <span className="text-sm text-slate-500">
                       {selectedPlan ? `Tổng tiền (${selectedPlan.name})` : 'Tổng tiền'}
                     </span>
-                    <span className="text-base font-extrabold text-cerulean-blue-600">{totalLabel}</span>
+                    <span className="text-base font-extrabold text-cerulean-blue-600">
+                      {totalLabel}
+                    </span>
                   </div>
                 </div>
               )}
 
               <Button
                 type="submit"
-                disabled={submitting || (subscriptionsLoading ? true : isFirstRestaurant ? false : !price || !selectedPlan || selectedPlan.contactOnly)}
+                disabled={
+                  submitting ||
+                  (subscriptionsLoading
+                    ? true
+                    : isFirstRestaurant
+                      ? false
+                      : !price || !selectedPlan || selectedPlan.contactOnly)
+                }
                 className="mt-4 h-11 w-full rounded-xl bg-cerulean-blue-600 text-white font-semibold hover:bg-cerulean-blue-700"
               >
                 {submitting ? (
@@ -533,12 +575,15 @@ export default function CreateRestaurantPage() {
                 ) : (
                   <CreditCard className="mr-2 h-4 w-4" />
                 )}
-                {isFirstRestaurant ? 'Tạo nhà hàng (Dùng thử 30 ngày)' : 'Thanh toán & Tạo nhà hàng'}
+                {isFirstRestaurant
+                  ? 'Tạo nhà hàng (Dùng thử 30 ngày)'
+                  : 'Thanh toán & Tạo nhà hàng'}
               </Button>
 
               {!isFirstRestaurant && !subscriptionsLoading && (
                 <p className="mt-3 flex items-center justify-center gap-1 text-[11px] text-slate-400">
-                  <MapPin className="h-3 w-3" /> Chi nhánh mới được kích hoạt ngay sau khi thanh toán
+                  <MapPin className="h-3 w-3" /> Chi nhánh mới được kích hoạt ngay sau khi thanh
+                  toán
                 </p>
               )}
             </div>
@@ -571,7 +616,10 @@ export default function CreateRestaurantPage() {
             pendingRestaurant
               ? [
                   { label: 'Nhà hàng', value: pendingRestaurant.name },
-                  { label: 'Số tiền', value: <span className="font-bold text-[#16c52a]">{fmtVND(price)}</span> },
+                  {
+                    label: 'Số tiền',
+                    value: <span className="font-bold text-[#16c52a]">{fmtVND(price)}</span>,
+                  },
                   {
                     label: 'Gói dịch vụ',
                     value: `${selectedPlan?.name ?? ''} · ${cycleText}`,

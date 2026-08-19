@@ -3,6 +3,7 @@ import type { ServiceResponse } from '../shared/type.js';
 import pricingService from '../modules/SubscriptionModule/pricing.service.js';
 import { writeAuditLog } from './auditLog.service.js';
 import { generateTransactionId } from './transaction-id.service.js';
+import { countResource } from './plan-gate.service.js';
 
 const VALID_CYCLES = [1, 3, 6, 12];
 const DAY_MS = 24 * 3600 * 1000;
@@ -264,6 +265,8 @@ class SubscriptionService {
         tables: await DB_Connection.Table.countDocuments({ restaurant: r._id }),
         items: await DB_Connection.MenuItem.countDocuments({ restaurant: r._id }),
         staff: await DB_Connection.User.countDocuments({ restaurantIds: r._id, role: 'staff' }),
+        daily_orders: await countResource(String(r._id), 'daily_orders'),
+        group_chats: await countResource(String(r._id), 'group_chats'),
       })),
     );
     const usageByRestaurant = new Map(usageList.map((u) => [u.restaurantId, u]));
@@ -282,7 +285,13 @@ class SubscriptionService {
           ? Math.ceil((r.paidUntil.getTime() - now) / (24 * 3600 * 1000))
           : 0,
         usage: usage
-          ? { tables: usage.tables, items: usage.items, staff: usage.staff }
+          ? {
+              tables: usage.tables,
+              items: usage.items,
+              staff: usage.staff,
+              daily_orders: usage.daily_orders,
+              group_chats: usage.group_chats,
+            }
           : undefined,
       };
     });
@@ -301,6 +310,32 @@ class SubscriptionService {
       data: transactions,
       code: 200,
     };
+  }
+
+  /** Mức sử dụng hiện tại của 1 nhà hàng — cho gate UI (đơn/ngày, nhóm chat, bàn, món, NV). */
+  async usageService(
+    restaurantId: string | undefined,
+    userId: string | undefined,
+  ): Promise<ServiceResponse<any>> {
+    if (!restaurantId || !userId) {
+      return { message: 'Thiếu thông tin nhà hàng!', code: 400 };
+    }
+    const restaurant = await DB_Connection.Restaurant.findById(restaurantId).exec();
+    if (!restaurant) return { message: 'Nhà hàng không tồn tại!', code: 404 };
+    // Quyền: chủ sở hữu, hoặc manager/staff thuộc chi nhánh.
+    const isOwner = String((restaurant as any).ownerId ?? '') === userId;
+    if (!isOwner) {
+      const member = await DB_Connection.User.findOne({ _id: userId, restaurantIds: restaurantId }).lean();
+      if (!member) return { message: 'Bạn không có quyền xem nhà hàng này!', code: 403 };
+    }
+    const usage = {
+      tables: await countResource(restaurantId, 'tables'),
+      items: await countResource(restaurantId, 'items'),
+      staff: await countResource(restaurantId, 'staff'),
+      daily_orders: await countResource(restaurantId, 'daily_orders'),
+      group_chats: await countResource(restaurantId, 'group_chats'),
+    };
+    return { message: 'Lấy mức sử dụng thành công', data: usage, code: 200 };
   }
 }
 

@@ -7,7 +7,7 @@ function planByKey(key: string): IPlan {
 }
 
 describe('Feature catalog (bảng chức năng)', () => {
-  it('FEATURE_KEYS khai báo đủ 8 feature gate', () => {
+  it('FEATURE_KEYS khai báo đủ 10 feature gate', () => {
     expect(FEATURE_KEYS).toEqual([
       'kds',
       'cart',
@@ -17,6 +17,8 @@ describe('Feature catalog (bảng chức năng)', () => {
       'messaging_group',
       'white_label',
       'api',
+      'payos',
+      'qr_manual',
     ]);
   });
 
@@ -49,13 +51,37 @@ describe('DEFAULT_PLANS — 4 gói mới', () => {
   });
 
   it('ma trận giới hạn đúng', () => {
-    expect(planByKey('free').limits).toEqual({ tables: 5, items: 30, staff: 2 });
-    expect(planByKey('basic').limits).toEqual({ tables: 20, items: 100, staff: 5 });
-    expect(planByKey('pro').limits).toEqual({ tables: 100, items: 500, staff: 20 });
-    expect(planByKey('enterprise').limits).toEqual({ tables: 0, items: 0, staff: 0 });
+    expect(planByKey('free').limits).toEqual({
+      tables: 5,
+      items: 30,
+      staff: 2,
+      daily_orders: 30,
+      group_chats: 0,
+    });
+    expect(planByKey('basic').limits).toEqual({
+      tables: 20,
+      items: 100,
+      staff: 5,
+      daily_orders: 100,
+      group_chats: 2,
+    });
+    expect(planByKey('pro').limits).toEqual({
+      tables: 100,
+      items: 500,
+      staff: 20,
+      daily_orders: 0,
+      group_chats: 5,
+    });
+    expect(planByKey('enterprise').limits).toEqual({
+      tables: 0,
+      items: 0,
+      staff: 0,
+      daily_orders: 0,
+      group_chats: 0,
+    });
   });
 
-  it('featureKeys đúng ma trận (O2O/KDS từ Pro, API chỉ DN)', () => {
+  it('featureKeys đúng ma trận (O2O/KDS từ Pro, API + PayOS chỉ gói cao)', () => {
     expect(planByKey('free').featureKeys).toEqual([]);
     expect(planByKey('basic').featureKeys).toEqual([]);
     expect(planByKey('pro').featureKeys.sort()).toEqual(

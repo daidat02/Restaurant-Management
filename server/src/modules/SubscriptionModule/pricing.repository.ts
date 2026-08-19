@@ -9,6 +9,44 @@ import {
 } from '../../models/Schema/PricingConfigSchema.js';
 
 class PricingRepository {
+  /** Mặc định cho 2 field limit mới theo plan.key (dùng khi backfill dữ liệu cũ). */
+  private static readonly DEFAULT_NEW_LIMITS: Record<
+    string,
+    { daily_orders: number; group_chats: number }
+  > = {
+    'khởi-động': { daily_orders: 30, group_chats: 0 },
+    basic: { daily_orders: 100, group_chats: 2 },
+    pro: { daily_orders: 0, group_chats: 5 },
+    enterprise: { daily_orders: 0, group_chats: 0 },
+  };
+
+  /**
+   * Backfill idempotent cho plans cũ: bổ sung field limit mới (`daily_orders`, `group_chats`)
+   * nếu thiếu. Không đụng tới featureKeys — gán feature cho gói là do super-admin cấu hình. Trả
+   * true nếu có thay đổi → caller save.
+   */
+  private backfillNewPlanFields(plans: any[]): boolean {
+    if (!Array.isArray(plans) || plans.length === 0) return false;
+    let changed = false;
+    for (const p of plans) {
+      const key = String(p?.key ?? '');
+      const def = PricingRepository.DEFAULT_NEW_LIMITS[key] ?? {
+        daily_orders: 0,
+        group_chats: 0,
+      };
+      p.limits = p.limits ?? {};
+      if (typeof p.limits.daily_orders !== 'number') {
+        p.limits.daily_orders = def.daily_orders;
+        changed = true;
+      }
+      if (typeof p.limits.group_chats !== 'number') {
+        p.limits.group_chats = def.group_chats;
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
   /** Lấy cấu hình giá singleton (key='default'), tự tạo (kèm gói mặc định) nếu chưa có. */
   async getOrCreate(): Promise<IPricingConfig> {
     let config = await DB_Connection.PricingConfig.findOne({ key: 'default' }).exec();
@@ -38,6 +76,11 @@ class PricingRepository {
             : p.features,
         };
       }) as any;
+      await config.save();
+    }
+
+    // Backfill field/feature mới cho plans hiện có (idempotent — chạy lại không đổi).
+    if (this.backfillNewPlanFields(config.plans as any[])) {
       await config.save();
     }
     return config;
@@ -83,6 +126,8 @@ class PricingRepository {
           tables: Math.max(0, Math.round(plan.limits?.tables || 0)),
           items: Math.max(0, Math.round(plan.limits?.items || 0)),
           staff: Math.max(0, Math.round(plan.limits?.staff || 0)),
+          daily_orders: Math.max(0, Math.round(plan.limits?.daily_orders || 0)),
+          group_chats: Math.max(0, Math.round(plan.limits?.group_chats || 0)),
         },
         sortOrder: Math.round(plan.sortOrder || 0),
       };

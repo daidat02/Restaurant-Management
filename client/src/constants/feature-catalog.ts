@@ -8,6 +8,8 @@ export const FEATURE_KEYS = [
   'reservation',
   'advanced_report',
   'messaging_group',
+  'payos',
+  'qr_manual',
   'white_label',
   'api',
 ] as const;
@@ -27,6 +29,8 @@ export const FEATURE_CATALOG: FeatureDef[] = [
   { key: 'reservation', label: 'Đặt chỗ online', group: 'O2O' },
   { key: 'advanced_report', label: 'Báo cáo nâng cao + Excel', group: 'Báo cáo' },
   { key: 'messaging_group', label: 'Chat nhóm + presence', group: 'Messaging' },
+  { key: 'payos', label: 'Chuyển khoản QR PayOS', group: 'Thanh toán' },
+  { key: 'qr_manual', label: 'Chuyển khoản QR thủ công', group: 'Thanh toán' },
   { key: 'white_label', label: 'Thương hiệu riêng', group: 'Thương hiệu' },
   { key: 'api', label: 'API tích hợp', group: 'Tích hợp' },
 ];
@@ -42,4 +46,6 @@ export const LIMIT_RESOURCE_LABEL: Record<string, string> = {
   tables: 'bàn',
   items: 'món',
   staff: 'nhân viên',
+  daily_orders: 'đơn/ngày',
+  group_chats: 'nhóm chat',
 };

@@ -4,7 +4,7 @@ import type { AuthRequest } from '../../middlewares/auth.middleware.js';
 import { writeAuditLog } from '../../services/auditLog.service.js';
 
 class PricingController {
-  /** GET /api/pricing — đọc giá chu kỳ (mọi user có token). */
+  /** GET /api/pricing — đọc giá chu kỳ (public, không cần token — dùng cho landing page). */
   async getPricing(req: Request, res: Response) {
     try {
       const result = await pricingService.getPricing();

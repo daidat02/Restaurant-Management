@@ -3,7 +3,9 @@ import { Banknote, Info, Landmark, PlugZap, QrCode, ScanLine, Zap } from 'lucide
 import { toast } from 'sonner';
 import { SettingCard, Field, SelectField, ToggleSwitch } from './settings-ui';
 import { usePayment } from '@/hooks/use-payment';
+import { usePlan } from '@/hooks/use-plan';
 import type { ISetting } from '@/types/setting.type';
+import PlanGate from '@/components/PlanGate';
 
 interface TabPaymentProps {
   setting: ISetting | null;
@@ -38,6 +40,11 @@ export default function TabPayment({
   const bank = setting?.bankAccount;
   const payOS = setting?.integrations?.payOS;
   const { checkPayOSConnection } = usePayment();
+  const { hasFeature, plan, planKey } = usePlan();
+  const payosAllowed = hasFeature('payos');
+  // Chuyển khoản ngân hàng (QR thủ công): mở khi gói có qr_manual HOẶC payos (giống server).
+  const qrManualAllowed = hasFeature('qr_manual');
+  const bankTransferBlocked = !qrManualAllowed && !payosAllowed;
 
   const [cashEnabled, setCashEnabled] = useState(true);
   const [bankTransferEnabled, setBankTransferEnabled] = useState(method === 'bank_transfer');
@@ -53,7 +60,24 @@ export default function TabPayment({
   const [accountNumber, setAccountNumber] = useState(bank?.accountNumber ?? '');
   const [accountName, setAccountName] = useState(bank?.accountName ?? '');
 
-  const payosChecked = payosEnabled && qrEnabled;
+  const payosChecked = payosAllowed && payosEnabled && qrEnabled;
+
+  // 🔍 DEBUG LOG: Kiểm tra thông tin gói & cấu hình PayOS của nhà hàng
+  useEffect(() => {
+    console.group('🔍 [TabPayment Debug Log]');
+    console.log('📌 Plan Key:', planKey);
+    console.log('📌 Plan Object:', plan);
+    console.log('📌 Feature Keys trong gói:', plan?.featureKeys ?? []);
+    console.log('⚡ Cho phép dùng PayOS (payosAllowed):', payosAllowed);
+    console.log('⚡ Cho phép QR thủ công (qrManualAllowed):', qrManualAllowed);
+    console.log('🔑 PayOS Data trong Setting (setting.integrations.payOS):', payOS);
+    console.log('🔑 Trạng thái có Key PayOS:', {
+      hasClientId: !!payOS?.clientId,
+      hasApiKey: !!payOS?.hasApiKey,
+      hasChecksumKey: !!payOS?.hasChecksumKey,
+    });
+    console.groupEnd();
+  }, [planKey, plan, payosAllowed, qrManualAllowed, payOS]);
 
   const handleSave = useCallback(async () => {
     if (!setting?._id) {
@@ -72,13 +96,17 @@ export default function TabPayment({
       }
       const ok = await changePaymentMethodType(id, 'payos', {
         integrations: {
-          payOS: { clientId: clientId.trim(), apiKey: apiKey.trim(), checksumKey: checksumKey.trim() },
+          payOS: {
+            clientId: clientId.trim(),
+            apiKey: apiKey.trim(),
+            checksumKey: checksumKey.trim(),
+          },
         },
       });
       return !!ok;
     }
 
-    if (bankTransferEnabled) {
+    if (bankTransferEnabled && !bankTransferBlocked) {
       const bankBin = BANK_OPTIONS.find((b) => b.name === bankName)?.bin || '';
       const ok = await changePaymentMethodType(id, 'bank_transfer', {
         bankAccount: {
@@ -98,6 +126,7 @@ export default function TabPayment({
     setting,
     payosChecked,
     bankTransferEnabled,
+    bankTransferBlocked,
     clientId,
     apiKey,
     checksumKey,
@@ -157,6 +186,7 @@ export default function TabPayment({
               }}
             />
           </div>
+
           <div className="py-3 flex justify-between items-center">
             <div className="flex items-center gap-3">
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-50 text-sky-600">
@@ -167,14 +197,24 @@ export default function TabPayment({
                 <p className="text-xs text-slate-400">Khách chuyển khoản qua tài khoản nhận tiền</p>
               </div>
             </div>
-            <ToggleSwitch
-              checked={bankTransferEnabled}
-              onChange={(v) => {
-                setBankTransferEnabled(v);
-                onDirty();
-              }}
-            />
+
+            <PlanGate featureKey="qr_manual" fallbackMode="upsell">
+              <ToggleSwitch
+                checked={bankTransferEnabled && !bankTransferBlocked}
+                onChange={(v) => {
+                  if (bankTransferBlocked) {
+                    console.warn(
+                      '⛔ Thao tác bị chặn: Gói không có tính năng bank_transfer / qr_manual',
+                    );
+                    return;
+                  }
+                  setBankTransferEnabled(v);
+                  onDirty();
+                }}
+              />
+            </PlanGate>
           </div>
+
           <div className="py-3 flex justify-between items-center">
             <div className="flex items-center gap-3">
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-50 text-violet-600">
@@ -185,13 +225,20 @@ export default function TabPayment({
                 <p className="text-xs text-slate-400">Khách quét mã QR thanh toán tức thì</p>
               </div>
             </div>
-            <ToggleSwitch
-              checked={qrEnabled}
-              onChange={(v) => {
-                setQrEnabled(v);
-                onDirty();
-              }}
-            />
+
+            <PlanGate featureKey="payos" fallbackMode="upsell">
+              <ToggleSwitch
+                checked={qrEnabled && payosAllowed}
+                onChange={(v) => {
+                  if (!payosAllowed) {
+                    console.warn('⛔ Thao tác bị chặn: Gói không có tính năng payos');
+                    return;
+                  }
+                  setQrEnabled(v);
+                  onDirty();
+                }}
+              />
+            </PlanGate>
           </div>
         </div>
       </SettingCard>
@@ -218,7 +265,7 @@ export default function TabPayment({
             <SelectField
               label="Ngân hàng"
               value={payosChecked ? '' : bankName}
-              disabled={payosChecked}
+              disabled={payosChecked || bankTransferBlocked}
               onChange={(e) => {
                 setBankName(e.target.value);
                 onDirty();
@@ -234,7 +281,7 @@ export default function TabPayment({
             <Field
               label="Số tài khoản"
               value={payosChecked ? '' : accountNumber}
-              disabled={payosChecked}
+              disabled={payosChecked || bankTransferBlocked}
               onChange={(e) => {
                 setAccountNumber(e.target.value);
                 onDirty();
@@ -244,7 +291,7 @@ export default function TabPayment({
               <Field
                 label="Chủ tài khoản"
                 value={payosChecked ? '' : accountName}
-                disabled={payosChecked}
+                disabled={payosChecked || bankTransferBlocked}
                 onChange={(e) => {
                   setAccountName(e.target.value);
                   onDirty();
@@ -263,7 +310,7 @@ export default function TabPayment({
               </div>
               <button
                 onClick={onDirty}
-                disabled={payosChecked}
+                disabled={payosChecked || bankTransferBlocked}
                 className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:text-cerulean-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Tải QR lên
@@ -293,8 +340,10 @@ export default function TabPayment({
               </div>
             </div>
             <ToggleSwitch
-              checked={payosEnabled}
+              disabled={!payosAllowed}
+              checked={payosEnabled && payosAllowed}
               onChange={(v) => {
+                if (!payosAllowed) return;
                 setPayosEnabled(v);
                 onDirty();
               }}
@@ -304,7 +353,7 @@ export default function TabPayment({
             <Field
               label="Client ID"
               value={clientId}
-              disabled={!payosEnabled}
+              disabled={!payosEnabled || !payosAllowed}
               placeholder="Nhập Client ID PayOS"
               onChange={(e) => {
                 setClientId(e.target.value);
@@ -315,8 +364,10 @@ export default function TabPayment({
               label="API Key"
               type="password"
               value={apiKey}
-              disabled={!payosEnabled}
-              placeholder={payOS?.hasApiKey ? '•••••••••••••••• (giữ nguyên)' : 'Nhập API Key PayOS'}
+              disabled={!payosEnabled || !payosAllowed}
+              placeholder={
+                payOS?.hasApiKey ? '•••••••••••••••• (giữ nguyên)' : 'Nhập API Key PayOS'
+              }
               onChange={(e) => {
                 setApiKey(e.target.value);
                 onDirty();
@@ -326,7 +377,7 @@ export default function TabPayment({
               label="Checksum Key"
               type="password"
               value={checksumKey}
-              disabled={!payosEnabled}
+              disabled={!payosEnabled || !payosAllowed}
               placeholder={
                 payOS?.hasChecksumKey ? '•••••••••••••••• (giữ nguyên)' : 'Nhập Checksum Key PayOS'
               }
@@ -338,13 +389,13 @@ export default function TabPayment({
             <div className="flex items-end">
               <button
                 onClick={handleCheckConnection}
-                disabled={!payosEnabled}
+                disabled={!payosEnabled || !payosAllowed}
                 className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-cerulean-blue-600 text-sm font-semibold text-white transition hover:bg-cerulean-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <PlugZap className="h-4 w-4" /> Kiểm tra kết nối
               </button>
             </div>
-            {connected && payosEnabled && (
+            {connected && payosEnabled && payosAllowed && (
               <div className="flex items-center gap-2 rounded-xl bg-cerulean-blue-50 px-4 py-2.5 text-xs font-medium text-cerulean-blue-700 sm:col-span-2">
                 ✓ Đã kết nối thành công — khách có thể thanh toán QR ngay.
               </div>

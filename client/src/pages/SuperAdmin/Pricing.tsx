@@ -1,13 +1,5 @@
 import { useEffect, useState } from 'react';
-import {
-  Save,
-  Plus,
-  Trash2,
-  CreditCard,
-  GripVertical,
-  Check,
-  Info,
-} from 'lucide-react';
+import { Save, Plus, Trash2, CreditCard, GripVertical, Check, Info } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { getPricingConfig, updatePricingConfig } from '@/api/superadmin.api';
@@ -33,6 +25,8 @@ const LIMIT_FIELDS: { key: keyof IPlan['limits']; label: string }[] = [
   { key: 'tables', label: 'Bàn' },
   { key: 'items', label: 'Món' },
   { key: 'staff', label: 'Nhân viên' },
+  { key: 'daily_orders', label: 'Đơn/ngày' },
+  { key: 'group_chats', label: 'Nhóm chat' },
 ];
 
 function newPlan(): IPlan {
@@ -48,7 +42,7 @@ function newPlan(): IPlan {
     cycles: { 1: 0, 3: 0, 6: 0, 12: 0 },
     features: [],
     featureKeys: [],
-    limits: { tables: 0, items: 0, staff: 0 },
+    limits: { tables: 0, items: 0, staff: 0, daily_orders: 0, group_chats: 0 },
     sortOrder: 0,
   };
 }
@@ -87,7 +81,9 @@ export default function SuperAdminPricing() {
     const keys = plans[index].featureKeys ?? [];
     updatePlan(
       index,
-      keys.includes(key) ? { featureKeys: keys.filter((k) => k !== key) } : { featureKeys: [...keys, key] },
+      keys.includes(key)
+        ? { featureKeys: keys.filter((k) => k !== key) }
+        : { featureKeys: [...keys, key] },
     );
   };
 
@@ -120,10 +116,15 @@ export default function SuperAdminPricing() {
       return;
     }
     const invalidCycle = plans.find(
-      (p) => !p.contactOnly && CYCLE_OPTIONS.some((c) => !p.cycles[c.months] || p.cycles[c.months] <= 0),
+      (p) =>
+        !p.contactOnly &&
+        p.priceMonthly > 0 &&
+        CYCLE_OPTIONS.some((c) => !p.cycles[c.months] || p.cycles[c.months] <= 0),
     );
     if (invalidCycle) {
-      toast.error(`Gói "${invalidCycle.name}": giá chu kỳ phải là số > 0!`, { position: 'top-right' });
+      toast.error(`Gói "${invalidCycle.name}": giá chu kỳ phải là số > 0!`, {
+        position: 'top-right',
+      });
       return;
     }
 
@@ -148,8 +149,8 @@ export default function SuperAdminPricing() {
               Gói Cước &amp; Giá
             </h1>
             <p className="text-sm text-slate-500 mt-1">
-              Cấu hình các gói dịch vụ (tên, giá theo chu kỳ, tính năng, giới hạn) — áp dụng cho toàn
-              bộ chủ trên nền tảng
+              Cấu hình các gói dịch vụ (tên, giá theo chu kỳ, tính năng, giới hạn) — áp dụng cho
+              toàn bộ chủ trên nền tảng
             </p>
           </div>
           <Button
@@ -172,8 +173,8 @@ export default function SuperAdminPricing() {
               <div className="flex items-center gap-2 text-xs text-slate-500">
                 <Info className="h-4 w-4 text-cerulean-blue-600" />
                 Gói "Liên hệ" không cần nhập giá — trang thanh toán sẽ hiển thị "Liên hệ bán hàng".
-                Số 0 trong giới hạn có nghĩa là không giới hạn. "Tính năng được cấp" là quyền truy cập
-                thật, còn "Tính năng" chỉ hiển thị trên card bán hàng.
+                Số 0 trong giới hạn có nghĩa là không giới hạn. "Tính năng được cấp" là quyền truy
+                cập thật, còn "Tính năng" chỉ hiển thị trên card bán hàng.
               </div>
               <Button
                 onClick={handleSave}
@@ -222,12 +223,28 @@ export default function SuperAdminPricing() {
                       />
                       Hiển thị
                     </label>
+
                     <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
                       <Switch
                         checked={plan.isPopular}
                         onCheckedChange={(v) => updatePlan(index, { isPopular: v })}
                       />
                       Nổi bật
+                    </label>
+                    <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
+                      <Switch
+                        checked={plan.priceMonthly === 0 && !plan.contactOnly}
+                        onCheckedChange={(isFree) => {
+                          if (isFree) {
+                            updatePlan(index, {
+                              priceMonthly: 0,
+                              contactOnly: false,
+                              cycles: { 1: 0, 3: 0, 6: 0, 12: 0 },
+                            });
+                          }
+                        }}
+                      />
+                      Gói "Miễn Phí"
                     </label>
                     <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
                       <Switch
@@ -262,18 +279,24 @@ export default function SuperAdminPricing() {
                     </div>
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <div className="space-y-1.5">
-                        <Label className="text-xs font-semibold text-slate-600">Giá niêm yết /tháng (đ)</Label>
+                        <Label className="text-xs font-semibold text-slate-600">
+                          Giá niêm yết /tháng (đ)
+                        </Label>
                         <Input
                           type="number"
                           min={0}
                           value={plan.priceMonthly || ''}
-                          onChange={(e) => updatePlan(index, { priceMonthly: Number(e.target.value) })}
+                          onChange={(e) =>
+                            updatePlan(index, { priceMonthly: Number(e.target.value) })
+                          }
                           placeholder="vd: 690000"
                           className="h-9 rounded-xl border-slate-200 text-sm"
                         />
                       </div>
                       <div className="space-y-1.5">
-                        <Label className="text-xs font-semibold text-slate-600">Badge nổi bật</Label>
+                        <Label className="text-xs font-semibold text-slate-600">
+                          Badge nổi bật
+                        </Label>
                         <Input
                           value={plan.badge}
                           onChange={(e) => updatePlan(index, { badge: e.target.value })}
@@ -316,7 +339,8 @@ export default function SuperAdminPricing() {
                     </div>
                     {!plan.contactOnly && (
                       <p className="mt-1.5 text-[11px] text-slate-400">
-                        Hiển thị trên trang thanh toán: {CYCLE_OPTIONS.map((c) => plan.cycles[c.months]).some((v) => v > 0)
+                        Hiển thị trên trang thanh toán:{' '}
+                        {CYCLE_OPTIONS.map((c) => plan.cycles[c.months]).some((v) => v > 0)
                           ? `${formatVND(plan.cycles[1])} / ${formatVND(plan.cycles[3])} / ${formatVND(plan.cycles[6])} / ${formatVND(plan.cycles[12])}`
                           : 'chưa nhập giá'}
                       </p>
@@ -331,7 +355,7 @@ export default function SuperAdminPricing() {
                     <Label className="text-xs font-semibold text-slate-600">
                       Giới hạn theo gói (0 = không giới hạn)
                     </Label>
-                    <div className="mt-1.5 grid grid-cols-2 gap-2.5">
+                    <div className="mt-1.5 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
                       {LIMIT_FIELDS.map((f) => (
                         <div key={f.key} className="relative">
                           <Input
@@ -352,7 +376,9 @@ export default function SuperAdminPricing() {
                   {/* Tính năng */}
                   <div>
                     <div className="flex items-center justify-between">
-                      <Label className="text-xs font-semibold text-slate-600">Tính năng (features)</Label>
+                      <Label className="text-xs font-semibold text-slate-600">
+                        Tính năng (features)
+                      </Label>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -397,8 +423,8 @@ export default function SuperAdminPricing() {
                           Tính năng được cấp (featureKeys)
                         </Label>
                         <p className="text-[11px] text-slate-400">
-                          Quyền truy cập THẬT (gate menu/route/action). Khác với "Tính năng" ở trên chỉ là
-                          mô tả trên card bán hàng.
+                          Quyền truy cập THẬT (gate menu/route/action). Khác với "Tính năng" ở trên
+                          chỉ là mô tả trên card bán hàng.
                         </p>
                       </div>
                     </div>
@@ -422,7 +448,9 @@ export default function SuperAdminPricing() {
                               className="h-4 w-4 rounded border-slate-300 text-cerulean-blue-600 focus:ring-cerulean-blue-500"
                             />
                             <div className="min-w-0">
-                              <p className="truncate text-xs font-semibold text-slate-700">{f.label}</p>
+                              <p className="truncate text-xs font-semibold text-slate-700">
+                                {f.label}
+                              </p>
                               <p className="text-[10px] text-slate-400">{f.group}</p>
                             </div>
                           </label>

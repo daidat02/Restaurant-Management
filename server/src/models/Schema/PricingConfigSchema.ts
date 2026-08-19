@@ -14,6 +14,10 @@ export interface IPlanLimits {
   tables: number;
   items: number;
   staff: number;
+  /** Số đơn tối đa được tạo trong 1 ngày (theo giờ Việt Nam). 0 = không giới hạn. */
+  daily_orders: number;
+  /** Số hội thoại nhóm tối đa của nhà hàng. 0 = không giới hạn (feature gate quyết định). */
+  group_chats: number;
 }
 
 /** Một gói dịch vụ (plan) hiển thị trên trang thanh toán. */
@@ -70,13 +74,9 @@ export const DEFAULT_PLANS: IPlan[] = [
     contactOnly: false,
     priceMonthly: 0,
     cycles: { 1: 0, 3: 0, 6: 0, 12: 0 },
-    features: [
-      '5 bàn + 30 món',
-      '2 tài khoản nhân viên',
-      'Báo cáo trong ngày',
-    ],
+    features: ['5 bàn + 30 món', '2 tài khoản nhân viên', 'Báo cáo trong ngày'],
     featureKeys: [],
-    limits: { tables: 5, items: 30, staff: 2 },
+    limits: { tables: 5, items: 30, staff: 2, daily_orders: 30, group_chats: 0 },
     sortOrder: 1,
   },
   {
@@ -89,13 +89,9 @@ export const DEFAULT_PLANS: IPlan[] = [
     contactOnly: false,
     priceMonthly: 190000,
     cycles: { 1: 190000, 3: 570000, 6: 1020000, 12: 1820000 },
-    features: [
-      '20 bàn + 100 món',
-      '5 tài khoản nhân viên',
-      'Báo cáo 7 ngày',
-    ],
+    features: ['20 bàn + 100 món', '5 tài khoản nhân viên', 'Báo cáo 7 ngày'],
     featureKeys: [],
-    limits: { tables: 20, items: 100, staff: 5 },
+    limits: { tables: 20, items: 100, staff: 5, daily_orders: 100, group_chats: 2 },
     sortOrder: 2,
   },
   {
@@ -124,7 +120,7 @@ export const DEFAULT_PLANS: IPlan[] = [
       'messaging_group',
       'white_label',
     ],
-    limits: { tables: 100, items: 500, staff: 20 },
+    limits: { tables: 100, items: 500, staff: 20, daily_orders: 0, group_chats: 5 },
     sortOrder: 3,
   },
   {
@@ -151,8 +147,10 @@ export const DEFAULT_PLANS: IPlan[] = [
       'messaging_group',
       'white_label',
       'api',
+      'payos',
+      'qr_manual',
     ],
-    limits: { tables: 0, items: 0, staff: 0 },
+    limits: { tables: 0, items: 0, staff: 0, daily_orders: 0, group_chats: 0 },
     sortOrder: 4,
   },
 ];
@@ -179,10 +177,12 @@ const PlanSchema = new Schema<IPlan>(
           tables: { type: Number, default: 0, min: 0 },
           items: { type: Number, default: 0, min: 0 },
           staff: { type: Number, default: 0, min: 0 },
+          daily_orders: { type: Number, default: 0, min: 0 },
+          group_chats: { type: Number, default: 0, min: 0 },
         },
         { _id: false },
       ),
-      default: { tables: 0, items: 0, staff: 0 },
+      default: { tables: 0, items: 0, staff: 0, daily_orders: 0, group_chats: 0 },
     },
     sortOrder: { type: Number, default: 0 },
   },

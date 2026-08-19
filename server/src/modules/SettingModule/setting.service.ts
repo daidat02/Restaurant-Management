@@ -116,6 +116,48 @@ class SettingService {
       return { code: 404, message: 'Cấu hình cài đặt không tồn tại' };
     }
 
+    // 1b. Gate tính năng theo gói: chỉ gói có `payos` mới được cài đặt QR PayOS.
+    if (paymentMethodType === 'payos') {
+      const restaurantId = existingSetting.targetId?.toString();
+      if (restaurantId) {
+        const { assertFeatureRestaurant } = await import('../../services/plan-gate.service.js');
+        try {
+          await assertFeatureRestaurant(restaurantId, 'payos');
+        } catch (gateError: any) {
+          if (gateError?.code === 'PLAN_LIMIT_REACHED') {
+            return {
+              code: 403,
+              errorCode: 'PLAN_LIMIT_REACHED',
+              message: gateError.message,
+              meta: gateError.meta,
+            };
+          }
+          throw gateError;
+        }
+      }
+    }
+
+    // 1c. Gate Chuyển khoản ngân hàng (QR thủ công): gói có `qr_manual` HOẶC `payos`.
+    if (paymentMethodType === 'bank_transfer') {
+      const restaurantId = existingSetting.targetId?.toString();
+      if (restaurantId) {
+        const { assertAnyFeatureRestaurant } = await import('../../services/plan-gate.service.js');
+        try {
+          await assertAnyFeatureRestaurant(restaurantId, ['qr_manual', 'payos']);
+        } catch (gateError: any) {
+          if (gateError?.code === 'PLAN_LIMIT_REACHED') {
+            return {
+              code: 403,
+              errorCode: 'PLAN_LIMIT_REACHED',
+              message: gateError.message,
+              meta: gateError.meta,
+            };
+          }
+          throw gateError;
+        }
+      }
+    }
+
     // Khởi tạo object để update vào DB
     const configData: any = {
       paymentMethodType,

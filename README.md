@@ -1,6 +1,6 @@
 # Restaurant Management System — NhaHang OS
 
-> Hệ thống quản lý nhà hàng **multi-tenant SaaS (O2O)** full-stack: Node.js + Express + TypeScript + Socket.IO (backend `server/`), React 19 + Vite + Redux Toolkit (frontend `client/`), MongoDB. Hỗ trợ quản lý bàn, đặt chỗ, menu, order, POS, KDS (màn hình bếp), thanh toán trực tuyến (PayOS / VNPay cho đơn hàng **và gói cước**), chat nội bộ staff/manager/admin realtime, thuê bao (trial 30 ngày / active / locked) và báo cáo phân tích.
+> Hệ thống quản lý nhà hàng **multi-tenant SaaS (O2O)** full-stack: Node.js + Express + TypeScript + Socket.IO (backend `server/`), React 19 + Vite + Redux Toolkit (frontend `client/`), MongoDB. Hỗ trợ quản lý bàn, đặt chỗ, menu, order, POS, KDS (màn hình bếp), thanh toán trực tuyến (PayOS / VNPay cho đơn hàng **và gói cước**), chat nội bộ staff/manager/admin realtime, thuê bao **4 gói (Miễn Phí / Cơ Bản / Pro / Doanh Nghiệp)** với plan gating + vòng đời mới (hết hạn → tự hạ Miễn Phí), và báo cáo phân tích.
 
 - **Live Demo:** [nhahangos.me](https://nhahangos.me/)
 - **Repository:** [github.com/daidat02/Restaurant-Management](https://github.com/daidat02/Restaurant-Management)
@@ -13,14 +13,16 @@ Mật khẩu dùng chung: `Test@NhamNhi2026` — seed bằng `cd server && node 
 
 | Role                        | Email                      | Ghi chú                                                                                    |
 | --------------------------- | -------------------------- | ------------------------------------------------------------------------------------------ |
-| Super Admin                 | `super.admin@nhamnhi.vn`   | Nền tảng: tenants, pricing, transactions, audit, khoá/mở nhà hàng, **gateway PayOS/VNPay** |
-| Admin (chủ chuỗi)           | `admin.test@nhamnhi.vn`    | Tenant switcher (2 cơ sở), `/admin/*`, billing & subscription, audit toàn chuỗi            |
+| Super Admin                 | `super.admin@nhamnhi.vn`   | Nền tảng: tenants, pricing (4 gói + featureKeys), transactions, audit, **gateway PayOS/VNPay** |
+| Admin — Gói **Pro**         | `admin.test@nhamnhi.vn`    | `/admin/*` (quản toàn chuỗi), billing & subscription, 16 bàn · 50 món · KDS                |
+| Admin — Gói **Cơ Bản**      | `admin.basic@nhamnhi.vn`   | 12 bàn · 22 món — không KDS / báo cáo nâng cao                                             |
+| Admin — Gói **Miễn Phí**    | `admin.free@nhamnhi.vn`    | 5 bàn · 12 món — test plan gate (bàn 6/món 31/NV 3 bị chặn)                                |
+| Admin — Gói **Doanh Nghiệp**| `admin.enterprise@nhamnhi.vn` | 20 bàn · 50 món — không giới hạn                                                        |
 | Manager                     | `manager.test@nhamnhi.vn`  | `/manager/*`: menu, POS, bàn, đặt bàn, nhân viên, báo cáo                                  |
 | Staff                       | `staff.test@nhamnhi.vn`    | POS, sơ đồ bàn, đơn hàng, đặt chỗ                                                          |
 | Customer                    | `customer.test@nhamnhi.vn` | Login khách, lịch sử đơn, đặt chỗ                                                          |
-| Owner (3 nhà hàng thuê bao) | `owner.sub@nhamnhi.vn`     | Test trial / sắp hết hạn / locked + billing                                                |
 
-**Mã nhà bếp (KDS):** `456734` (Cơ Sở 1) · `553572` (Cơ Sở 2). Reset super-admin: `SUPER_ADMIN_PASSWORD='...' node server/scripts/reset-super-admin.mjs`.
+**Mã nhà bếp (KDS):** Pro `456734` · Cơ Bản `553572` · Miễn Phí `653780` · Doanh Nghiệp `772915`. Mật khẩu dùng chung: `Test@NhamNhi2026`. Seed lại toàn bộ data demo: `node server/scripts/seed-restaurant-demo.mjs`. Reset super-admin: `SUPER_ADMIN_PASSWORD='...' node server/scripts/reset-super-admin.mjs`.
 
 ---
 
@@ -166,9 +168,11 @@ restaurant_management/
 
 ### 3. Session / Subscription & Onboarding
 
-- Đăng ký chủ (`register-owner`) → admin → wizard tạo nhà hàng đầu tiên → **trial 30 ngày**.
-- Nhà hàng thứ 2+ → **trả phí trước** theo chu kỳ 1/3/6/12 tháng → `active`.
-- Quá hạn → `locked` → chặn tạo đơn/món (`RESTAURANT_LOCKED`); thanh toán thành công → mở lại.
+- Đăng ký chủ (`register-owner`) → admin → wizard tạo nhà hàng đầu tiên → **gói Miễn Phí** (không dùng thử).
+- Nhà hàng thứ 2+ → **trả phí trước** theo chu kỳ 1/3/6/12 tháng → `active` (gói Cơ Bản / Pro / Doanh Nghiệp).
+- Hết hạn gói trả phí → **tự hạ về Miễn Phí** (không khoá); có `pendingPlanKey` → áp dụng gói đã lên lịch cuối chu kỳ.
+- Đổi gói giữa chu kỳ: **upgrade** trả chênh lệch pro-rate, **downgrade** lưu `pendingPlanKey` áp dụng cuối kỳ.
+- Plan gating: vượt trần bàn/món/NV hoặc thiếu tính năng → `403 PLAN_LIMIT_REACHED` → client mở modal upsell.
 - Onboarding wizard: thông tin → cấu hình → nhân sự → bàn & QR.
 
 ## Thanh toán: đơn hàng & gói cước
@@ -187,14 +191,15 @@ Hệ thống có **2 lớp cổng thanh toán** cùng tên PayOS/VNPay nhưng kh
 
 ## Thuê bao (Subscription)
 
-- Mỗi nhà hàng: `subscription: 'trial' | 'active' | 'locked'` + `trialEndsAt` / `paidUntil` (RestaurantSchema).
-- **State machine** (`services/subscription.service.ts`): loại bỏ hạn chế "trial ≤ 7 ngày → expiring (1 lần)", "hết hạn/quá paidUntil → locked"; mỗi trạng thái đều có audit + notification.
-- Giá mặc định (PricingConfig, super-admin chỉnh tại `/super-admin/pricing`): 1T **299.000đ** / 3T **849.000đ** / 6T **1.590.000đ** / 12T **2.990.000đ**.
+- Mỗi nhà hàng: `subscription: 'trial' | 'active' | 'locked' | 'pending'` + `currentPlanKey` (`free|basic|pro|enterprise`) + `paidUntil` / `pendingPlanKey` (RestaurantSchema). `trial` giữ enum nhưng không dùng trong luồng mới.
+- **State machine** (`services/subscription.service.ts`): gói trả phí hết hạn → **tự hạ Miễn Phí (KHÔNG khoá)**; có `pendingPlanKey` → áp dụng gói đã lên lịch cuối chu kỳ; mỗi lần đổi đều có audit `subscription.downgrade` + notification.
+- **Plan gating** (`services/plan-gate.service.ts`): `assertLimit` (bàn/món/NV) + `assertFeature` (kds, advanced_report, messaging_group...) → vượt trần trả `403 PLAN_LIMIT_REACHED` kèm `meta`.
+- Giá gói mặc định (PricingConfig, super-admin chỉnh tại `/super-admin/pricing`): mỗi gói có `priceMonthly` + giá 4 chu kỳ (1/3/6/12 tháng) + `limits` + `featureKeys`.
 - Khoá tài khoản chủ (admin): `isActive=false` → mọi user của chủ không login được.
 
 ## Audit Log
 
-- **Ghi (write)**: `writeAuditLog()` (service không-throw) tại các controller/service — `user.register`, `user.update.role`, `user.delete`, `user.switch-tenant`, `user.block/unblock`, `restaurant.create/delete/lock`, `subscription.trial.started/unlocked/locked/expiring`, `transaction.create`, `pricing.update`, `setting.kds-code.generate`.
+- **Ghi (write)**: `writeAuditLog()` (service không-throw) tại các controller/service — `user.register`, `user.update.role`, `user.delete`, `user.switch-tenant`, `user.block/unblock`, `restaurant.create/delete/lock`, `subscription.free.assigned`, `subscription.downgrade`, `subscription.unlocked`, `transaction.create`, `pricing.update`, `setting.kds-code.generate`.
 - **Xem (read)**: `GET /api/audit-logs` — **super-admin** (toàn nền tảng) + **admin** (chỉ chuỗi của mình); `GET /api/audit-logs/payments` — admin (lịch sử Transaction của chủ). **Manager/staff không được xem.**
 - Schema: `{ action, restaurant, actor(+actorInfo.name/role tĩnh), targetType[order|table|menuItem|user|payment|restaurant|system|pricing], targetId, summary, meta, createdAt }`.
 - UI: Super Admin `/super-admin/audit`; Admin `/admin/logs` (2 tab: Hành động + Thanh toán, DataTable).

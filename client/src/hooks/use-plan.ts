@@ -1,55 +1,45 @@
-import { useCallback, useEffect, useMemo } from 'react';
-import { useActiveRestaurantId } from './use-active-restaurant';
-import { useRestaurant } from './use-restaurant';
-import { useSubscription } from './use-subscription';
-import type { FeatureKey } from '@/constants/feature-catalog';
-import type { IPlan } from '@/types/subscription.type';
+import { useMemo } from 'react';
+import { usePlanContext, type LimitResource } from '@/contexts/PlanContext';
+import { FEATURE_CATALOG, getFeatureLabel, type FeatureKey } from '@/constants/feature-catalog';
 
-export type LimitResource = 'tables' | 'items' | 'staff';
+export type { LimitResource } from '@/contexts/PlanContext';
 
 /**
- * PLAN CỦA NHÀ HÀNG ĐANG LÀM VIỆC — nguồn gate UX duy nhất (menu/route/action).
- * - Resolve nhà hàng từ `useActiveRestaurantId()` → `currentPlanKey` → tìm plan trong pricing.
- * - Không có dữ liệu (chưa load, hoặc admin quản toàn chuỗi — không có 1 chi nhánh) → mặc định CHO PHÉP,
- *   vì server (assertFeature/assertLimit) là lưới cuối.
+ * PLAN CỦA NHÀ HÀNG ĐANG LÀM VIỆC — nguồn gate UX duy nhất.
+ * Gom toàn bộ các cờ trạng thái tính năng để ở Page chỉ việc sử dụng.
  */
 export const usePlan = () => {
-  const activeRestaurantId = useActiveRestaurantId();
-  const { restaurants, fetchRestaurants } = useRestaurant();
-  const { pricing } = useSubscription();
+  const context = usePlanContext();
+  const { hasFeature } = context;
 
-  // Đảm bảo danh sách nhà hàng (kèm currentPlanKey) có sẵn để resolve gói.
-  useEffect(() => {
-    void fetchRestaurants();
-  }, [fetchRestaurants]);
+  // Gom toàn bộ trạng thái tính năng vào object permissions
+  const permissions = useMemo(() => {
+    const payosAllowed = hasFeature('payos');
+    const qrManualAllowed = hasFeature('qr_manual');
 
-  const { planKey, plan } = useMemo(() => {
-    if (!activeRestaurantId) return { planKey: undefined, plan: undefined };
-    const restaurant = restaurants.find((r) => String(r._id) === String(activeRestaurantId));
-    const key = restaurant?.currentPlanKey;
-    const matched = pricing?.plans?.find((p: IPlan) => p.key === key);
-    return { planKey: key, plan: matched };
-  }, [activeRestaurantId, restaurants, pricing]);
+    return {
+      // Báo cáo & Đặt món
+      hasKds: hasFeature('kds'),
+      hasCart: hasFeature('cart'),
+      hasScanToOrder: hasFeature('scan_to_order'),
+      hasReservation: hasFeature('reservation'),
+      hasAdvancedReport: hasFeature('advanced_report'),
+      hasMessagingGroup: hasFeature('messaging_group'),
+      hasWhiteLabel: hasFeature('white_label'),
+      hasApi: hasFeature('api'),
 
-  /** Gói có tính năng này không? Thiếu dữ liệu plan → cho phép (không chặn nhầm). */
-  const hasFeature = useCallback(
-    (feature: FeatureKey): boolean => {
-      if (!plan) return true;
-      return (plan.featureKeys ?? []).includes(feature);
-    },
-    [plan],
-  );
+      // Thanh toán
+      payosAllowed,
+      qrManualAllowed,
+      /** Bị khóa Chuyển khoản ngân hàng thủ công (khi cả 2 gói đều không hỗ trợ) */
+      bankTransferBlocked: !qrManualAllowed && !payosAllowed,
+    };
+  }, [hasFeature]);
 
-  /** Đã đạt trần giới hạn tài nguyên chưa? Không có plan/limit (0 = không giới hạn) → false. */
-  const limitReached = useCallback(
-    (resource: LimitResource, used: number): boolean => {
-      if (!plan) return false;
-      const limit = plan.limits?.[resource];
-      if (!limit || limit <= 0) return false;
-      return used >= limit;
-    },
-    [plan],
-  );
-
-  return { planKey, plan, hasFeature, limitReached };
+  return {
+    ...context,
+    ...permissions,
+    FEATURE_CATALOG,
+    getFeatureLabel,
+  };
 };

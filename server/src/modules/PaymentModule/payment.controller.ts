@@ -139,7 +139,7 @@ class PaymentController {
     try {
       const { orderId } = req.params;
       const result = await payosService.createUrl({ orderId: orderId as string });
-      res.status(200).json(result);
+      res.status(result?.code || 200).json(result);
     } catch (error) {
       console.log(error);
       res.status(500).json(error);
@@ -189,10 +189,14 @@ class PaymentController {
       res.status(500).json(error);
     }
   };
-  checkPayOSConnection = async (req: Request, res: Response) => {
+  checkPayOSConnection = async (req: AuthRequest, res: Response) => {
     try {
       const { payload } = req.body;
-      const result = await payosService.checkPayOSConnectionService(payload as IPayOSConfig);
+      const restaurantId = req.tenantId || req.user?.restaurantId || null;
+      const result = await payosService.checkPayOSConnectionService(
+        payload as IPayOSConfig,
+        restaurantId || undefined,
+      );
       res.status(result.code).json(result);
     } catch (error) {
       console.log(error);

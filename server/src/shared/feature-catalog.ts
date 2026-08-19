@@ -12,6 +12,8 @@ export const FEATURE_KEYS = [
   'messaging_group',
   'white_label',
   'api',
+  'payos',
+  'qr_manual',
 ] as const;
 
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
@@ -31,6 +33,8 @@ export const FEATURE_CATALOG: FeatureDef[] = [
   { key: 'messaging_group', label: 'Chat nhóm + presence', group: 'Messaging' },
   { key: 'white_label', label: 'Thương hiệu riêng', group: 'Thương hiệu' },
   { key: 'api', label: 'API tích hợp', group: 'Tích hợp' },
+  { key: 'payos', label: 'Chuyển khoản QR PayOS', group: 'Thanh toán' },
+  { key: 'qr_manual', label: 'Chuyển khoản QR thủ công', group: 'Thanh toán' },
 ];
 
 /** Lọc một mảng featureKeys chỉ giữ các key hợp lệ trong catalog. */

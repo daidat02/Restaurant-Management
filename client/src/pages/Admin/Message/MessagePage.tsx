@@ -118,6 +118,16 @@ const MessagePage = () => {
     [conversations, activeConversationId],
   );
 
+  // Số nhóm chat hiện tại của nhà hàng đang tạo (để gate UI theo trần `group_chats`).
+  const groupChatCount = useMemo(() => {
+    const target = (groupRestaurantId || currentRestaurantId || '').toString();
+    return conversations.filter(
+      (c) =>
+        c.type === 'group' &&
+        (!target || !c.restaurantId || String(c.restaurantId) === target),
+    ).length;
+  }, [conversations, groupRestaurantId, currentRestaurantId]);
+
   const currentOtherUserId = currentChat?.otherMember?.userId;
   const isOtherTyping = useMemo(() => {
     if (!activeConversationId || !currentOtherUserId) return false;
@@ -376,6 +386,7 @@ const MessagePage = () => {
             activeTab={activeTab}
             onTabChange={setActiveTab}
             onOpenCreateForm={openCreateForm}
+            groupChatCount={groupChatCount}
           />
 
           {showCreate && (

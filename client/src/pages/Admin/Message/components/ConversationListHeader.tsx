@@ -5,6 +5,7 @@
 import { MessageSquarePlus, Search } from 'lucide-react';
 import type { ActiveTabT } from '../MessagePage';
 import { cn } from '@/lib/utils';
+import PlanGate from '@/components/PlanGate';
 
 interface ConversationListHeaderProps {
   isManager: boolean;
@@ -13,6 +14,7 @@ interface ConversationListHeaderProps {
   activeTab: ActiveTabT;
   onTabChange: (tab: ActiveTabT) => void;
   onOpenCreateForm: () => void;
+  groupChatCount: number;
 }
 
 export const ConversationListHeader = ({
@@ -22,20 +24,28 @@ export const ConversationListHeader = ({
   activeTab,
   onTabChange,
   onOpenCreateForm,
+  groupChatCount,
 }: ConversationListHeaderProps) => (
   <div className="flex flex-col gap-3 border-b border-slate-100 bg-white p-4">
     <div className="flex items-center justify-between gap-2">
       <h3 className="text-sm font-bold uppercase tracking-wider text-slate-800">Tin nhắn nội bộ</h3>
       {isManager && (
-        <button
-          type="button"
-          onClick={onOpenCreateForm}
-          className="rounded-lg p-1.5 text-cerulean-blue-600 transition-all hover:bg-cerulean-blue-50"
-          aria-label="Tạo hội thoại"
-          title="Tạo nhóm"
+<PlanGate
+          resource="group_chats"
+          currentCount={groupChatCount}
+          fallbackMode="upsell"
+          disabledTooltip={`Đã đạt trần ${groupChatCount} nhóm chat của gói hiện tại. Nâng gói để tạo thêm.`}
         >
-          <MessageSquarePlus size={16} />
-        </button>
+          <button
+            type="button"
+            onClick={onOpenCreateForm}
+            className="rounded-lg p-1.5 text-cerulean-blue-600 transition-all hover:bg-cerulean-blue-50"
+            aria-label="Tạo hội thoại"
+            title="Tạo nhóm"
+          >
+            <MessageSquarePlus size={16} />
+          </button>
+        </PlanGate>
       )}
     </div>
     <SearchBar value={searchQuery} onChange={onSearchChange} />

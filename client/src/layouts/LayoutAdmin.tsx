@@ -6,12 +6,14 @@ import { LoadingProvider } from '@/components/LoadingOverlay';
 import SidebarApp from '@/components/Sidebar';
 import UpsellSubscriptionModal from '@/components/UpsellSubscriptionModal';
 import { MessagingProvider } from '@/hooks/use-messaging';
+import { PlanProvider } from '@/contexts/PlanContext';
 
 export default function LayoutAdmin() {
   return (
     <LoadingProvider>
       <MessagingProvider>
-        <SidebarProvider>
+        <PlanProvider>
+          <SidebarProvider>
           <Toaster />
           <UpsellSubscriptionModal />
           {/* CONTAINER LAYOUT GỐC */}
@@ -25,7 +27,8 @@ export default function LayoutAdmin() {
               </main>
             </SidebarInset>
           </div>
-        </SidebarProvider>
+          </SidebarProvider>
+        </PlanProvider>
       </MessagingProvider>
     </LoadingProvider>
   );

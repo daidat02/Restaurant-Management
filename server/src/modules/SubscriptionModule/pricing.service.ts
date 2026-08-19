@@ -1,20 +1,24 @@
 import type { ServiceResponse } from '../../shared/type.js';
 import pricingRepository from './pricing.repository.js';
-import {
-  DEFAULT_PRICING_CYCLES,
-  type IPlan,
-} from '../../models/Schema/PricingConfigSchema.js';
+import { DEFAULT_PRICING_CYCLES, type IPlan } from '../../models/Schema/PricingConfigSchema.js';
 
 /** Chu kỳ hợp lệ (1/3/6/12 tháng). */
 const VALID_CYCLES = [1, 3, 6, 12];
 
 class PricingService {
-  /** GET — ai có token cũng đọc được giá & gói (để hiển thị trên màn thanh toán). */
+  /** GET — public, bất kỳ ai cũng đọc được giá & gói (landing page + màn thanh toán). */
   async getPricing(): Promise<ServiceResponse<any>> {
     const config = await pricingRepository.getOrCreate();
     const plans = (config.plans || [])
       .filter((p: any) => p.isActive !== false)
-      .sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
+      .sort((a: any, b: any) => {
+        // 1. Đẩy gói "Liên hệ" (contactOnly) xuống cuối cùng
+        if (a.contactOnly && !b.contactOnly) return 1;
+        if (!a.contactOnly && b.contactOnly) return -1;
+
+        // 3. Mặc định sắp xếp theo giá tăng dần (Gói 0đ / Miễn phí sẽ nằm ở đầu)
+        return (a.priceMonthly || 0) - (b.priceMonthly || 0);
+      });
     return {
       message: 'Lấy cấu hình giá thành công!',
       data: { plans, cycles: config.cycles, currency: config.currency },

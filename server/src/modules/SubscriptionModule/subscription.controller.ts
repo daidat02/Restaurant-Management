@@ -101,6 +101,20 @@ class SubscriptionController {
       return res.status(500).json({ message: 'Lỗi server khi lấy lịch sử giao dịch' });
     }
   }
+
+  /** GET /api/subscriptions/usage?restaurantId= — mức sử dụng hiện tại của 1 nhà hàng (gate UI). */
+  async usage(req: AuthRequest, res: Response) {
+    try {
+      const result = await subscriptionService.usageService(
+        (req.query.restaurantId as string) || undefined,
+        req.user?.userId,
+      );
+      return res.status(result.code).json(result);
+    } catch (error) {
+      console.error('Error getting subscription usage:', error);
+      return res.status(500).json({ message: 'Lỗi server khi lấy mức sử dụng' });
+    }
+  }
 }
 
 export default new SubscriptionController();

@@ -1,6 +1,6 @@
 import axiosClient from '@/utils/configClient';
 import type { ApiResponse } from '@/types/api.type';
-import type { IPricingConfig, IPayosCreateUrlResult, ISubscriptionInfo, ITransaction, IVnpayCreateUrlResult } from '@/types/subscription.type';
+import type { IPricingConfig, IPayosCreateUrlResult, ISubscriptionInfo, ITransaction, IVnpayCreateUrlResult, IPlanUsage } from '@/types/subscription.type';
 import type { IRestaurant } from '@/types/restaurant.type';
 import { API_ENDPOINTS } from '@/constants/index';
 
@@ -10,6 +10,14 @@ const SUB = API_ENDPOINTS.SUBSCRIPTION;
 export const getMySubscriptions = async (): Promise<ISubscriptionInfo[]> => {
   const res = await axiosClient.get<any, ApiResponse<ISubscriptionInfo[]>>(SUB.ME);
   return res.data ?? [];
+};
+
+/** Mức sử dụng hiện tại của 1 nhà hàng (đơn/ngày, nhóm chat, bàn, món, NV) — cho gate UI. */
+export const getSubscriptionUsage = async (restaurantId: string): Promise<IPlanUsage | null> => {
+  const res = await axiosClient.get<any, ApiResponse<IPlanUsage>>(SUB.USAGE, {
+    params: { restaurantId },
+  });
+  return res.data ?? null;
 };
 
 /** Thanh toán / gia hạn mock cho 1 nhà hàng (tuỳ chọn theo gói đã chọn). */
@@ -49,7 +57,7 @@ export const createSubscriptionVnpayUrl = async (
   return res.data;
 };
 
-/** Giá chu kỳ (đọc PricingConfig — mọi user có token). */
+/** Giá chu kỳ (đọc PricingConfig — công khai, không cần token). */
 export const getPricing = async (): Promise<IPricingConfig | null> => {
   const res = await axiosClient.get<any, ApiResponse<IPricingConfig>>(SUB.PRICING);
   return res.data ?? null;

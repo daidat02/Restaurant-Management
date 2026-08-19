@@ -18,6 +18,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useRestaurant } from '@/hooks/use-restaurant';
 import { useSetting } from '@/hooks/use-setting';
 import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
+import { usePlan } from '@/hooks/use-plan';
 import { extractId } from '@/utils/helpers';
 
 import TabStoreSystem from './components/TabStoreSystem';
@@ -100,6 +101,7 @@ export default function SettingsPage() {
   const { user } = useAuth();
   const role = user?.role || 'staff';
   const { restaurants, updateRestaurant, fetchRestaurants } = useRestaurant();
+  const { setOverrideRestaurantId } = usePlan();
   const {
     currentSetting,
     isLoading,
@@ -113,6 +115,13 @@ export default function SettingsPage() {
 
   const [searchParams] = useSearchParams();
   const overrideRestaurantId = searchParams.get('restaurant') || '';
+
+  // Đồng bộ chi nhánh đang cấu hình vào PlanContext → gate (payos/bank_transfer) resolve
+  // theo gói CỦA CHI NHÁNH ĐÓ, không phải gói yếu nhất chuỗi. Reset khi rời trang.
+  useEffect(() => {
+    setOverrideRestaurantId(overrideRestaurantId);
+    return () => setOverrideRestaurantId('');
+  }, [overrideRestaurantId, setOverrideRestaurantId]);
 
   const [activeTab, setActiveTab] = useState<SettingTabKey>('account');
   const [isDirty, setIsDirty] = useState(false);

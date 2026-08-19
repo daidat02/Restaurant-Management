@@ -156,6 +156,26 @@ class OrderService {
       }
     }
 
+    // Gate giới hạn theo gói: số đơn tạo trong ngày (tính cả đơn hủy).
+    if (orderData.restaurant) {
+      const { assertLimit, countResource } = await import('../../services/plan-gate.service.js');
+      try {
+        const restaurantId = orderData.restaurant.toString();
+        const used = await countResource(restaurantId, 'daily_orders');
+        await assertLimit(restaurantId, 'daily_orders', used, 1);
+      } catch (error: any) {
+        if (error?.code === 'PLAN_LIMIT_REACHED') {
+          return {
+            code: 403,
+            errorCode: 'PLAN_LIMIT_REACHED',
+            message: error.message,
+            meta: error.meta,
+          };
+        }
+        throw error;
+      }
+    }
+
     const session = await DB_Connection.Order.startSession();
     session.startTransaction();
     let committed = false;

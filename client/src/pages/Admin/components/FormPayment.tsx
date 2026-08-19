@@ -15,6 +15,7 @@ import { PaymentSuccessDialog } from '@/components/PaymentSuccessDialog';
 import { useAuth } from '@/hooks/use-auth';
 import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
 import { useSetting } from '@/hooks/use-setting';
+import { usePlan } from '@/hooks/use-plan';
 import type { IReceiptConfig } from '@/types/setting.type';
 
 export interface IPaymentItem {
@@ -39,6 +40,7 @@ interface PaymentFormProps {
 export default function PaymentForm({ paymentId, onCancel, onConfirm }: PaymentFormProps) {
   const { user } = useAuth();
   const activeRestaurantId = useActiveRestaurantId();
+  const { hasFeature, plan, payosAllowed, qrManualAllowed } = usePlan();
   const { currentSetting, fetchSettingById } = useSetting();
   const {
     currentPayment,
@@ -247,8 +249,14 @@ export default function PaymentForm({ paymentId, onCancel, onConfirm }: PaymentF
             activeTab={paymentMethod}
             tabs={[
               { id: 'cash', label: 'Tiền Mặt', icon: <Banknote size={16} /> },
-              { id: 'banking', label: 'Chuyển Khoản', icon: <QrCode size={16} /> },
-              { id: 'e-walet', label: 'Quẹt thẻ', icon: <CreditCard size={16} /> },
+              {
+                id: 'banking',
+                label: 'Chuyển Khoản',
+                icon: <QrCode size={16} />,
+                disabled: !payosAllowed && !qrManualAllowed,
+                disabledTooltip: `Tính năng ${plan?.name || 'gói hiện tại'} không bao gồm Chuyển khoản QR PayOS. Nâng gói để sử dụng.`,
+              },
+              // { id: 'e-walet', label: 'Quẹt thẻ', icon: <CreditCard size={16} /> },
             ]}
             onTabChange={async (id) => {
               setPaymentMethod(id as 'cash' | 'e-walet' | 'banking');

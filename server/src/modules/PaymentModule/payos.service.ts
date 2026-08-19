@@ -48,6 +48,11 @@ class PayOsService {
       if (!order) {
         return { code: 404, message: 'Không tìm thấy đơn hàng' };
       }
+
+      // Gate tính năng theo gói: tạo QR/link PayOS chỉ khi gói có `payos`.
+      const { assertFeatureRestaurant } = await import('../../services/plan-gate.service.js');
+      await assertFeatureRestaurant(order.restaurant.toString(), 'payos');
+
       const orderIdString = order._id.toString();
 
       const existingPayment = await paymentRepository.findByOrderId(
@@ -99,6 +104,16 @@ class PayOsService {
       };
     } catch (error: any) {
       console.error('Lỗi PayOsService - createUrl:', error);
+      // Gói không có tính năng PayOS → trả 403 PLAN_LIMIT_REACHED để client mở upsell.
+      if (error?.code === 'PLAN_LIMIT_REACHED') {
+        return {
+          success: false,
+          code: 403,
+          errorCode: 'PLAN_LIMIT_REACHED',
+          message: error.message,
+          meta: error.meta,
+        };
+      }
       return {
         success: false,
         message: 'Khởi tạo thanh toán PayOS thất bại',
@@ -132,7 +147,10 @@ class PayOsService {
     return { existingPayment, currentOrder, webhookDataVerified };
   }
 
-  async checkPayOSConnectionService(payload: IPayOSConfig): Promise<ServiceResponse<boolean>> {
+  async checkPayOSConnectionService(
+    payload: IPayOSConfig,
+    restaurantId?: string,
+  ): Promise<ServiceResponse<boolean>> {
     const { clientId, apiKey, checksumKey } = payload;
 
     if (!clientId || !apiKey || !checksumKey) {
@@ -147,6 +165,13 @@ class PayOsService {
     const oldEnvChecksumKey = process.env.PAYOS_CHECKSUM_KEY;
 
     try {
+      // Gate tính năng theo gói: chỉ kiểm tra kết nối khi gói có `payos`.
+      // Bỏ qua khi không có ngữ cảnh nhà hàng (super-admin kiểm tra toàn nền tảng).
+      if (restaurantId) {
+        const { assertFeatureRestaurant } = await import('../../services/plan-gate.service.js');
+        await assertFeatureRestaurant(restaurantId, 'payos');
+      }
+
       process.env.PAYOS_CLIENT_ID = clientId;
       process.env.PAYOS_API_KEY = apiKey;
       process.env.PAYOS_CHECKSUM_KEY = checksumKey;
@@ -169,6 +194,17 @@ class PayOsService {
       return { code: 200, data: true, message: 'Kết nối tới cổng PayOS thành công!' };
     } catch (error: any) {
       console.error('Lỗi xác thực cổng PayOS:', error);
+
+      // Gói không có tính năng PayOS → trả 403 PLAN_LIMIT_REACHED để client mở upsell.
+      if (error?.code === 'PLAN_LIMIT_REACHED') {
+        return {
+          code: 403,
+          data: false,
+          errorCode: 'PLAN_LIMIT_REACHED',
+          message: error.message,
+          meta: error.meta,
+        };
+      }
 
       return {
         code: 400,

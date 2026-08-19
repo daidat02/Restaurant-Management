@@ -34,5 +34,7 @@ router.get(
   verifyRole(['admin']),
   subscriptionController.transactions,
 );
+// Mức sử dụng hiện tại của 1 nhà hàng (admin/manager/staff — gate UI đơn/nhóm)
+router.get('/usage', verifyToken, subscriptionController.usage);
 
 export default router;

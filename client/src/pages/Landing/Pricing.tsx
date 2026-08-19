@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
+import { Link, useOutletContext } from 'react-router-dom';
 import { motion } from 'motion/react';
 import {
   Check,
@@ -13,72 +13,36 @@ import {
   Clock,
   Flame,
   ChevronDown,
+  Crown,
+  Receipt,
+  type LucideIcon,
 } from 'lucide-react';
 
-const PLANS = [
-  {
-    icon: Store,
-    name: 'Khởi đầu',
-    monthly: '220.000đ',
-    yearly: '2.200.000đ',
-    period: '/tháng',
-    yearlyPeriod: '/năm',
-    desc: 'Cho cửa hàng, nhà hàng tiêu chuẩn — tất cả nghiệp vụ bán hàng cần thiết.',
-    badge: null,
-    highlight: false,
-    cta: 'Dùng thử miễn phí',
-    features: [
-      'Gọi món bằng QR tại bàn',
-      'POS thu ngân không giới hạn thiết bị',
-      'Quản lý menu số & bếp số hoá (KDS)',
-      'Đặt bàn online',
-      'Báo cáo doanh thu cơ bản',
-      'Hỗ trợ nhiều chi nhánh',
-    ],
-  },
-  {
-    icon: Building2,
-    name: 'Nâng cao',
-    monthly: '299.000đ',
-    yearly: '2.990.000đ',
-    period: '/tháng',
-    yearlyPeriod: '/năm',
-    desc: 'Cho nhà hàng phát triển — thêm kho và chăm sóc khách hàng thân thiết.',
-    badge: 'PHỔ BIẾN NHẤT',
-    highlight: true,
-    cta: 'Dùng thử miễn phí',
-    features: [
-      'Mọi tính năng gói Khởi đầu',
-      'Tích điểm thành viên theo SĐT',
-      'Quản lý kho định lượng nguyên liệu',
-      'Tách/gộp hoá đơn, chốt ca minh bạch',
-      'Báo cáo lãi lỗ chi tiết',
-      'Phân quyền chủ — quản lý — nhân viên',
-    ],
-  },
-  {
-    icon: Sparkles,
-    name: 'Phát triển PRO',
-    monthly: 'Liên hệ',
-    yearly: 'Liên hệ',
-    period: '',
-    yearlyPeriod: '',
-    desc: 'Cho chuỗi nhà hàng, nhượng quyền — giải pháp may đo theo quy mô.',
-    badge: null,
-    highlight: false,
-    cta: 'Liên hệ tư vấn',
-    features: [
-      'Mọi tính năng gói Nâng cao',
-      'Quản lý chuỗi đa chi nhánh',
-      'Luân chuyển kho liên chi nhánh',
-      'Báo cáo tổng hợp Real-time',
-      'E-Menu và bảng giá riêng từng điểm bán',
-      'Triển khai & đào tạo 1-1',
-    ],
-  },
-];
+import { getPricing } from '@/api/subscription.api';
+import type { IPlan, IPricingConfig } from '@/types/subscription.type';
+import type { LandingAuthContext } from './LandingLayout';
 
-/** So sánh chi tiết — dấu tích/không có */
+const fmtVND = (n: number) => `${n.toLocaleString('vi-VN')}đ`;
+
+/** Icon từng gói theo plan.key — API không trả icon nên map cứng + fallback. */
+const PLAN_ICONS: Record<string, LucideIcon> = {
+  free: Store,
+  basic: Building2,
+  pro: Sparkles,
+  enterprise: Crown,
+};
+
+const getPlanIcon = (key?: string): LucideIcon => PLAN_ICONS[key ?? ''] ?? Receipt;
+
+/** % tiết kiệm khi trả theo 12 tháng so với trả theo tháng. */
+const annualSaving = (p: IPlan): number => {
+  const monthly = p.cycles['1'] ?? 0;
+  const yearly = p.cycles['12'] ?? 0;
+  if (!monthly || !yearly) return 0;
+  return Math.max(0, Math.round((1 - yearly / 12 / monthly) * 100));
+};
+
+/** So sánh chi tiết — hard-code như bản đầu (cột: Khởi đầu / Nâng cao / Phát triển PRO). */
 const COMPARISON: { label: string; values: (boolean | string)[] }[] = [
   { label: 'Số chi nhánh', values: ['2', '10', 'Không giới hạn'] },
   { label: 'Gọi món QR tại bàn', values: [true, true, true] },
@@ -91,6 +55,13 @@ const COMPARISON: { label: string; values: (boolean | string)[] }[] = [
   { label: 'Luân chuyển kho liên chi nhánh', values: [false, false, true] },
   { label: 'E-Menu riêng từng điểm bán', values: [false, false, true] },
   { label: 'Triển khai & đào tạo 1-1', values: [false, false, true] },
+];
+
+/** Cột header của bảng so sánh — hard-code như bản đầu. */
+const COMPARISON_COLUMNS: { name: string; highlight: boolean }[] = [
+  { name: 'Khởi đầu', highlight: false },
+  { name: 'Nâng cao', highlight: true },
+  { name: 'Phát triển PRO', highlight: false },
 ];
 
 const PAYMENT_FAQS = [
@@ -173,8 +144,71 @@ function OfferBanner() {
   );
 }
 
+function PlansGridSkeleton() {
+  return (
+    <div className="mt-10 grid gap-4 lg:grid-cols-4">
+      {[0, 1, 2, 3].map((i) => (
+        <div key={i} className="rounded-2xl border border-slate-200 bg-white p-8">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 animate-pulse rounded-xl bg-slate-100" />
+            <div className="h-5 w-28 animate-pulse rounded-md bg-slate-100" />
+          </div>
+          <div className="mt-4 h-3 w-3/4 animate-pulse rounded-md bg-slate-100" />
+          <div className="mt-6 h-9 w-32 animate-pulse rounded-lg bg-slate-100" />
+          <div className="mt-6 space-y-3">
+            {[0, 1, 2].map((j) => (
+              <div key={j} className="h-4 animate-pulse rounded-md bg-slate-100" />
+            ))}
+          </div>
+          <div className="mt-8 h-11 w-full animate-pulse rounded-xl bg-slate-100" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function PricingPage() {
+  const { openAuth } = useOutletContext<LandingAuthContext>();
+  const [pricing, setPricing] = useState<IPricingConfig | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('yearly');
+
+  const loadPricing = useCallback(() => {
+    getPricing()
+      .then((config) => {
+        setPricing(config);
+        setError('');
+      })
+      .catch((err: unknown) => {
+        const msg =
+          err &&
+          typeof err === 'object' &&
+          'message' in err &&
+          typeof (err as { message?: unknown }).message === 'string'
+            ? (err as { message: string }).message
+            : 'Không thể tải bảng giá. Vui lòng thử lại.';
+        setError(msg);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
+
+  const retry = () => {
+    setError('');
+    setLoading(true);
+    loadPricing();
+  };
+
+  useEffect(() => {
+    loadPricing();
+  }, [loadPricing]);
+
+  const plans = pricing?.plans ?? [];
+  const cycleKey = billing === 'monthly' ? '1' : '12';
+  const cyclePeriod = billing === 'monthly' ? '/1 tháng' : '/12 tháng';
+  const representativeSaving = plans.reduce((best, p) => Math.max(best, annualSaving(p)), 0);
 
   return (
     <div className="overflow-x-hidden pb-20">
@@ -217,118 +251,174 @@ export default function PricingPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <OfferBanner />
 
-          {/* Toggle tháng/năm */}
+          {/* Toggle chu kỳ */}
           <div className="mt-12 flex flex-col items-center gap-3">
             <div className="inline-flex items-center gap-1 rounded-full bg-slate-100 p-1">
               <button
                 type="button"
                 onClick={() => setBilling('monthly')}
-                className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
-                  billing === 'monthly' ? 'bg-white text-cerulean-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                className={`cursor-pointer rounded-full px-5 py-2 text-sm font-semibold transition ${
+                  billing === 'monthly'
+                    ? 'bg-white text-cerulean-blue-700 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
-                Theo tháng
+                1 tháng
               </button>
               <button
                 type="button"
                 onClick={() => setBilling('yearly')}
-                className={`rounded-full px-5 py-2 text-sm font-semibold transition ${
-                  billing === 'yearly' ? 'bg-white text-cerulean-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                className={`cursor-pointer rounded-full px-5 py-2 text-sm font-semibold transition ${
+                  billing === 'yearly'
+                    ? 'bg-white text-cerulean-blue-700 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
                 }`}
               >
-                Theo năm
+                12 tháng
               </button>
             </div>
-            <p className="flex items-center gap-1.5 text-sm font-medium text-emerald-600">
-              <CalendarClock className="h-4 w-4" />
-              Thanh toán theo năm được tặng 2 tháng sử dụng
-            </p>
+            {billing === 'yearly' && representativeSaving > 0 && (
+              <p className="flex items-center gap-1.5 text-sm font-medium text-emerald-600">
+                <CalendarClock className="h-4 w-4" />
+                Thanh toán theo 12 tháng tiết kiệm {representativeSaving}% so với trả theo tháng
+              </p>
+            )}
           </div>
 
-          <div className="mt-10 grid gap-6 lg:grid-cols-3">
-            {PLANS.map((p, i) => {
-              const price = billing === 'monthly' ? p.monthly : p.yearly;
-              const period = billing === 'monthly' ? p.period : p.yearlyPeriod;
-              return (
-                <motion.div
-                  key={p.name}
-                  initial={{ opacity: 0, y: 28 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, margin: '-60px' }}
-                  transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: i * 0.12 }}
-                  className={`relative flex flex-col rounded-2xl border p-8 transition-all duration-300 hover:-translate-y-1 ${
-                    p.highlight
-                      ? 'border-cerulean-blue-600 bg-gradient-to-br from-cerulean-blue-600 to-cerulean-blue-800 text-white shadow-2xl lg:-translate-y-3 lg:hover:-translate-y-4'
-                      : 'border-slate-200 bg-white hover:shadow-[0_16px_40px_rgba(30,64,175,0.08)]'
-                  }`}
-                >
-                  {p.badge && (
-                    <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-white px-3 py-1 text-xs font-bold text-cerulean-blue-700 shadow">
-                      {p.badge}
-                    </span>
-                  )}
-
-                  <div className="flex items-center gap-3">
-                    <span
-                      className={`flex h-10 w-10 items-center justify-center rounded-xl ${
-                        p.highlight ? 'bg-white/15 text-white' : 'bg-cerulean-blue-50 text-cerulean-blue-600'
-                      }`}
-                    >
-                      <p.icon className="h-5 w-5" />
-                    </span>
-                    <h2 className={`text-xl font-bold tracking-tight ${p.highlight ? 'text-white' : 'text-gray-900'}`}>
-                      {p.name}
-                    </h2>
-                  </div>
-
-                  <p className={`mt-4 text-sm leading-relaxed ${p.highlight ? 'text-cerulean-blue-100' : 'text-slate-500'}`}>
-                    {p.desc}
-                  </p>
-
-                  <div className="mt-6 flex flex-wrap items-end gap-x-2 gap-y-1">
-                    <span className={`text-4xl font-extrabold tracking-tight ${p.highlight ? 'text-white' : 'text-gray-900'}`}>
-                      {price}
-                    </span>
-                    {period && (
-                      <span className={`pb-1 text-sm ${p.highlight ? 'text-cerulean-blue-200' : 'text-slate-400'}`}>
-                        {period}
-                      </span>
-                    )}
-                  </div>
-                  {p.highlight && (
-                    <p className="mt-1 text-xs font-medium text-emerald-200">Tiết kiệm 17% so với trả tháng</p>
-                  )}
-
-                  <ul className="mt-6 flex-1 space-y-3">
-                    {p.features.map((f) => (
-                      <li key={f} className="flex items-start gap-2.5 text-sm">
-                        <span
-                          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${
-                            p.highlight ? 'bg-white/15 text-white' : 'bg-emerald-100 text-emerald-600'
-                          }`}
-                        >
-                          <Check className="h-3 w-3" />
-                        </span>
-                        <span className={p.highlight ? 'text-white' : 'text-slate-600'}>{f}</span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  <Link
-                    to="/contact"
-                    className={`mt-8 inline-flex h-11 items-center justify-center gap-2 rounded-xl font-semibold transition ${
-                      p.highlight
-                        ? 'bg-white text-cerulean-blue-700 hover:bg-cerulean-blue-50'
-                        : 'bg-cerulean-blue-600 text-white hover:bg-cerulean-blue-700'
+          {loading ? (
+            <PlansGridSkeleton />
+          ) : error ? (
+            <div className="mt-10 flex flex-col items-center gap-4 rounded-2xl border border-dashed border-slate-200 bg-white p-12 text-center">
+              <p className="text-sm text-slate-500">{error}</p>
+              <button
+                type="button"
+                onClick={retry}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-cerulean-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-cerulean-blue-700"
+              >
+                Thử lại
+              </button>
+            </div>
+          ) : plans.length === 0 ? (
+            <div className="mt-10 rounded-2xl border border-dashed border-slate-200 bg-white p-12 text-center text-sm text-slate-400">
+              Chưa có gói dịch vụ nào được cấu hình.
+            </div>
+          ) : (
+            <div className="mt-10 grid gap-4 lg:grid-cols-4">
+              {plans.map((p, i) => {
+                const highlight = p.isPopular;
+                const price = p.cycles[cycleKey] ?? 0;
+                const Icon = getPlanIcon(p.key);
+                const saving = billing === 'yearly' ? annualSaving(p) : 0;
+                return (
+                  <motion.div
+                    key={p.key}
+                    initial={{ opacity: 0, y: 28 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, margin: '-60px' }}
+                    transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: i * 0.12 }}
+                    className={`relative flex flex-col rounded-2xl border p-5 transition-all duration-300 hover:-translate-y-1 ${
+                      highlight
+                        ? 'border-cerulean-blue-600 bg-gradient-to-br from-cerulean-blue-600 to-cerulean-blue-800 text-white shadow-2xl lg:-translate-y-2 lg:hover:-translate-y-3'
+                        : 'border-slate-200 bg-white hover:shadow-[0_16px_40px_rgba(30,64,175,0.08)]'
                     }`}
                   >
-                    {p.cta}
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </motion.div>
-              );
-            })}
-          </div>
+                    {p.badge && (
+                      <span className="absolute -top-3 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-white px-3 py-1 text-[11px] font-bold text-cerulean-blue-700 shadow">
+                        {p.badge}
+                      </span>
+                    )}
+
+                    <div className="flex items-center gap-2.5">
+                      <span
+                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                          highlight ? 'bg-white/15 text-white' : 'bg-cerulean-blue-50 text-cerulean-blue-600'
+                        }`}
+                      >
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <h2 className={`truncate text-base font-bold tracking-tight ${highlight ? 'text-white' : 'text-gray-900'}`}>
+                        {p.name}
+                      </h2>
+                    </div>
+
+                    <p className={`mt-2.5 line-clamp-2 min-h-[2rem] text-xs leading-relaxed ${highlight ? 'text-cerulean-blue-100' : 'text-slate-500'}`}>
+                      {p.description}
+                    </p>
+
+                    <div className="mt-4 flex flex-wrap items-end gap-x-2 gap-y-1">
+                      {p.contactOnly ? (
+                        <span className={`text-3xl font-extrabold tracking-tight ${highlight ? 'text-white' : 'text-gray-900'}`}>
+                          Liên hệ
+                        </span>
+                      ) : price === 0 ? (
+                        <span className={`text-3xl font-extrabold tracking-tight ${highlight ? 'text-white' : 'text-gray-900'}`}>
+                          Miễn phí
+                        </span>
+                      ) : (
+                        <>
+                          <span className={`text-3xl font-extrabold tracking-tight ${highlight ? 'text-white' : 'text-gray-900'}`}>
+                            {fmtVND(price)}
+                          </span>
+                          <span className={`pb-1 text-xs ${highlight ? 'text-cerulean-blue-200' : 'text-slate-400'}`}>
+                            {cyclePeriod}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    {saving > 0 && !p.contactOnly && (
+                      <p className={`mt-1 text-[11px] font-medium ${highlight ? 'text-emerald-200' : 'text-emerald-600'}`}>
+                        Tiết kiệm {saving}% so với trả theo tháng
+                      </p>
+                    )}
+
+                    <ul className="mt-4 flex-1 space-y-2">
+                      {p.features.map((f) => (
+                        <li key={f} className="flex items-start gap-2 text-xs">
+                          <span
+                            className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full ${
+                              highlight ? 'bg-white/15 text-white' : 'bg-emerald-100 text-emerald-600'
+                            }`}
+                          >
+                            <Check className="h-2.5 w-2.5" />
+                          </span>
+                          <span className={highlight ? 'text-white' : 'text-slate-600'}>{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <div className="mt-5">
+                      {p.contactOnly ? (
+                        <Link
+                          to="/contact"
+                          className={`inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold transition ${
+                            highlight
+                              ? 'bg-white text-cerulean-blue-700 hover:bg-cerulean-blue-50'
+                              : 'bg-cerulean-blue-600 text-white hover:bg-cerulean-blue-700'
+                          }`}
+                        >
+                          Liên hệ tư vấn
+                          <ArrowRight className="h-4 w-4" />
+                        </Link>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => openAuth('owner')}
+                          className={`inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-xl text-sm font-semibold transition ${
+                            highlight
+                              ? 'bg-white text-cerulean-blue-700 hover:bg-cerulean-blue-50'
+                              : 'bg-cerulean-blue-600 text-white hover:bg-cerulean-blue-700'
+                          }`}
+                        >
+                          Chọn gói này
+                          <ArrowRight className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
 
           <p className="mt-10 text-center text-sm text-slate-500">
             Cần gói riêng cho chuỗi lớn?{' '}
@@ -361,14 +451,12 @@ export default function PricingPage() {
               {/* Header */}
               <div className="grid grid-cols-[1.4fr_1fr_1fr_1fr] items-center border-b border-slate-100 bg-slate-50/60 px-4 py-4 sm:px-6">
                 <p className="text-sm font-semibold text-gray-900">Tính năng</p>
-                {PLANS.map((p) => (
+                {COMPARISON_COLUMNS.map((c) => (
                   <p
-                    key={p.name}
-                    className={`text-center text-sm font-bold ${
-                      p.highlight ? 'text-cerulean-blue-600' : 'text-gray-900'
-                    }`}
+                    key={c.name}
+                    className={`text-center text-sm font-bold ${c.highlight ? 'text-cerulean-blue-600' : 'text-gray-900'}`}
                   >
-                    {p.name}
+                    {c.name}
                   </p>
                 ))}
               </div>
@@ -449,13 +537,14 @@ export default function PricingPage() {
                 Tạo tài khoản, mở bán chi nhánh đầu tiên trong 5 phút và nhận đơn ngay hôm nay.
               </p>
               <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-                <Link
-                  to="/contact"
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-white px-7 font-bold text-cerulean-blue-700 transition hover:bg-cerulean-blue-50"
+                <button
+                  type="button"
+                  onClick={() => openAuth('owner')}
+                  className="inline-flex h-12 cursor-pointer items-center justify-center gap-2 rounded-xl bg-white px-7 font-bold text-cerulean-blue-700 transition hover:bg-cerulean-blue-50"
                 >
-                  Bắt đầu miễn phí
+                  Chọn gói này
                   <ArrowRight className="h-4 w-4" />
-                </Link>
+                </button>
                 <Link
                   to="/guide"
                   className="inline-flex h-12 items-center justify-center rounded-xl border border-white/30 px-7 font-semibold text-white transition hover:bg-white/10"
@@ -481,7 +570,7 @@ function FaqItem({ q, a }: { q: string; a: string }) {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left"
+        className="flex w-full cursor-pointer items-center justify-between gap-4 px-5 py-4 text-left"
         aria-expanded={open}
       >
         <span className="text-sm font-semibold text-gray-900 sm:text-base">{q}</span>

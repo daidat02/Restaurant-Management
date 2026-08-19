@@ -1,6 +1,6 @@
 # Hướng Dẫn Vận Hành — Hệ Thống Quản Lý Nhà Hàng NhamNhi
 
-> Tài liệu mô tả **cách hệ thống đang vận hành thật trên production** theo mô hình **SaaS thu phí theo nhà hàng** (cập nhật 2026-08-13 — bổ sung **thanh toán gói cước PayOS/VNPay thật** + `transactionId` + realtime subscription payment + gateway nền tảng; dual-cổng đơn hàng PayOS per-tenant / gói cước platform gateway), kèm URL, vai trò, tài khoản test từng role, luồng chính và lỗi đã biết.
+> Tài liệu mô tả **cách hệ thống đang vận hành thật trên production** theo mô hình **SaaS thu phí theo nhà hàng — 4 gói (Miễn Phí / Cơ Bản / Pro / Doanh Nghiệp)** (cập nhật 2026-08-17 — vòng đời thuê bao mới: hết hạn → tự hạ Miễn Phí, nâng/hạ gói giữa chu kỳ, plan gating bàn/món/nhân viên/tính năng), kèm URL, vai trò, tài khoản test từng role, luồng chính và lỗi đã biết.
 
 ---
 
@@ -13,7 +13,7 @@
 | Màn hình nhà bếp (KDS) | `https://nhamnhitidi.vercel.app/kds` | Vào bằng mã nhà bếp (không cần tài khoản) |
 | Cơ sở dữ liệu | MongoDB Atlas (cloud) | Tài khoản test đã seed + verify login trên prod |
 
-Kiến trúc: **React (Vite) + Node/Express + MongoDB + Socket.IO (real-time)**. Hệ thống **đa nhà hàng (multi-tenant)**: một tài khoản chủ (role `admin`) sở hữu nhiều chi nhánh (Cơ sở). **Từ T04 trở đi: admin vào thẳng `/admin` và quản toàn chuỗi — màn hình "Chọn cơ sở" đã bị gỡ.** Mô hình kinh doanh: **trả phí theo từng nhà hàng** — nhà hàng đầu được dùng thử 30 ngày, nhà hàng 2+ phải trả trước.
+Kiến trúc: **React (Vite) + Node/Express + MongoDB + Socket.IO (real-time)**. Hệ thống **đa nhà hàng (multi-tenant)**: một tài khoản chủ (role `admin`) sở hữu nhiều chi nhánh (Cơ sở). **Từ T04 trở đi: admin vào thẳng `/admin` và quản toàn chuỗi — màn hình "Chọn cơ sở" đã bị gỡ.** Mô hình kinh doanh: **4 gói dịch vụ** — **Miễn Phí** (nhà hàng đầu của chủ), **Cơ Bản / Pro / Doanh Nghiệp** (trả phí theo chu kỳ 1/3/6/12 tháng).
 
 ---
 
@@ -38,37 +38,38 @@ Quyền chi tiết (sau redesign T01–T10):
 
 ---
 
-## 3. Tài Khoản Test Cho Từng Role (đã seed trên production)
+## 3. Tài Khoản Test Cho Từng Role (đã seed trên DB dev)
 
-> Đã seed lên **DB production (Atlas)** bằng script `server/scripts/seed-test-accounts.mjs` và **verify login thành công qua API production** (2026-08-02). Mật khẩu dùng chung: `Test@NhamNhi2026`.
+> Seed bằng script `server/scripts/seed-restaurant-demo.mjs` (xoá toàn bộ DB rồi tạo lại **4 nhà hàng demo, mỗi nhà hàng ứng với 1 gói**). Mật khẩu dùng chung: `Test@NhamNhi2026`.
 
-| Role | Email | Thuộc nhà hàng | Mục đích test |
+| Role | Email | Nhà hàng (gói) | Mục đích test |
 |---|---|---|---|
 | **super-admin** | `super.admin@nhamnhi.vn` | — | Dashboard KPI, tenants, pricing, transactions, audit, khoá/mở chủ |
-| **admin** (chủ 2 cơ sở) | `admin.test@nhamnhi.vn` | `NhamNhi TEST Cơ Sở 1` + `NhamNhi TEST Cơ Sở 2` | **Quản toàn chuỗi**: `/admin/*` (dashboard gộp, restaurants + Cài Đặt chi nhánh, reports so sánh, customers quản manager, logs audit + thanh toán, billing) |
-| **manager** | `manager.test@nhamnhi.vn` | `NhamNhi TEST Cơ Sở 1` | `/manager/*`: menu, POS, bàn, đặt bàn, nhân viên |
-| **staff** | `staff.test@nhamnhi.vn` | `NhamNhi TEST Cơ Sở 1` | POS, sơ đồ bàn, đơn hàng |
+| **admin — Gói Pro** | `admin.test@nhamnhi.vn` | `NhamNhi — Cơ Sở Chính` (Pro) | Full tính năng: 16 bàn · 7 danh mục · 50 món · KDS · báo cáo nâng cao |
+| **admin — Gói Cơ Bản** | `admin.basic@nhamnhi.vn` | `NhamNhi — Gói Cơ Bản` (Basic) | 12 bàn · 5 danh mục · 22 món; **không** KDS/báo cáo nâng cao |
+| **admin — Gói Miễn Phí** | `admin.free@nhamnhi.vn` | `NhamNhi — Gói Miễn Phí` (Free) | 5 bàn · 3 danh mục · 12 món · 1 NV — **test plan gate** (bàn 6/món 31/NV 3 bị chặn) |
+| **admin — Gói Doanh Nghiệp** | `admin.enterprise@nhamnhi.vn` | `NhamNhi — Gói Doanh Nghiệp` (Enterprise) | 20 bàn · 7 danh mục · 50 món · không giới hạn |
+| **manager** | `manager.test@nhamnhi.vn` | `NhamNhi — Cơ Sở Chính` | `/manager/*`: menu, POS, bàn, đặt bàn, nhân viên |
+| **manager 2** | `manager2.test@nhamnhi.vn` | `NhamNhi — Cơ Sở Chính` | Thu ngân |
+| **staff** | `staff.test@nhamnhi.vn` | `NhamNhi — Cơ Sở Chính` | POS, sơ đồ bàn, đơn hàng |
 | **customer** | `customer.test@nhamnhi.vn` | — | Đăng nhập khách, lịch sử đơn, đặt bàn |
-| **owner** (chủ 3 nhà hàng thuê bao) | `owner.sub@nhamnhi.vn` | `NhamNhi TEST Sub Trial` (trial còn 10 ngày) · `NhamNhi TEST Sub Sắp Hết Hạn` (trial ≤7 ngày) · `NhamNhi TEST Sub Bị Khoá` (locked) | Banner 3 trạng thái, billing, upsell khi locked |
 
-**Mã nhà bếp (KDS):** `456734` (Cơ Sở 1) · `553572` (Cơ Sở 2).
+**Mã nhà bếp (KDS):** Pro `456734` · Cơ Bản `553572` · Miễn Phí `653780` · Doanh Nghiệp `772915`.
 
-### Cách tạo lại / đồng bộ tài khoản test
-
-Script idempotent theo email — chạy lại nhiều lần không tạo trùng:
+### Cách tạo lại dữ liệu demo (xoá sạch + seed mới)
 
 ```bash
 cd server
-node scripts/seed-test-accounts.mjs
+node scripts/seed-restaurant-demo.mjs
 ```
 
 Script sẽ:
-1. Đọc `MONGODB_URL` từ `server/.env` (chính là DB Atlas production).
-2. Upsert 5 nhà hàng test: 2 cơ sở active cho `admin.test`, 3 nhà hàng (trial / sắp hết hạn / locked) cho `owner.sub`.
-3. Upsert 6 tài khoản theo role (bảng trên) với mật khẩu `Test@NhamNhi2026`, `isActive: true`.
-4. Gán `ownerId` cho từng nhà hàng, tạo cấu hình (`kitchenCode`), bàn (Cơ Sở 1, 2 mỗi cơ sở), menu mẫu (Cà phê sữa 35.000đ, Trà đào 40.000đ).
+1. Đọc `MONGODB_URL` từ `server/.env` và **xoá toàn bộ database** (`dropDatabase`).
+2. Tạo **4 chủ nhà hàng** (admin), mỗi chủ 1 chi nhánh ở **1 gói**: Miễn Phí / Cơ Bản / Pro / Doanh Nghiệp.
+3. Mỗi nhà hàng: setting (mã bếp), bàn, danh mục + món ăn (số lượng đúng trần gói), nhân viên; nhà hàng Pro thêm bộ đơn + thanh toán để có data báo cáo.
+4. Tạo các tài khoản dùng chung (super-admin, manager, staff, customer).
 
-> ⚠️ Chạy script là **ghi vào DB mà `MONGODB_URL` trỏ tới**. Kiểm tra kỹ `.env` trước khi chạy ở máy lạ. Reset super-admin riêng khi cần: `SUPER_ADMIN_PASSWORD='...' node server/scripts/reset-super-admin.mjs`.
+> ⚠️ Chạy script là **ghi vào DB mà `MONGODB_URL` trỏ tới** — kiểm tra kỹ `.env` trước khi chạy ở máy lạ. Reset super-admin riêng khi cần: `SUPER_ADMIN_PASSWORD='...' node server/scripts/reset-super-admin.mjs`.
 
 ---
 
@@ -86,7 +87,7 @@ Script sẽ:
 
 ### 4.2. Màn hình nhà bếp (KDS)
 
-1. Vào `https://nhamnhitidi.vercel.app/kds` → nhập **mã nhà bếp** (test: `456734` hoặc `553572`).
+1. Vào `https://nhamnhitidi.vercel.app/kds` → nhập **mã nhà bếp** (xem mục 3 — mỗi gói demo có mã riêng).
 2. Mã do **admin/manager cấp** tại Cài đặt nhà hàng (`/manager` → Cài Đặt) — nút tạo mã mới (mã cũ vô hiệu).
 3. Bếp thấy danh sách đơn active theo tab: **Tất cả / Tại quán / Giao hàng / Mang về**, kèm số bàn, mã đơn, thời gian.
 4. **Bấm 1 lần vào món** → "Chờ" → "Đang nấu"; **bấm lần 2** → hoàn thành. Đơn hết món active sẽ **tự ẩn** khỏi màn hình.
@@ -103,14 +104,17 @@ Script sẽ:
 
 ### 4.4. Chủ nhà hàng (admin / người thuê — quản toàn chuỗi)
 
-- **Đăng ký chủ** (`/auth/owner`): form riêng cho chủ nhà hàng (họ tên, email, SĐT, mật khẩu) — giải thích "miễn phí 30 ngày dùng thử cho nhà hàng đầu tiên, sau đó 299.000đ/nhà hàng/tháng". Sau đăng ký tự đăng nhập → vào wizard tạo nhà hàng đầu.
-- **Tổng quan** (`/admin`): **dashboard gộp toàn chuỗi** — KPI doanh thu/tổng đơn của mọi chi nhánh (không lọc theo một cơ sở) + **bảng cảnh báo thuê bao** (trial / sắp hết ≤7 ngày / locked) + banner trạng thái thuê bao.
-- **Quản lý nhà hàng** (`/admin/restaurants`): danh sách chi nhánh của chuỗi, tìm kiếm, badge trạng thái từng nhà hàng; **nút Cài Đặt (bánh răng) mỗi dòng** → mở `SettingModal` cấu hình đúng chi nhánh đó (Hồ sơ / Sơ đồ & tạo bàn / Thiết lập danh mục / Cấu hình hóa đơn / Cấu hình thanh toán / Bảo mật / Tham số hệ thống) — thay đổi chỉ ảnh hưởng chi nhánh được chọn; **"Thêm nhà hàng"** → nhà hàng **đầu tiên** vào wizard (trial, không tính phí); nhà hàng **2+** mở **modal trả phí 299.000đ/tháng**.
-- **Onboarding** (`/admin/onboarding`): wizard thiết lập chi nhánh mới (thông tin, cấu hình, nhân sự, bàn & QR).
-- **Báo cáo kinh doanh** (`/admin/reports`): dữ liệu **thật theo chuỗi** (không còn mock) — bộ lọc thời gian (Hôm nay/7 ngày/Tháng/Năm), KPI tổng chuỗi + **bảng xếp hạng & so sánh doanh thu giữa các chi nhánh**, biểu đồ so sánh, hành vi gọi món.
+- **Đăng ký chủ** (`/auth/owner`): form riêng cho chủ nhà hàng (họ tên, email, SĐT, mật khẩu). Sau đăng ký tự đăng nhập → vào wizard tạo nhà hàng đầu (được cấp **gói Miễn Phí**).
+- **Tổng quan** (`/admin`): **dashboard gộp toàn chuỗi** — KPI doanh thu/tổng đơn của mọi chi nhánh (không lọc theo một cơ sở) + **bảng cảnh báo thuê bao** (gói trả phí sắp hết hạn ≤7 ngày / bị khoá) + banner trạng thái thuê bao (Miễn Phí / sắp hết hạn / đã lên lịch hạ gói).
+- **Quản lý nhà hàng** (`/admin/restaurants`): danh sách chi nhánh của chuỗi, tìm kiếm, badge gói từng nhà hàng; **bấm card chi nhánh** → trang quản lý chi nhánh `/admin/restaurants/:id` (tab Cửa hàng & Hệ thống / Sơ đồ bàn / Danh mục món ăn / Thanh toán — thay đổi chỉ ảnh hưởng chi nhánh được chọn); **"Thêm nhà hàng"** → nhà hàng **đầu tiên** vào wizard (gói Miễn Phí); nhà hàng **2+** phải chọn gói trả phí + chu kỳ.
+- **Onboarding** (`/admin/onboarding`): wizard thiết lập chi nhánh mới (thông tin, cấu hình + mã bếp, nhân sự, bàn & QR).
+- **Báo cáo kinh doanh** (`/admin/reports`): dữ liệu **thật theo chuỗi** — bộ lọc thời gian, KPI tổng chuỗi + bảng xếp hạng & so sánh doanh thu giữa các chi nhánh. (Yêu cầu gói có tính năng `advanced_report`.)
 - **Người dùng hệ thống** (`/admin/customers`): **chỉ quản manager/admin của chuỗi** (đã bỏ tab "Khách Hàng") — lọc theo chi nhánh hoặc toàn chuỗi; form **"Thêm nhân viên"** tạo manager gán đúng chi nhánh thuộc chuỗi (admin đổi chi nhánh cho manager; manager chỉ tạo staff cho chi nhánh mình).
 - **Nhật ký hệ thống** (`/admin/logs`): 2 tab — **Hành Động** (audit của toàn chuỗi: ai làm gì, chi nhánh nào, khi nào) và **Thanh Toán** (lịch sử giao dịch mọi chi nhánh: nhà hàng, số tiền, chu kỳ, tới ngày); lọc theo chi nhánh + thời gian + từ khoá.
-- **Thanh toán & Gia hạn** (`/admin/billing`): chọn nhà hàng + chu kỳ (1/3/6/12 tháng, đọc giá từ PricingConfig), **chọn phương thức thanh toán (PayOS QR / VNPay)** qua `PaymentDialog` → chuyển nhà hàng sang `active` khi hoàn tất (theo dõi realtime `listenPaymentResult`), màn thành công + **lịch sử giao dịch** (transactionId, nhà hàng, gói+chu kỳ, ngày giờ, hạn, số tiền, trạng thái — DataTable).
+- **Thanh toán & Gói** (`/admin/billing`): hiển thị **gói đang dùng + "Đang dùng X/Y"** (bàn/món/nhân viên) + badge **"đã lên lịch hạ gói"**; chọn gói + chu kỳ (1/3/6/12 tháng):
+  - **Upgrade** giữa chu kỳ → trả phần chênh lệch (pro-rate) → gói đổi ngay.
+  - **Downgrade** giữa chu kỳ → không trừ tiền, lưu `pendingPlanKey`, áp dụng cuối chu kỳ.
+  - **Gia hạn** cùng gói → như cũ; thanh toán qua **PayOS QR / VNPay** (`PaymentDialog`), theo dõi realtime `listenPaymentResult`, kèm **lịch sử giao dịch** (transactionId, nhà hàng, gói+chu kỳ, ngày giờ, hạn, số tiền, trạng thái).
 
 > Màn hình cũ đã bị thay thế: **bỏ màn hình "Chọn cơ sở"** (admin quản toàn chuỗi trực tiếp) và **bỏ tab Khách Hàng** ở `/admin/customers`.
 
@@ -118,10 +122,25 @@ Script sẽ:
 
 - **Dashboard** (`/super-admin`): **4 KPI** (chủ đang trial, chủ hoạt động, số nhà hàng đang hoạt động, doanh thu tháng này), **biểu đồ doanh thu 6 tháng**, bảng người thuê gần đây + nhà hàng sắp hết hạn (≤7 ngày).
 - **Người thuê** (`/super-admin/tenants`): danh sách chủ (tên, email, số nhà hàng, trạng thái trial/active/locked, tổng đã trả) → **chi tiết chủ** (nhà hàng + giao dịch) → **Khoá/Mở khoá** toàn bộ tài khoản của chủ.
-- **Gói cước & giá** (`/super-admin/pricing`): chỉnh giá 4 chu kỳ (lưu PricingConfig, tự tính % tiết kiệm).
+- **Gói cước & giá** (`/super-admin/pricing`): chỉnh 4 gói (tên, giá 4 chu kỳ, **giới hạn bàn/món/nhân viên**, **tính năng được cấp `featureKeys`** theo `FEATURE_CATALOG`, giá niêm yết/tháng, badge, "Liên hệ bán hàng").
 - **Giao dịch** (`/super-admin/transactions`): lịch sử thanh toán (nhà hàng, chủ, số tiền, chu kỳ, trạng thái, thời gian).
 - **Audit log** (`/super-admin/audit`): nhật ký sự kiện subscription/thanh toán/khoá.
-- Không còn màn hình vận hành nhà hàng (menu/đơn/bàn, đổi gói Free/Pro, nút Crown) — đã loại bỏ khi chuyển sang mô hình SaaS.
+- Không còn màn hình vận hành nhà hàng (menu/đơn/bàn) — đã loại bỏ khi chuyển sang mô hình SaaS.
+
+### 4.7. Plan gating theo gói (bàn / món / nhân viên / tính năng)
+
+Hệ thống gate ở **2 tầng**: server (`plan-gate.service.ts` — `assertLimit`/`assertFeature`, lưới cuối) + client (`hooks/use-plan.ts` — ẩn menu, chặn nút, upsell). Giới hạn mặc định theo gói (super-admin chỉnh tại `/super-admin/pricing`):
+
+| Gói | Bàn | Món | Nhân viên | Tính năng nổi bật |
+|---|---|---|---|---|
+| **Miễn Phí** | 5 | 30 | 2 | Cơ bản (POS, bàn, đơn, đặt bàn) |
+| **Cơ Bản** | 20 | 100 | 5 | Báo cáo 7 ngày |
+| **Pro** | 100 | 500 | 20 | + KDS, đặt món online (scan QR), báo cáo nâng cao, chat nhóm, white-label |
+| **Doanh Nghiệp** | Không giới hạn | Không giới hạn | Không giới hạn | Mọi tính năng + API |
+
+- Vượt trần → server trả `403 { errorCode: 'PLAN_LIMIT_REACHED', meta: { resource, limit, used, planKey, feature } }` → client bật modal upsell "Nâng cấp gói".
+- Thiếu tính năng → ẩn mục menu (Sidebar), route hiển thị màn hình upsell (`RequireFeature`), nút action bị disable.
+- Demo: login `admin.free@nhamnhi.vn` → tạo bàn thứ 6 / món thứ 31 / nhân viên thứ 3 → bị chặn; login `admin.test@nhamnhi.vn` (Pro) → không bị chặn.
 
 ### 4.6b. Chat nội bộ (Messaging — staff/manager/admin)
 
@@ -141,24 +160,27 @@ Script sẽ:
 
 ---
 
-## 5. Thuê Bao (Subscription) — trial / active / locked
+## 5. Thuê Bao (Subscription) — 4 gói + vòng đời mới
 
-- Mỗi nhà hàng có trạng thái `subscription: 'trial' | 'active' | 'locked'` + `trialEndsAt` / `paidUntil` (chi tiết `server/src/models/Schema/RestaurantSchema.ts`).
-- **Nhà hàng đầu tiên** của chủ → **trial 30 ngày** miễn phí (`trialEndsAt = now + 30 ngày`).
-- **Nhà hàng 2+** → bắt buộc trả trước theo chu kỳ → `active` + ghi Transaction.
-- **State machine** (`server/src/services/subscription.service.ts`): khi đọc/ghi nhà hàng, tự tính trạng thái theo ngày —
-  - `trial` còn **≤7 ngày** → ghi nhận `subscription.expiring` + thông báo bell (1 lần).
-  - `trial` hết hạn / `active` quá `paidUntil` → chuyển **locked** + audit `subscription.locked` + thông báo.
-- **Khi locked**: tạo đơn (`POST /api/orders`) & tạo món (`POST /api/menu/item`) bị chặn → `403 { code: 'RESTAURANT_LOCKED' }` → client hiện modal upsell.
+- Mỗi nhà hàng có `subscription: 'trial' | 'active' | 'locked' | 'pending'` + `currentPlanKey` (`free|basic|pro|enterprise`) + `paidUntil` / `pendingPlanKey` (chi tiết `server/src/models/Schema/RestaurantSchema.ts`). **`trial` giữ trong enum nhưng không còn dùng** trong luồng mới (migration chuyển hết về free).
+- **Nhà hàng đầu tiên** của chủ → **`active` + gói Miễn Phí** (không `paidUntil`), không còn dùng thử 30 ngày.
+- **Nhà hàng 2+** → bắt buộc trả trước theo chu kỳ → `active` + gói trả phí + ghi Transaction.
+- **State machine** (`server/src/services/subscription.service.ts` — `applySubscriptionState`, chạy khi đọc/ghi qua `assertRestaurantActive`):
+  - `active` hết `paidUntil` **+ có `pendingPlanKey`** → tự áp dụng gói đã lên lịch hạ cấp (tính `paidUntil` theo chu kỳ đã chọn), audit `subscription.downgrade` + thông báo.
+  - `active` hết `paidUntil` **gói trả phí** → **tự hạ về Miễn Phí** (`currentPlanKey='free'`, `paidUntil=null`), audit `subscription.downgrade` + thông báo — **KHÔNG khoá**.
+  - Đã là Miễn Phí (không `paidUntil`) → không làm gì. `locked`/`pending` → giữ nguyên.
+- **Đổi gói giữa chu kỳ** (`prepareSubscription` so `sortOrder`):
+  - **Upgrade** (gói cao hơn, còn hạn) → hiệu lực ngay, chỉ trả **chênh lệch pro-rate** `(giá mới − giá cũ) × ngày còn lại / 30`, `paidUntil` giữ nguyên, `currentPlanKey` đổi ngay.
+  - **Downgrade** (gói thấp hơn, còn hạn) → **không chặn**, không trừ tiền, lưu `pendingPlanKey` (+ `pendingCycleMonths`), trả message "áp dụng khi hết hạn chu kỳ"; áp dụng tự động cuối chu kỳ.
+  - **Gia hạn** cùng gói → `paidUntil = max(now, paidUntil) + chu kỳ`.
 - **Thanh toán / gia hạn**: 2 cổng nền tảng do super-admin cấu hình (`GET/PUT /api/settings/gateway`, scope=`platform`):
   - **PayOS**: `POST /api/subscriptions/payos/create-url` → `{checkoutUrl, transactionId}`; webhook `POST /api/subscriptions/webhook` xác nhận → `completeSubscription()`.
   - **VNPay**: `POST /api/subscriptions/vnpay/create-url` → `{paymentUrl, transactionId}`; return `GET /api/subscriptions/vnpay/return` (verify `vnp_SecureHash`).
-  - Kết quả: Transaction(paid) có `transactionId` (`yyyyMMdd`+6 số tăng dần), `subscription='active'`, `paidUntil = max(now, paidUntil) + chu kỳ`, audit `transaction.create` + `subscription.unlocked`; đẩy realtime room `subscription_payment_<transactionId>` (event `subscription_payment_event`) + room `restaurant_<id>` (event `subscription_event`).
-  - `POST /api/subscriptions/pay` (`restaurantId`, `cycleMonths`) hiện dùng làm **mock pay** cho E2E/verify nhanh.
-- **Giá chu kỳ** (PricingConfig, super-admin chỉnh tại `/super-admin/pricing`): 1 tháng **299.000đ** / 3 tháng **849.000đ** (~5%) / 6 tháng **1.590.000đ** (~11%) / 12 tháng **2.990.000đ** (~17%).
+  - Kết quả: Transaction(paid) có `transactionId` (`yyyyMMdd`+6 số tăng dần), `subscription='active'`, audit `transaction.create`; đẩy realtime room `subscription_payment_<transactionId>` (event `subscription_payment_event`) + room `restaurant_<id>` (event `subscription_event`).
+  - `POST /api/subscriptions/pay` (`restaurantId`, `cycleMonths`, `planId`) dùng làm **mock pay** cho E2E/verify nhanh (hỗ trợ upgrade/downgrade).
 - **Khoá tài khoản chủ** (super-admin): đặt `isActive=false` → toàn bộ user (admin/manager/staff) của chủ không đăng nhập được.
 
-> 💡 **Cách test 3 trạng thái thuê bao nhanh trên prod:** login `owner.sub@nhamnhi.vn` → nút "Chọn cơ sở" để đổi qua lại giữa `NhamNhi TEST Sub Trial` (banner xanh), `NhamNhi TEST Sub Sắp Hết Hạn` (banner cam + nút gia hạn), `NhamNhi TEST Sub Bị Khoá` (banner đỏ + nút thanh toán). Bấm thanh toán ở `/admin/billing` (mock) để mở lại.
+> 💡 **Cách test 4 gói nhanh:** login lần lượt `admin.free@nhamnhi.vn` (Miễn Phí — tạo bàn thứ 6 bị chặn), `admin.basic@nhamnhi.vn` (Cơ Bản — không KDS), `admin.test@nhamnhi.vn` (Pro — đầy đủ), `admin.enterprise@nhamnhi.vn` (Doanh Nghiệp). Tại `/admin/billing`, thử **nâng cấp** (trả chênh lệch pro-rate) và **hạ gói** (badge "đã lên lịch hạ gói" — áp dụng cuối kỳ).
 
 ---
 
@@ -205,20 +227,20 @@ Script sẽ:
 |---|---|---|
 | 1 | Schema Restaurant có `ownerId`/`subscription`/`trialEndsAt`/`paidUntil` | `subscription-schema.test.ts` |
 | 2 | Đăng ký chủ (`POST /auth/register-owner`) → role admin | `register-owner.test.ts` |
-| 3 | Nhà hàng đầu → trial 30 ngày + audit `subscription.trial.started` | `register-owner.test.ts` |
+| 3 | Nhà hàng đầu → active + gói Miễn Phí + audit `subscription.free.assigned` | `register-owner.test.ts` |
 | 4 | Nhà hàng 2+ → trả phí (Transaction) + active; chu kỳ sai → 400 | `register-owner.test.ts` |
-| 5 | State machine: trial 20 ngày giữ nguyên / ≤7 ngày → expiring / quá hạn → locked | `subscription-state.test.ts` |
-| 6 | Thanh toán: gia hạn active / mở lại locked → active + audit; chủ khác → 403; **PayOS/VNPay gói cước: create-url + webhook/return verify + `transactionId` sequence** | `subscription-pay.test.ts`, `subscription-payos.test.ts`, `subscription-vnpay.test.ts` |
+| 5 | State machine: Miễn Phí không hết hạn / gói trả phí hết hạn → **hạ Miễn Phí (KHÔNG khoá)** / `pendingPlanKey` áp dụng cuối chu kỳ | `subscription-state.test.ts` |
+| 6 | Thanh toán: gia hạn / mở lại locked → active + audit; chủ khác → 403; **PayOS/VNPay gói cước: create-url + webhook/return verify + `transactionId` sequence** | `subscription-pay.test.ts`, `subscription-payos.test.ts`, `subscription-vnpay.test.ts` |
 | 7 | Tạo đơn & món khi locked → `403 RESTAURANT_LOCKED` | `subscription-pay.test.ts` |
 | 8 | Super-admin: dashboard 4 KPI, tenants, transactions, block/unblock chủ | `super-admin-billing.test.ts`, `super-admin.test.ts` |
-| 9 | **Vòng đời chống production**: đăng ký → nhà hàng đầu trial → tạo đơn OK → hết hạn → locked + chặn đơn → thanh toán → active + tạo đơn lại → super-admin thấy KPI/giao dịch → block/unblock | `subscription-lifecycle.test.ts` |
-| 10 | E2E UI: banner 3 trạng thái, badge + modal trả phí 2+, billing mock 299.000đ → màn thành công | `e2e/subscription-owner.spec.ts` |
-| 11 | E2E UI: đăng ký chủ `/auth/owner` → wizard nhà hàng đầu → banner trial trên `/admin` | `e2e/owner-register.spec.ts` |
-| 12 | E2E UI: super-admin dashboard/tenants/pricing/transactions/audit + khoá chủ | `e2e/super-admin.spec.ts` |
+| 9 | **Vòng đời chống production**: đăng ký → nhà hàng đầu free → tạo đơn OK → nâng gói Basic → hết hạn → **tự hạ Miễn Phí** (không locked, vẫn phục vụ) → super-admin thấy KPI/giao dịch → block/unblock | `subscription-lifecycle.test.ts` |
+| 10 | **Plan gate**: giới hạn bàn/món/NV theo gói (`PLAN_LIMIT_REACHED`) + gate tính năng (KDS, báo cáo nâng cao, chat nhóm) | `plan-gate.test.ts` |
+| 11 | **Migration data**: trial → free, grandfather gói trả phí, locked → active+free, idempotent | `migration-subscription-plans.test.ts` |
+| 12 | E2E: 8 kịch bản subscription (pricing config, gate số lượng/tính năng, upsell, upgrade, downgrade pending, hết hạn → free, chi nhánh pending) | `e2e/subscription-plans.spec.ts` |
 
 ### 8.1. Verify redesign vai trò admin quản toàn chuỗi (T01–T10) — E2E + server test
 
-> Tương ứng từng ticket redesign: **server test** ~288 tests / 33 files (`npm --prefix server test`), **E2E** 39 tests / 3 skipped (`npm run test:e2e` ở root), **build** `tsc` server + `tsc -b && vite build` client đều xanh.
+> Tương ứng từng ticket redesign: **server test** 398 tests / 46 files (`npm --prefix server test`), **E2E** 63 tests, không skip/only (`npm run test:e2e` ở root), **build** `tsc` server + `tsc -b && vite build` client đều xanh.
 
 | # | Hạng mục | Test |
 |---|---|---|
@@ -230,7 +252,7 @@ Script sẽ:
 | 6 | Dashboard gộp chuỗi + cảnh báo thuê bao (T06) | `e2e/admin-dashboard.spec.ts` |
 | 7 | Reports bỏ mock, dữ liệu thật + so sánh chi nhánh (T07) | `e2e/admin-reports.spec.ts` |
 | 8 | Customers chỉ quản manager, tạo manager chọn chi nhánh (T08) | `e2e/admin-customers.spec.ts` |
-| 9 | `/admin/restaurants` nút Cài Đặt → SettingModal đúng chi nhánh (T09) | `e2e/admin-restaurants.spec.ts` |
+| 9 | `/admin/restaurants` → trang quản lý chi nhánh đúng cơ sở (T09) | `e2e/admin-restaurants.spec.ts` |
 | 10 | `/admin/logs` audit + lịch sử thanh toán toàn chuỗi (T10) | `e2e/admin-logs.spec.ts` |
 
 > ⚠️ E2E chạy server test biên dịch (`node dist/test/server.js`) — **nhớ build server** (`npm --prefix server run build`) sau khi sửa seed/test server để E2E dùng dữ liệu mới.
@@ -241,7 +263,7 @@ Script sẽ:
 
 | Việc | Lệnh |
 |---|---|
-| Seed/đồng bộ tài khoản test từng role | `cd server && node scripts/seed-test-accounts.mjs` |
+| Seed lại toàn bộ data demo (4 gói) | `cd server && node scripts/seed-restaurant-demo.mjs` |
 | Reset mật khẩu super-admin | `cd server && SUPER_ADMIN_PASSWORD='...' node scripts/reset-super-admin.mjs` |
 | Chạy toàn bộ test + E2E (T11) | `E2E_SERVER=test npm run test:e2e` (root) |
 | Backup DB | `bash server/scripts/backup.sh` |

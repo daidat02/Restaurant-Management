@@ -115,6 +115,29 @@ describe('T5 — Thanh toán mock + khoá đơn/món khi locked', () => {
     expect(tenantX.usage.tables).toBeGreaterThanOrEqual(2); // tableX1 + tableX2 seed
     expect(tenantX.usage.items).toBeGreaterThanOrEqual(2); // menuItemX1 + menuItemX2 seed
     expect(tenantX.usage.staff).toBeGreaterThanOrEqual(1); // staffX
+    expect(typeof tenantX.usage.daily_orders).toBe('number'); // đơn hôm nay
+    expect(typeof tenantX.usage.group_chats).toBe('number'); // nhóm chat
+  });
+
+  it('GET /api/subscriptions/usage — mức sử dụng 1 nhà hàng (chủ sở hữu)', async () => {
+    const res = await request
+      .get('/api/subscriptions/usage')
+      .query({ restaurantId: SEED_IDS.tenantX.toString() })
+      .set('Authorization', `Bearer ${adminXToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.tables).toBeGreaterThanOrEqual(2);
+    expect(res.body.data.items).toBeGreaterThanOrEqual(2);
+    expect(res.body.data.staff).toBeGreaterThanOrEqual(1);
+    expect(typeof res.body.data.daily_orders).toBe('number');
+    expect(typeof res.body.data.group_chats).toBe('number');
+  });
+
+  it('GET /api/subscriptions/usage — nhà hàng không thuộc chủ → 403', async () => {
+    const res = await request
+      .get('/api/subscriptions/usage')
+      .query({ restaurantId: '000000000000000000000000' })
+      .set('Authorization', `Bearer ${adminXToken}`);
+    expect(res.status).toBe(404);
   });
 
   it('GET /api/subscriptions/transactions — chủ xem đúng lịch sử giao dịch của mình', async () => {

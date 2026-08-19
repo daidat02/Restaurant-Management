@@ -38,9 +38,13 @@ router.post(
   paymentController.ewalletCreateUrlPayment,
 );
 router.post('/return/vnpay', paymentWebhookRateLimit, paymentController.paymentReturn);
-router.post('/banking/:orderId', paymentWebhookRateLimit, paymentController.createPayOsUrl);
+router.post('/banking/:orderId', verifyToken, paymentController.createPayOsUrl);
 router.post('/webhook', paymentWebhookRateLimit, paymentController.handleWebhook);
 router.post('/:orderId/cancel', paymentWebhookRateLimit, paymentController.hanldeCancelPayosUrl);
-router.post('/check-connect', paymentWebhookRateLimit, paymentController.checkPayOSConnection);
+router.post(
+  '/check-connect',
+  verifyToken,
+  paymentController.checkPayOSConnection,
+);
 
 export default router;

@@ -8,6 +8,8 @@ export interface TabItem {
   count?: number; 
   icon?: React.ReactNode,
   className?:string,
+  disabled?: boolean;
+  disabledTooltip?: string;
 }
 
 interface CustomTabsProps {
@@ -74,7 +76,12 @@ export const CustomTabs = ({ tabs, activeTab, onTabChange, className ,tabClassNa
           return (
             <button
               key={tab.id}
-              onClick={() => onTabChange(tab.id)}
+              onClick={() => {
+                if (tab.disabled) return;
+                onTabChange(tab.id);
+              }}
+              title={tab.disabled ? tab.disabledTooltip : undefined}
+              disabled={tab.disabled}
               className={cn(
                 // Thêm flex-1 ở đây để các tab chia đều không gian trống
                 "flex flex-1 items-center justify-center shrink-0 whitespace-nowrap rounded-lg px-4 py-1.5 text-xs transition-all duration-200",
@@ -82,7 +89,8 @@ export const CustomTabs = ({ tabs, activeTab, onTabChange, className ,tabClassNa
                 isActive
                   ? "bg-[#E6F0FD] font-semibold text-blue-600 shadow-sm"
                   : "font-medium text-gray-500 hover:bg-gray-50 hover:text-gray-700",
-                  tab.className 
+                  tab.className,
+                  tab.disabled && "pointer-events-none opacity-50 cursor-not-allowed"
               )}
             >
               {tab.icon}

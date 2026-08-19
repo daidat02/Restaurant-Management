@@ -172,6 +172,7 @@ export const API_ENDPOINTS = {
     PAYOS_CREATE_URL: `${API_BASE_URL}/subscriptions/payos/create-url`,
     VNPAY_CREATE_URL: `${API_BASE_URL}/subscriptions/vnpay/create-url`,
     TRANSACTIONS: `${API_BASE_URL}/subscriptions/transactions`,
+    USAGE: `${API_BASE_URL}/subscriptions/usage`,
   },
 
   // --- AUDIT LOG (chỉ super-admin) ---

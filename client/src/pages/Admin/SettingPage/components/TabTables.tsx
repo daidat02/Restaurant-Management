@@ -5,6 +5,7 @@ import { LayoutGrid, Loader2, Plus } from 'lucide-react';
 import { SettingCard, Field, SelectField } from './settings-ui';
 import { useTable } from '@/hooks/use-table';
 import { usePlan } from '@/hooks/use-plan';
+import PlanGate from '@/components/PlanGate';
 import { cn } from '@/lib/utils';
 import type { ITable } from '@/types/table.type';
 import { AlertDialogCustom } from '@/components/AlertDialog';
@@ -20,7 +21,7 @@ const STATUSES: Record<ITable['status'], { label: string; className: string }> =
 export default function TabTables({ restaurantId }: { restaurantId?: string }) {
   const { tables, isLoading, fetchTablesByRestaurant, addTable, editTable, removeTable } =
     useTable();
-  const { planKey, plan, limitReached } = usePlan();
+  const { plan, limitReached } = usePlan();
 
   const [editing, setEditing] = useState<ITable | null>(null);
   const [formNumber, setFormNumber] = useState('');
@@ -87,6 +88,23 @@ export default function TabTables({ restaurantId }: { restaurantId?: string }) {
     await removeTable(deleteTarget._id);
     setDeleteTarget(null);
   };
+
+  // Nút submit chung — chế độ sửa không gate (không thêm bàn mới), chế độ thêm bọc PlanGate.
+  const submitButton = (
+    <button
+      type="button"
+      onClick={() => {
+        if (!tableLimitHit) {
+          handleSubmit();
+        }
+      }}
+      className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-cerulean-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-cerulean-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+      <Plus className="h-4 w-4" />
+      {editing ? 'Cập nhật bàn' : 'Thêm bàn mới'}
+    </button>
+  );
 
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-3">
@@ -186,24 +204,17 @@ export default function TabTables({ restaurantId }: { restaurantId?: string }) {
             ))}
           </SelectField>
           <div className="pt-1">
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={submitting || !hasTarget || tableLimitHit}
-              title={
-                tableLimitHit
-                  ? `Gói ${plan?.name ?? planKey ?? 'Miễn Phí'} đạt ${plan?.limits?.tables ?? 0} bàn — nâng gói để thêm`
-                  : undefined
-              }
-              className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-cerulean-blue-600 px-5 text-sm font-semibold text-white transition hover:bg-cerulean-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              <Plus className="h-4 w-4" />
-              {editing ? 'Cập nhật bàn' : 'Thêm bàn mới'}
-            </button>
+            {editing ? (
+              submitButton
+            ) : (
+              <PlanGate resource="tables" currentCount={tables.length} fallbackMode="upsell">
+                {submitButton}
+              </PlanGate>
+            )}
             {tableLimitHit && (
               <p className="mt-2 text-center text-xs text-amber-600">
-                Gói {plan?.name ?? 'Miễn Phí'} đã đạt trần {plan?.limits?.tables ?? 0} bàn — nâng gói để thêm.
+                Gói {plan?.name ?? 'Miễn Phí'} đã đạt trần {plan?.limits?.tables ?? 0} bàn — nâng
+                gói để thêm.
               </p>
             )}
           </div>
