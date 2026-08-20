@@ -36,7 +36,7 @@ export function decodeQuotedPrintable(input: string): string {
   return Buffer.from(qp, 'latin1').toString('utf8');
 }
 
-export async function startSMTPSink(fromEmail = 'no-reply@nhamnhi.test'): Promise<SmtpSink> {
+export async function startSMTPSink(fromEmail = 'no-reply@nhahangos.test'): Promise<SmtpSink> {
   const received: SinkMessage[] = [];
   let port = 0;
 
@@ -86,7 +86,7 @@ export async function startSMTPSink(fromEmail = 'no-reply@nhamnhi.test'): Promis
           secure: false,
           user: 'test-smtp-user',
           pass: 'test-smtp-pass',
-          fromName: 'NhamNhi Test',
+          fromName: 'NhaHang OS Test',
           fromEmail,
         },
       });

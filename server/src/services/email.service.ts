@@ -65,7 +65,7 @@ export async function getSMTPConfig(): Promise<SMTPConfig | null> {
     secure: false,
     user: 'nhahangos.suport@gmail.com',
     pass: 'kjef mccv edpt fvev',
-    fromName: 'NhaHangOS',
+    fromName: 'NhaHang OS',
     fromEmail: 'nhahangos.suport@gmail.com',
   };
 }
