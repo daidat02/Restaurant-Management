@@ -41,6 +41,7 @@ const FALLBACK_POLICY: Record<QueueName, FallbackPolicy> = {
   [QUEUE_NAMES.paymentWebhook]: 'propagate',
   [QUEUE_NAMES.notification]: 'swallow',
   [QUEUE_NAMES.orderFanOut]: 'swallow',
+  [QUEUE_NAMES.email]: 'swallow',
 };
 
 const logDegraded = (context: string, jobName: string, error?: unknown): void => {

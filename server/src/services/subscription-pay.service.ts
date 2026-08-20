@@ -4,6 +4,7 @@ import pricingService from '../modules/SubscriptionModule/pricing.service.js';
 import { writeAuditLog } from './auditLog.service.js';
 import { generateTransactionId } from './transaction-id.service.js';
 import { countResource } from './plan-gate.service.js';
+import { sendEmailAsync } from './email.service.js';
 
 const VALID_CYCLES = [1, 3, 6, 12];
 const DAY_MS = 24 * 3600 * 1000;
@@ -211,6 +212,36 @@ export async function completeSubscription(
       targetId: String(restaurant._id),
       summary: `Nhà hàng "${restaurant.name}" đã mở lại sau khi thanh toán`,
     });
+  }
+
+  // Gửi email biên lai cho chủ sở hữu (nền qua queue — không chặn webhook/CRUD).
+  try {
+    const owner = (await DB_Connection.User.findById(restaurant.ownerId).lean()) as
+      | { name?: string; email?: string }
+      | null;
+    if (owner?.email) {
+      const planLabel =
+        planName ??
+        (await pricingService.getPlanName(resolvedPlanKey ?? '')) ??
+        resolvedPlanKey ??
+        'Miễn Phí';
+      await sendEmailAsync({
+        template: 'subscription-receipt',
+        to: owner.email,
+        data: {
+          name: owner.name || owner.email,
+          planName: planLabel,
+          restaurantName: restaurant.name,
+          cycleMonths,
+          amount: `${price.toLocaleString('vi-VN')}đ`,
+          transactionId:
+            (transaction as any)?.transactionId ?? String((transaction as any)?._id ?? ''),
+          paidUntil: paidUntil.toLocaleDateString('vi-VN'),
+        },
+      });
+    }
+  } catch (error) {
+    console.error('[completeSubscription] Gửi email biên lai thất bại:', error);
   }
 
   return { restaurant, transaction, paidUntil };

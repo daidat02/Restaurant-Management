@@ -89,6 +89,33 @@ export const changePassword = async (currentPassword: string, newPassword: strin
   }
 };
 
+// Yêu cầu đặt lại mật khẩu (quên mật khẩu) — trả thông báo chung, không rò email tồn tại.
+export const forgotPassword = async (email: string) => {
+  try {
+    const res = await axiosClient.post<unknown, ApiResponse>(AUTH.FORGOT_PASSWORD, { email });
+    return { success: true, message: res.message };
+  } catch (error) {
+    const err = error as { response?: { data?: { message?: string } } };
+    const message = err?.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại.';
+    return { success: false, message };
+  }
+};
+
+// Đặt lại mật khẩu bằng token từ email.
+export const forgotPasswordReset = async (token: string, newPassword: string) => {
+  try {
+    const res = await axiosClient.post<unknown, ApiResponse>(AUTH.FORGOT_PASSWORD_RESET, {
+      token,
+      newPassword,
+    });
+    return { success: true, message: res.message };
+  } catch (error) {
+    const err = error as { response?: { data?: { message?: string } } };
+    const message = err?.response?.data?.message || 'Đặt lại mật khẩu thất bại, vui lòng thử lại.';
+    return { success: false, message };
+  }
+};
+
 // Đổi nhà hàng đang làm việc (tenant switcher): server cấp access token mới, cập nhật ngay vào Redux
 export const switchTenant = async (restaurantId: string, dispatch: any) => {
   try {

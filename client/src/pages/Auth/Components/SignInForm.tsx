@@ -116,6 +116,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           </label>
           <button
             type="button"
+            onClick={() => navigate('/forgot-password')}
             /* 🎨 Đổi màu class cho Quên Mật Khẩu */
             className={`text-sm font-medium hover:underline ${textColorClass}`}
           >

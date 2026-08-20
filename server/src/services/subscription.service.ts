@@ -5,6 +5,8 @@ import type {
 } from '../models/Schema/RestaurantSchema.js';
 import { writeAuditLog } from './auditLog.service.js';
 import pricingService from '../modules/SubscriptionModule/pricing.service.js';
+import { sendEmailAsync } from './email.service.js';
+import { APP_PUBLIC_URL } from '../configs/constants.js';
 
 export const EXPIRING_WARNING_DAYS = 7;
 export const MONTH_MS = 30 * 24 * 3600 * 1000;
@@ -48,6 +50,7 @@ export async function applySubscriptionState(restaurantId: string): Promise<Subs
       restaurant.paidUntil = new Date(now.getTime() + cycleMonths * MONTH_MS);
       restaurant.pendingPlanKey = undefined;
       restaurant.pendingCycleMonths = undefined;
+      restaurant.expiringEmailSentAt = undefined;
       result.changed = true;
       await restaurant.save();
       const planName = (await pricingService.getPlanName(appliedPlanKey)) ?? appliedPlanKey;
@@ -66,6 +69,7 @@ export async function applySubscriptionState(restaurantId: string): Promise<Subs
         'subscription.downgrade',
         `Đã hạ gói xuống "${planName}" theo lịch trình (${cycleMonths} tháng)`,
       );
+      await sendDowngradedEmail(restaurant, appliedPlanKey, 'pending-downgrade-applied', planName);
       return result;
     }
 
@@ -74,6 +78,7 @@ export async function applySubscriptionState(restaurantId: string): Promise<Subs
       const oldPlanKey = restaurant.currentPlanKey;
       restaurant.currentPlanKey = freePlanKey;
       restaurant.paidUntil = undefined;
+      restaurant.expiringEmailSentAt = undefined;
       result.changed = true;
       await restaurant.save();
       const oldPlanName = (await pricingService.getPlanName(oldPlanKey)) ?? oldPlanKey;
@@ -92,13 +97,93 @@ export async function applySubscriptionState(restaurantId: string): Promise<Subs
         'subscription.downgrade',
         'Gói trả phí đã hết hạn — nhà hàng chuyển sang gói Miễn Phí',
       );
+      await sendDowngradedEmail(restaurant, freePlanKey, 'paid-expired', oldPlanName);
       return result;
     }
 
     // Đã là gói Miễn Phí (không có paidUntil) → không làm gì
   }
 
+  // ---- Cảnh báo sắp hết hạn (≤ EXPIRING_WARNING_DAYS) ----
+  const nowTime = now.getTime();
+  if (
+    subscription === 'active' &&
+    paidUntil &&
+    nowTime < paidUntil.getTime() &&
+    paidUntil.getTime() - nowTime <= EXPIRING_WARNING_DAYS * 24 * 3600 * 1000
+  ) {
+    const freePlanKey = (await pricingService.getDefaultPlanKey()) ?? 'free';
+    const isPaid = restaurant.currentPlanKey && restaurant.currentPlanKey !== freePlanKey;
+    if (isPaid && !restaurant.expiringEmailSentAt) {
+      restaurant.expiringEmailSentAt = new Date();
+      result.changed = true;
+      await restaurant.save();
+      const planName =
+        (await pricingService.getPlanName(restaurant.currentPlanKey!)) ?? restaurant.currentPlanKey!;
+      await sendOwnerEmail(restaurant, {
+        template: 'subscription-expiring',
+        data: {
+          planName,
+          daysLeft: Math.ceil((paidUntil.getTime() - nowTime) / (24 * 3600 * 1000)),
+          paidUntil: paidUntil.toLocaleDateString('vi-VN'),
+          billingUrl: `${APP_PUBLIC_URL}/admin/billing`,
+        },
+      });
+    }
+  } else if (paidUntil && nowTime + EXPIRING_WARNING_DAYS * 24 * 3600 * 1000 < paidUntil.getTime() && restaurant.expiringEmailSentAt) {
+    // Gói được gia hạn → tái lập cờ cảnh báo (cho phép gửi lại khi sắp hết hạn lần sau).
+    restaurant.expiringEmailSentAt = undefined;
+    result.changed = true;
+    await restaurant.save();
+  }
+
   return result;
+}
+
+/** Gửi email hạ gói tới chủ sở hữu (nền qua queue — không chặn state). */
+async function sendDowngradedEmail(
+  restaurant: IRestaurant,
+  newPlanKey: string,
+  reason: 'paid-expired' | 'pending-downgrade-applied',
+  oldPlanName?: string,
+): Promise<void> {
+  const newPlanName = (await pricingService.getPlanName(newPlanKey)) ?? newPlanKey;
+  await sendOwnerEmail(restaurant, {
+    template: 'subscription-downgraded',
+    data: {
+      planName: newPlanName,
+      reason:
+        reason === 'paid-expired'
+          ? `Gói "${oldPlanName ?? 'trả phí'}" đã hết hạn thanh toán`
+          : 'Hạ cấp theo lịch trình đã đăng ký',
+      paidUntil: restaurant.paidUntil?.toLocaleDateString('vi-VN'),
+    },
+  });
+}
+
+/** Gửi email tới chủ sở hữu nhà hàng — lỗi gửi KHÔNG ảnh hưởng luồng chính. */
+async function sendOwnerEmail(
+  restaurant: IRestaurant,
+  payload: { template: 'subscription-expiring' | 'subscription-downgraded'; data: Record<string, unknown> },
+): Promise<void> {
+  try {
+    if (!restaurant.ownerId) return;
+    const owner = (await DB_Connection.User.findById(restaurant.ownerId).lean()) as
+      | { name?: string; email?: string }
+      | null;
+    if (!owner?.email) return;
+    await sendEmailAsync({
+      template: payload.template,
+      to: owner.email,
+      data: {
+        name: owner.name || owner.email,
+        restaurantName: restaurant.name,
+        ...payload.data,
+      },
+    });
+  } catch (error) {
+    console.error(`[applySubscriptionState] Gửi email "${payload.template}" thất bại:`, error);
+  }
 }
 
 /** Kiểm tra nhà hàng còn dùng được không (active — Miễn Phí hoặc trả phí). Nếu locked/pending → ném lỗi chuẩn RESTAURANT_LOCKED. */

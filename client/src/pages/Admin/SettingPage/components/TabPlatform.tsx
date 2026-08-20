@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Landmark, PlugZap, Zap } from 'lucide-react';
+import { Landmark, Mail, PlugZap, Zap } from 'lucide-react';
 import { toast } from 'sonner';
 import { SettingCard, Field, ToggleSwitch } from './settings-ui';
 import { usePayment } from '@/hooks/use-payment';
-import { getGatewayConfig, saveGatewayConfig } from '@/api/setting.api';
+import { getGatewayConfig, saveGatewayConfig, sendTestEmail } from '@/api/setting.api';
 import PlanGate from '@/components/PlanGate';
 
 /** Ký hiệu che key — server giữ nguyên key cũ khi nhận giá trị này. */
@@ -32,6 +32,17 @@ export default function TabPlatform({ onDirty, registerSave }: TabPlatformProps)
   const [vnpayApiKey, setVnpayApiKey] = useState('');
   const [vnpayChecksumKey, setVnpayChecksumKey] = useState('');
 
+  // ---- SMTP (gửi email nền tảng) ----
+  const [smtpHost, setSmtpHost] = useState('');
+  const [smtpPort, setSmtpPort] = useState(587);
+  const [smtpSecure, setSmtpSecure] = useState(false);
+  const [smtpUser, setSmtpUser] = useState('');
+  const [smtpPass, setSmtpPass] = useState('');
+  const [smtpFromName, setSmtpFromName] = useState('');
+  const [smtpFromEmail, setSmtpFromEmail] = useState('');
+  const [testEmailTo, setTestEmailTo] = useState('');
+  const [sendingTest, setSendingTest] = useState(false);
+
   // ---- TẢI cấu hình cổng thanh toán hệ thống từ server ----
   useEffect(() => {
     let cancelled = false;
@@ -52,6 +63,13 @@ export default function TabPlatform({ onDirty, registerSave }: TabPlatformProps)
         setVnpayAccountNumber(gw.vnpay?.accountNumber ?? '');
         setVnpayApiKey(gw.vnpay?.hasApiKey ? MASK : '');
         setVnpayChecksumKey(gw.vnpay?.hasChecksumKey ? MASK : '');
+        setSmtpHost(gw.smtp?.host ?? '');
+        setSmtpPort(gw.smtp?.port ?? 587);
+        setSmtpSecure(!!gw.smtp?.secure);
+        setSmtpUser(gw.smtp?.user ?? '');
+        setSmtpPass(gw.smtp?.hasPass ? MASK : '');
+        setSmtpFromName(gw.smtp?.fromName ?? '');
+        setSmtpFromEmail(gw.smtp?.fromEmail ?? '');
       } catch (err) {
         console.error('[TabPlatform] Lỗi tải cấu hình cổng thanh toán:', err);
         toast.error('Không tải được cấu hình cổng thanh toán', { position: 'top-right' });
@@ -81,12 +99,23 @@ export default function TabPlatform({ onDirty, registerSave }: TabPlatformProps)
           apiKey: vnpayApiKey,
           checksumKey: vnpayChecksumKey,
         },
+        smtp: {
+          host: smtpHost.trim(),
+          port: Number(smtpPort) || 587,
+          secure: smtpSecure,
+          user: smtpUser.trim(),
+          // Pass đang ẩn (••••) → gửi giá trị ẩn để server giữ nguyên pass cũ.
+          pass: smtpPass,
+          fromName: smtpFromName.trim(),
+          fromEmail: smtpFromEmail.trim(),
+        },
       });
       // Cập nhật cờ sau khi lưu để placeholder che key đúng trạng thái.
       setPayosApiKey(res.payos?.hasApiKey ? MASK : '');
       setPayosChecksumKey(res.payos?.hasChecksumKey ? MASK : '');
       setVnpayApiKey(res.vnpay?.hasApiKey ? MASK : '');
       setVnpayChecksumKey(res.vnpay?.hasChecksumKey ? MASK : '');
+      setSmtpPass(res.smtp?.hasPass ? MASK : '');
       toast.success('Đã lưu cấu hình cổng thanh toán hệ thống', { position: 'top-right' });
       return true;
     } catch (err) {
@@ -103,6 +132,13 @@ export default function TabPlatform({ onDirty, registerSave }: TabPlatformProps)
     vnpayAccountNumber,
     vnpayApiKey,
     vnpayChecksumKey,
+    smtpHost,
+    smtpPort,
+    smtpSecure,
+    smtpUser,
+    smtpPass,
+    smtpFromName,
+    smtpFromEmail,
   ]);
 
   useEffect(() => {
@@ -135,6 +171,23 @@ export default function TabPlatform({ onDirty, registerSave }: TabPlatformProps)
       checksumKey: payosChecksumKey.trim(),
     });
     if (ok) setPayosConnected(true);
+  };
+
+  const handleSendTestEmail = async () => {
+    if (!testEmailTo.trim()) {
+      toast.error('Vui lòng nhập email nhận email thử', { position: 'top-right' });
+      return;
+    }
+    setSendingTest(true);
+    try {
+      await sendTestEmail(testEmailTo.trim());
+      toast.success('Đã gửi email thử — kiểm tra hộp thư nhận được', { position: 'top-right' });
+    } catch (err) {
+      const msg = (err as { message?: string })?.message || 'Gửi email thử thất bại';
+      toast.error(msg, { position: 'top-right' });
+    } finally {
+      setSendingTest(false);
+    }
   };
 
   if (loading) {
@@ -321,6 +374,115 @@ export default function TabPlatform({ onDirty, registerSave }: TabPlatformProps)
               }}
             />
           </div>
+        </div>
+      </SettingCard>
+
+      {/* SMTP — gửi email nền tảng */}
+      <SettingCard
+        title="Cấu hình Email (SMTP)"
+        description="Gửi email giao dịch cho toàn nền tảng (biên lai, cảnh báo gói, tài khoản, quên mật khẩu)"
+        badge={
+          <span className="rounded-full bg-cerulean-blue-50 px-2.5 py-1 text-[11px] font-semibold text-cerulean-blue-700">
+            Nền tảng
+          </span>
+        }
+        className="xl:col-span-2"
+      >
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Field
+            label="SMTP Host"
+            value={smtpHost}
+            placeholder="VD: smtp-relay.brevo.com"
+            onChange={(e) => {
+              setSmtpHost(e.target.value);
+              onDirty();
+            }}
+          />
+          <Field
+            label="Port"
+            type="number"
+            value={String(smtpPort)}
+            placeholder="587"
+            onChange={(e) => {
+              setSmtpPort(Number(e.target.value) || 587);
+              onDirty();
+            }}
+          />
+          <div className="flex items-end pb-1">
+            <div className="flex w-full items-center justify-between rounded-[10px] border border-slate-200 bg-slate-50/70 px-4 py-2.5">
+              <div>
+                <p className="text-xs font-medium text-slate-600">Kết nối bảo mật (SSL/TLS)</p>
+                <p className="text-[11px] text-slate-400">Sử dụng cho port 465</p>
+              </div>
+              <ToggleSwitch
+                checked={smtpSecure}
+                onChange={(v) => {
+                  setSmtpSecure(v);
+                  onDirty();
+                }}
+              />
+            </div>
+          </div>
+          <Field
+            label="Tài khoản (User)"
+            value={smtpUser}
+            placeholder="Địa chỉ SMTP login"
+            onChange={(e) => {
+              setSmtpUser(e.target.value);
+              onDirty();
+            }}
+          />
+          <Field
+            label="Mật khẩu (Pass)"
+            type="password"
+            value={smtpPass}
+            placeholder={
+              smtpPass === MASK ? '•••••••••••••••• (giữ nguyên)' : 'Nhập mật khẩu SMTP'
+            }
+            onChange={(e) => {
+              setSmtpPass(e.target.value);
+              onDirty();
+            }}
+          />
+          <Field
+            label="Tên người gửi (From Name)"
+            value={smtpFromName}
+            placeholder="VD: NhamNhi"
+            onChange={(e) => {
+              setSmtpFromName(e.target.value);
+              onDirty();
+            }}
+          />
+          <Field
+            label="Email người gửi (From Email)"
+            type="email"
+            value={smtpFromEmail}
+            placeholder="VD: no-reply@nhamnhi.vn"
+            onChange={(e) => {
+              setSmtpFromEmail(e.target.value);
+              onDirty();
+            }}
+          />
+          <Field
+            label="Email nhận email thử"
+            type="email"
+            value={testEmailTo}
+            placeholder="Nhập email để gửi thử"
+            onChange={(e) => setTestEmailTo(e.target.value)}
+          />
+        </div>
+        <div className="mt-4 flex items-center gap-3">
+          <button
+            onClick={handleSendTestEmail}
+            disabled={sendingTest}
+            className="flex h-10 items-center gap-2 rounded-xl bg-cerulean-blue-600 px-4 text-sm font-semibold text-white transition hover:bg-cerulean-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Mail className="h-4 w-4" />
+            {sendingTest ? 'Đang gửi...' : 'Gửi email thử'}
+          </button>
+          <p className="text-xs text-slate-400">
+            Nhấn để kiểm tra SMTP hoạt động — phải lưu cấu hình trước khi gửi thử.
+          </p>
         </div>
       </SettingCard>
     </div>

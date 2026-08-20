@@ -4,7 +4,13 @@ import type { ServiceResponse } from '../../shared/type.js';
 import authRepository from './auth.repository.js'; // Nhận instance Singleton trực tiếp, không cần 'new'
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import DB_Connection from '../../models/DB_Connection.js';
+import { sendEmailAsync } from '../../services/email.service.js';
+import { APP_PUBLIC_URL } from '../../configs/constants.js';
+
+/** Thời hạn hiệu lực của token đặt lại mật khẩu (30 phút). */
+const RESET_PASSWORD_TTL_MS = 30 * 60 * 1000;
 
 const generateAccessToken = (userId: string, role: string, restaurantId?: string): string => {
   return jwt.sign({ _id: userId, role: role, restaurantId }, process.env.JWT_ACCESS_SECRET || '', {
@@ -17,6 +23,16 @@ const generateRefreshToken = (userId: string, role: string): string => {
     expiresIn: '7d',
   });
 };
+
+/** Sinh token đặt lại mật khẩu (32 hex ngẫu nhiên). */
+function generateResetToken(): string {
+  return crypto.randomBytes(16).toString('hex');
+}
+
+/** Link đặt lại mật khẩu hiển thị trong email. */
+function buildResetPasswordUrl(token: string): string {
+  return `${APP_PUBLIC_URL}/reset-password/${token}`;
+}
 
 class AuthService {
   /**
@@ -350,6 +366,66 @@ class AuthService {
   }
 
   /**
+   * Yêu cầu đặt lại mật khẩu (quên mật khẩu) — public, chống leak email:
+   * trả 200 chung dù email tồn tại hay không; chỉ gửi email khi tài khoản tồn tại.
+   */
+  async forgotPasswordService(email: string): Promise<ServiceResponse<any>> {
+    const user = await authRepository.findOneUser({ email, deletedAt: null });
+    if (user) {
+      const resetToken = generateResetToken();
+      user.resetPasswordToken = resetToken;
+      user.resetPasswordExpires = new Date(Date.now() + RESET_PASSWORD_TTL_MS);
+      await user.save();
+      // Gửi email — lỗi gửi không ảnh hưởng response 200 chung (chống leak email).
+      try {
+        await sendEmailAsync({
+          template: 'reset-password',
+          to: user.email,
+          data: {
+            name: user.name || user.email,
+            resetUrl: buildResetPasswordUrl(resetToken),
+          },
+        });
+      } catch (error) {
+        console.error('[forgotPasswordService] Gửi email reset-password thất bại:', error);
+      }
+    }
+    return {
+      message: 'Nếu email tồn tại, bạn sẽ nhận được hướng dẫn đặt lại mật khẩu.',
+      code: 200,
+    };
+  }
+
+  /**
+   * Đặt mật khẩu mới bằng token (từ link trong email) — xác thực token + hết hạn,
+   * băm mật khẩu, xoá token, tăng tokenVersion để vô hiệu phiên cũ.
+   */
+  async forgotPasswordResetService(token: string, newPassword: string): Promise<ServiceResponse<any>> {
+    if (!token) return { message: 'Liên kết đặt lại mật khẩu không hợp lệ.', code: 400 };
+    if (!newPassword || newPassword.length < 6) {
+      return { message: 'Mật khẩu mới phải có ít nhất 6 ký tự.', code: 400 };
+    }
+
+    const user = await authRepository.findOneUser({
+      resetPasswordToken: token,
+      deletedAt: null,
+    });
+    if (!user || !user.resetPasswordExpires || user.resetPasswordExpires.getTime() < Date.now()) {
+      return { message: 'Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.', code: 400 };
+    }
+
+    const updated = await authRepository.updatePassword(String(user._id), newPassword);
+    if (!updated) {
+      return { message: 'Đặt lại mật khẩu thất bại, vui lòng thử lại.', code: 400 };
+    }
+    // Xoá token sau khi dùng thành công (chống dùng lại lần 2).
+    await DB_Connection.User.findByIdAndUpdate(user._id, {
+      $unset: { resetPasswordToken: 1, resetPasswordExpires: 1 },
+    });
+    return { message: 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập lại.', code: 200 };
+  }
+
+  /**
    * Xóa tài khoản (Xóa mềm - ẩn hoạt động)
    */
   async deleteUserService(actorUserId: string, actorRole: string, id: string): Promise<ServiceResponse<any>> {
@@ -446,6 +522,7 @@ class AuthService {
     }
 
     const { restaurant: _legacyRestaurant, ...rest } = userData;
+    const resetToken = generateResetToken();
     const createData: Partial<IUser> = {
       ...rest,
       role: userData.role,
@@ -453,9 +530,44 @@ class AuthService {
       // Nhà hàng chính + thời điểm khởi tạo mật khẩu (nhân sự mới được admin/manager tạo)
       primaryRestaurantId: restaurantIds[0] as unknown as ObjectId,
       passwordChangedAt: new Date(),
+      // Token đặt mật khẩu (dùng cho email account-created; đặt trước để user không phải chờ).
+      resetPasswordToken: resetToken,
+      resetPasswordExpires: new Date(Date.now() + RESET_PASSWORD_TTL_MS),
     };
     const user = await authRepository.createUser(createData);
+
+    // Gửi email thông báo tạo tài khoản + link đặt mật khẩu (nền — lỗi gửi không ảnh hưởng tạo user).
+    try {
+      await this.sendAccountCreatedEmail(user, resetToken);
+    } catch (error) {
+      console.error('[createStaffService] Gửi email account-created thất bại:', error);
+    }
+
     return { message: 'Tạo nhân viên thành công!!!', data: this.serializeUser(user), code: 201 };
+  }
+
+  /** Gửi email "tài khoản đã được tạo" tới nhân sự mới (kèm link đặt mật khẩu). */
+  private async sendAccountCreatedEmail(user: IUser, resetToken: string): Promise<void> {
+    if (!user.email) return;
+    let restaurantName = '';
+    if (user.primaryRestaurantId || (user.restaurantIds?.length ?? 0) > 0) {
+      const restaurantId = user.primaryRestaurantId ?? user.restaurantIds![0];
+      const restaurant = (await DB_Connection.Restaurant.findById(restaurantId).select('name').lean()) as
+        | { name?: string }
+        | null;
+      restaurantName = restaurant?.name || '';
+    }
+    await sendEmailAsync({
+      template: 'account-created',
+      to: user.email,
+      data: {
+        name: user.name || user.email,
+        roleName: user.role === 'manager' ? 'Quản lý' : 'Nhân viên',
+        restaurantName,
+        email: user.email,
+        setPasswordUrl: buildResetPasswordUrl(resetToken),
+      },
+    });
   }
 
   /**

@@ -123,7 +123,7 @@ class SettingRepository {
       targetId: PLATFORM_GATEWAY_TARGET_ID,
     })
       .select(
-        '+gateway.payos.apiKey +gateway.payos.checksumKey +gateway.vnpay.apiKey +gateway.vnpay.checksumKey',
+        '+gateway.payos.apiKey +gateway.payos.checksumKey +gateway.vnpay.apiKey +gateway.vnpay.checksumKey +gateway.smtp.pass',
       )
       .exec();
   }

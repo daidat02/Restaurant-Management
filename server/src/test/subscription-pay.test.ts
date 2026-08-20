@@ -1,7 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { request, signToken } from './utils.js';
 import DB_Connection from '../models/DB_Connection.js';
 import { SEED_IDS } from './seed.js';
+import { startSMTPSink, decodeQuotedPrintable, type SmtpSink } from './helpers/smtp-sink.js';
+import '../jobs/index.js';
 
 const day = 24 * 3600 * 1000;
 const adminXToken = signToken(SEED_IDS.adminX.toString(), 'admin', SEED_IDS.tenantX.toString());
@@ -188,5 +190,65 @@ describe('T5 — Thanh toán mock + khoá đơn/món khi locked', () => {
       subscription: 'active',
       paidUntil: new Date(Date.now() + 30 * day),
     });
+  });
+});
+
+describe('T5 — Biên lai thanh toán gói qua email', () => {
+  let sink: SmtpSink;
+
+  beforeAll(async () => {
+    sink = await startSMTPSink();
+    await sink.configure();
+  });
+
+  afterAll(async () => {
+    await sink.close();
+  });
+
+  it('POST /api/subscriptions/pay — chủ nhận email biên lai (template subscription-receipt)', async () => {
+    // Reset tenantX về trạng thái renew sạch (tránh pendingPlanKey từ test trước).
+    await DB_Connection.Restaurant.findByIdAndUpdate(SEED_IDS.tenantX, {
+      subscription: 'active',
+      paidUntil: new Date(Date.now() + 30 * day),
+      currentPlanKey: 'pro',
+      pendingPlanKey: undefined,
+      pendingCycleMonths: undefined,
+    });
+
+    const res = await request
+      .post('/api/subscriptions/pay')
+      .set('Authorization', `Bearer ${adminXToken}`)
+      .send({ restaurantId: SEED_IDS.tenantX.toString(), cycleMonths: 1 });
+    expect(res.status).toBe(200);
+    expect(res.body.data.transaction.transactionId).toBeTruthy();
+
+    // Chủ sở hữu adminX (admin.test@nhamnhi.vn) nhận biên lai qua sink.
+    expect(sink.received.length).toBe(1);
+    const msg = sink.received[0]!;
+    expect(msg.to).toContain('admin.test@nhamnhi.vn');
+    const decoded = decodeQuotedPrintable(msg.raw);
+    expect(decoded).toContain('Biên lai thanh toán gói');
+    expect(decoded).toContain('NhamNhi Cơ Sở 1'); // restaurantName
+    expect(decoded).toContain(res.body.data.transaction.transactionId);
+    expect(decoded).toContain('đ'); // số tiền định dạng VND
+  });
+
+  it('POST /api/subscriptions/pay — hạ gói khi còn hạn KHÔNG gửi biên lai (không có transaction)', async () => {
+    const before = sink.received.length;
+    // Chủ đang dùng gói Pro (cao hơn basic) để trigger nhánh lên lịch hạ gói.
+    await DB_Connection.Restaurant.findByIdAndUpdate(SEED_IDS.tenantX, {
+      subscription: 'active',
+      paidUntil: new Date(Date.now() + 30 * day),
+      currentPlanKey: 'pro',
+      pendingPlanKey: undefined,
+      pendingCycleMonths: undefined,
+    });
+    const res = await request
+      .post('/api/subscriptions/pay')
+      .set('Authorization', `Bearer ${adminXToken}`)
+      .send({ restaurantId: SEED_IDS.tenantX.toString(), cycleMonths: 1, planId: 'basic' });
+    expect(res.status).toBe(200);
+    expect(res.body.data.transaction).toBeUndefined();
+    expect(sink.received.length).toBe(before); // không phát sinh email
   });
 });

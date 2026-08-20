@@ -10,6 +10,7 @@ import type {
 } from '../../models/Schema/SettingSchema.js';
 import type { ServiceResponse } from '../../shared/type.js';
 import settingRepository, { PLATFORM_GATEWAY_TARGET_ID } from './setting.repository.js';
+import { getSMTPConfig, sendEmailNow } from '../../services/email.service.js';
 
 /** Chuỗi ẩn mà frontend gửi ngược lại khi người dùng không nhập key mới */
 const MASKED_KEY = '••••••••••••••••';
@@ -307,6 +308,7 @@ class SettingService {
 
     const payos = payload?.payos ?? {};
     const vnpay = payload?.vnpay ?? {};
+    const smtp = payload?.smtp ?? {};
 
     const finalPayOSApiKey = this.resolveSecret(payos.apiKey, existing?.gateway?.payos?.apiKey);
     const finalPayOSChecksum = this.resolveSecret(
@@ -318,6 +320,7 @@ class SettingService {
       vnpay.checksumKey,
       existing?.gateway?.vnpay?.checksumKey,
     );
+    const finalSMTPPass = this.resolveSecret(smtp.pass, existing?.gateway?.smtp?.pass);
 
     const gatewayData: any = {
       gateway: {
@@ -333,6 +336,15 @@ class SettingService {
           apiKey: finalVNPayApiKey,
           checksumKey: finalVNPayChecksum,
         },
+        smtp: {
+          host: smtp.host || '',
+          port: Number(smtp.port) || 587,
+          secure: smtp.secure === true,
+          user: smtp.user || '',
+          pass: finalSMTPPass,
+          fromName: smtp.fromName || '',
+          fromEmail: smtp.fromEmail || '',
+        },
       },
     };
 
@@ -347,6 +359,44 @@ class SettingService {
       message: 'Cập nhật cấu hình cổng thanh toán hệ thống thành công',
       data: this.sanitizeGateway(fresh),
     };
+  }
+
+  /**
+   * Gửi email thử tới địa chỉ cho trước — xác minh SMTP nền tảng hoạt động.
+   * Gửi ĐỒNG BỘ (sendEmailNow) để UI hiển thị kết quả thành công/lỗi thật.
+   */
+  async sendTestEmailService(to: string): Promise<ServiceResponse<{ to: string }>> {
+    if (!to || !to.trim()) {
+      return { code: 400, message: 'Thiếu địa chỉ email nhận email thử' };
+    }
+    const config = await getSMTPConfig();
+    if (!config) {
+      return {
+        code: 400,
+        message: 'Chưa cấu hình SMTP — vui lòng nhập đầy đủ Host, Port và From (email người gửi)',
+      };
+    }
+    try {
+      await sendEmailNow({
+        template: 'test',
+        to: to.trim(),
+        data: {
+          to: to.trim(),
+          host: config.host,
+          port: config.port,
+          user: config.user,
+          fromEmail: config.fromEmail,
+        },
+      });
+      return {
+        code: 200,
+        message: `Đã gửi email thử tới ${to.trim()}. Kiểm tra hộp thư nhận được.`,
+        data: { to: to.trim() },
+      };
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      return { code: 400, message: `Gửi email thử thất bại: ${reason}` };
+    }
   }
 
   /**
@@ -366,6 +416,15 @@ class SettingService {
         accountNumber: g?.vnpay?.accountNumber || '',
         hasApiKey: !!g?.vnpay?.apiKey,
         hasChecksumKey: !!g?.vnpay?.checksumKey,
+      },
+      smtp: {
+        host: g?.smtp?.host || '',
+        port: g?.smtp?.port || 587,
+        secure: g?.smtp?.secure === true,
+        user: g?.smtp?.user || '',
+        fromName: g?.smtp?.fromName || '',
+        fromEmail: g?.smtp?.fromEmail || '',
+        hasPass: !!g?.smtp?.pass,
       },
     };
   }

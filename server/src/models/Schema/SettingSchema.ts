@@ -77,9 +77,22 @@ export interface IGatewayVNPayConfig {
   checksumKey: string;
 }
 
+/** Cấu hình SMTP nền tảng (gửi email) — super-admin cấu hình ở /super-admin/settings. */
+export interface IGatewaySMTPConfig {
+  host: string;
+  port: number;
+  secure: boolean;
+  user: string;
+  /** Mã hoá qua encryptKey (như payos/vnpay). */
+  pass: string;
+  fromName: string;
+  fromEmail: string;
+}
+
 export interface IPlatformGatewayConfig {
   payos?: IGatewayPayOSConfig;
   vnpay?: IGatewayVNPayConfig;
+  smtp?: IGatewaySMTPConfig;
 }
 
 // Dữ liệu đã ẩn key (trả về cho frontend để hiển thị trạng thái có/không có key)
@@ -95,6 +108,15 @@ export interface IGatewaySanitized {
     accountNumber: string;
     hasApiKey: boolean;
     hasChecksumKey: boolean;
+  };
+  smtp: {
+    host: string;
+    port: number;
+    secure: boolean;
+    user: string;
+    fromName: string;
+    fromEmail: string;
+    hasPass: boolean;
   };
 }
 export interface ISystemConfig {
@@ -183,6 +205,15 @@ const SettingSchema = new Schema<ISetting>(
         accountNumber: { type: String, trim: true, default: '' },
         apiKey: { type: String, trim: true, select: false },
         checksumKey: { type: String, trim: true, select: false },
+      },
+      smtp: {
+        host: { type: String, trim: true, default: '' },
+        port: { type: Number, default: 587 },
+        secure: { type: Boolean, default: false },
+        user: { type: String, trim: true, default: '' },
+        pass: { type: String, trim: true, select: false },
+        fromName: { type: String, trim: true, default: '' },
+        fromEmail: { type: String, trim: true, default: '' },
       },
     },
     tableConfig: {

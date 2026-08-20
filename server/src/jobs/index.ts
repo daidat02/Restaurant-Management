@@ -13,3 +13,4 @@
 import './payment.job.js';
 import './notification.job.js';
 import './order.job.js';
+import './email.job.js';

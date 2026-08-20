@@ -1,0 +1,23 @@
+<h1 style="margin: 0 0 16px; font-size: 22px; color: #0f172a;">Gói dịch vụ đã hạ cấp</h1>
+<p style="margin: 0 0 16px; font-size: 14px; color: #475569; line-height: 1.6;">
+  Xin chào {{name}},<br />
+  Gói dịch vụ của nhà hàng <strong>{{restaurantName}}</strong> đã được chuyển sang gói
+  <strong>{{planName}}</strong>.
+</p>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; margin-bottom: 20px;">
+  <tr>
+    <td style="padding: 12px 20px; font-size: 13px; color: #64748b; width: 40%;">Lý do</td>
+    <td style="padding: 12px 20px; font-size: 14px; color: #0f172a;">{{reason}}</td>
+  </tr>
+  {{#if paidUntil}}
+  <tr>
+    <td style="padding: 12px 20px; font-size: 13px; color: #64748b;">Hạn sử dụng đến</td>
+    <td style="padding: 12px 20px; font-size: 14px; color: #0f172a;">{{paidUntil}}</td>
+  </tr>
+  {{/if}}
+</table>
+
+<p style="margin: 0; font-size: 14px; color: #475569; line-height: 1.6;">
+  Nếu bạn không thực hiện thay đổi này, vui lòng liên hệ bộ phận hỗ trợ của chúng tôi để được kiểm tra. Bạn có thể nâng cấp gói bất cứ lúc nào tại trang quản lý.
+</p>

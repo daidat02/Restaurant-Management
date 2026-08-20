@@ -33,6 +33,8 @@ export interface IRestaurant extends Document {
   pendingPlanKey?: string;
   /** Chu kỳ (tháng) đã chọn khi lên lịch hạ cấp — dùng để tính paidUntil mới khi áp dụng. */
   pendingCycleMonths?: number;
+  /** Thời điểm gửi email cảnh báo sắp hết hạn lần gần nhất — null = chưa gửi (dedupe, tái lập khi gia hạn). */
+  expiringEmailSentAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -62,6 +64,7 @@ const RestaurantSchema = new Schema<IRestaurant>(
     currentPlanKey: { type: String, index: true },
     pendingPlanKey: { type: String, index: true },
     pendingCycleMonths: { type: Number },
+    expiringEmailSentAt: { type: Date },
   },
   { timestamps: true },
 );

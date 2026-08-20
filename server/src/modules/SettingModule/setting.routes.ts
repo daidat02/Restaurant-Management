@@ -51,6 +51,13 @@ router.put(
   verifyRole(['super-admin']),
   SettingController.upsertGatewayConfig,
 );
+// Gửi email thử từ cấu hình SMTP nền tảng (Chỉ Super Admin)
+router.post(
+  '/gateway/test-email',
+  verifyToken,
+  verifyRole(['super-admin']),
+  SettingController.sendTestEmail,
+);
 
 // 3. Lấy thông tin cấu hình chi tiết theo ID bản ghi setting
 router.get(

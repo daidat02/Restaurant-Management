@@ -17,6 +17,9 @@ router.post('/register', authRateLimit, authController.registerUser);
 router.post('/register-owner', authRateLimit, authController.registerOwner);
 router.post('/login', authController.loginUser);
 router.post('/refresh', authController.refreshToken);
+// Quên mật khẩu — public + rate-limit (chống spam email/spam brute-force token).
+router.post('/forgot-password', authRateLimit, authController.forgotPassword);
+router.post('/forgot-password/reset', authRateLimit, authController.forgotPasswordReset);
 router.post('/switch-tenant', verifyToken, authController.switchTenant);
 router.patch('/update/me', verifyToken, authController.updateUser);
 router.post('/reset-password', verifyToken, authController.updatePassword);

@@ -168,6 +168,20 @@ class SettingController {
   }
 
   /**
+   * Gửi email thử từ trang cấu hình nền tảng (Chỉ Super Admin)
+   */
+  async sendTestEmail(req: AuthRequest, res: Response) {
+    const { to } = req.body || {};
+    try {
+      const result = await settingService.sendTestEmailService(to);
+      res.status(result.code).json(result);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Lỗi server khi gửi email thử' });
+    }
+  }
+
+  /**
    * Xác thực mã nhà bếp (Cổng vào màn hình KDS, không cần đăng nhập)
    */
   async verifyKitchenCode(req: Request, res: Response) {

@@ -96,6 +96,15 @@ export interface IGatewaySanitized {
     hasApiKey: boolean;
     hasChecksumKey: boolean;
   };
+  smtp: {
+    host: string;
+    port: number;
+    secure: boolean;
+    user: string;
+    fromName: string;
+    fromEmail: string;
+    hasPass: boolean;
+  };
 }
 
 // Payload khi lưu: key rỗng/chuỗi ẩn (••••) để server giữ nguyên key cũ
@@ -111,6 +120,15 @@ export interface IGatewayInput {
     accountNumber: string;
     apiKey: string;
     checksumKey: string;
+  };
+  smtp: {
+    host: string;
+    port: number;
+    secure: boolean;
+    user: string;
+    pass: string;
+    fromName: string;
+    fromEmail: string;
   };
 }
 export interface ISystemConfig {

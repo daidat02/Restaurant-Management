@@ -72,3 +72,9 @@ export function decryptKey(text: string): string {
     return '';
   }
 }
+
+/** Địa chỉ public của app (dùng cho link trong email: đặt mật khẩu, gia hạn...). */
+export const APP_PUBLIC_URL = (process.env.APP_PUBLIC_URL || 'http://localhost:5173').replace(
+  /\/$/,
+  '',
+);

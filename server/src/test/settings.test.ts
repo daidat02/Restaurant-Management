@@ -93,6 +93,8 @@ describe('T11 — Settings: Cổng thanh toán hệ thống (Ticket 07)', () => 
     expect(res.status).toBe(200);
     expect(res.body.data.payos).toBeDefined();
     expect(res.body.data.vnpay).toBeDefined();
+    expect(res.body.data.smtp).toBeDefined();
+    expect(res.body.data.smtp.hasPass).toBe(false);
     expect(res.body.data.payos.hasApiKey).toBe(false);
   });
 
@@ -174,5 +176,39 @@ describe('T11 — Settings: Cổng thanh toán hệ thống (Ticket 07)', () => 
     expect(res.status).toBe(200);
     expect(res.body.data.payos.hasApiKey).toBe(true);
     expect(res.body.data.vnpay.hasApiKey).toBe(true);
+  });
+
+  it('PUT /settings/gateway — lưu SMTP → 200, hasPass=true, không lộ pass', async () => {
+    const res = await request
+      .put('/api/settings/gateway')
+      .set('Authorization', `Bearer ${superAdmin()}`)
+      .send({
+        smtp: {
+          host: 'smtp-relay.brevo.com',
+          port: 587,
+          secure: false,
+          user: 'smtp-user',
+          pass: 'smtp-secret-pass',
+          fromName: 'NhamNhi',
+          fromEmail: 'no-reply@nhamnhi.vn',
+        },
+      });
+    expect(res.status).toBe(200);
+    expect(res.body.data.smtp.host).toBe('smtp-relay.brevo.com');
+    expect(res.body.data.smtp.port).toBe(587);
+    expect(res.body.data.smtp.secure).toBe(false);
+    expect(res.body.data.smtp.fromEmail).toBe('no-reply@nhamnhi.vn');
+    expect(res.body.data.smtp.hasPass).toBe(true);
+    expect(res.body.data.smtp.pass).toBeUndefined();
+  });
+
+  it('PUT /settings/gateway — pass ẩn (••••) giữ nguyên pass cũ đã mã hóa', async () => {
+    const res = await request
+      .put('/api/settings/gateway')
+      .set('Authorization', `Bearer ${superAdmin()}`)
+      .send({ smtp: { host: 'smtp-relay.brevo.com', pass: '••••••••••••••••' } });
+    expect(res.status).toBe(200);
+    expect(res.body.data.smtp.hasPass).toBe(true);
+    expect(res.body.data.smtp.host).toBe('smtp-relay.brevo.com');
   });
 });

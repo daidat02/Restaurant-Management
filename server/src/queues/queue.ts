@@ -16,6 +16,7 @@ export const QUEUE_NAMES = {
   paymentWebhook: 'payment-webhook',
   notification: 'notification',
   orderFanOut: 'order-fanout',
+  email: 'email',
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
@@ -59,6 +60,15 @@ export const QUEUE_SPECS: Record<QueueName, QueueSpec> = {
       removeOnFail: { age: 7 * DAY, count: 100 },
     },
     concurrency: 5,
+  },
+  email: {
+    defaultJobOptions: {
+      attempts: 5,
+      backoff: { type: 'exponential', delay: 2 * SECOND * 1000 },
+      removeOnComplete: { age: 7 * DAY, count: 2000 },
+      removeOnFail: { age: 7 * DAY, count: 200 },
+    },
+    concurrency: 10,
   },
 };
 

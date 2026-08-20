@@ -215,6 +215,35 @@ class AuthController {
   }
 
   /**
+   * Yêu cầu đặt lại mật khẩu (quên mật khẩu) — public.
+   */
+  async forgotPassword(req: Request, res: Response) {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: 'Vui lòng nhập email.' });
+    try {
+      const result = await authService.forgotPasswordService(String(email));
+      return res.status(result.code).json(result);
+    } catch (error) {
+      console.error('Error forgot password:', error);
+      return res.status(500).json({ message: 'Lỗi server khi xử lý yêu cầu' });
+    }
+  }
+
+  /**
+   * Đặt lại mật khẩu bằng token từ email — public.
+   */
+  async forgotPasswordReset(req: Request, res: Response) {
+    const { token, newPassword } = req.body;
+    try {
+      const result = await authService.forgotPasswordResetService(String(token), String(newPassword));
+      return res.status(result.code).json(result);
+    } catch (error) {
+      console.error('Error reset password:', error);
+      return res.status(500).json({ message: 'Lỗi server khi đặt lại mật khẩu' });
+    }
+  }
+
+  /**
    * Xóa tài khoản (Xóa mềm bằng Service)
    */
   async deleteUser(req: AuthRequest, res: Response) {

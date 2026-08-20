@@ -1,13 +1,7 @@
 import { type ApiResponse } from './../types/api.type';
 import axiosClient from '@/utils/configClient';
 import { API_ENDPOINTS, API_BASE_URL } from '@/constants/index';
-import type {
-  IBankAccountConfig,
-  IGatewayInput,
-  IGatewaySanitized,
-  ISetting,
-  IThirdPartyIntegration,
-} from '@/types/setting.type';
+import type { IGatewayInput, IGatewaySanitized, ISetting } from '@/types/setting.type';
 
 // Destruct nhánh API Quản lý Setting
 const { SETTING } = API_ENDPOINTS;
@@ -118,5 +112,15 @@ export const getGatewayConfig = async (): Promise<IGatewaySanitized> => {
  */
 export const saveGatewayConfig = async (data: IGatewayInput): Promise<IGatewaySanitized> => {
   const res = await axiosClient.put<any, ApiResponse<IGatewaySanitized>>(SETTING.GATEWAY, data);
+  return res.data;
+};
+
+/**
+ * 11. Gửi email thử từ cấu hình SMTP nền tảng (Chỉ Super Admin)
+ */
+export const sendTestEmail = async (to: string): Promise<{ to: string }> => {
+  const res = await axiosClient.post<any, ApiResponse<{ to: string }>>(SETTING.TEST_EMAIL, {
+    to,
+  });
   return res.data;
 };

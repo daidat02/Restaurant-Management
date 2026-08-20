@@ -52,6 +52,7 @@ const setupBullBoard = async (): Promise<void> => {
     getQueue(QUEUE_NAMES.notification),
     getQueue(QUEUE_NAMES.orderFanOut),
     getQueue(QUEUE_NAMES.paymentWebhook),
+    getQueue(QUEUE_NAMES.email),
   ]
     .filter((q): q is Queue => Boolean(q))
     .map((q) => new BullMQAdapter(q));

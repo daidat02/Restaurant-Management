@@ -56,6 +56,8 @@ import LogsPage from './pages/Admin/LogsPage/logs';
 import SettingsPage from './pages/Admin/SettingPage/SettingsPage';
 import RequireFeature from './components/RequireFeature';
 import type { IUser } from '@/types/user.type';
+import ForgotPassword from './pages/Auth/ForgotPassword';
+import ResetPassword from './pages/Auth/ResetPassword';
 
 /**
  * Kiểm tra admin có nhà hàng chưa (theo restaurantIds — nguồn chính thức của scope).
@@ -350,6 +352,14 @@ export default function App() {
         <Route element={<LayoutBlank />}>
           <Route path="/staff/orders/pos" element={<POS />} />
         </Route>
+      </Route>
+
+      {/* ---------------- QUÊN MẬT KHẨU (PUBLIC, BLANK LAYOUT) ---------------- */}
+      <Route path="/forgot-password" element={<LayoutBlank />}>
+        <Route index element={<ForgotPassword />} />
+      </Route>
+      <Route path="/reset-password/:token" element={<LayoutBlank />}>
+        <Route index element={<ResetPassword />} />
       </Route>
 
       {/* ---------------- KDS (MÀN HÌNH BẾP): STANDALONE, VÀO BẰNG MÃ NHÀ BẾP ---------------- */}

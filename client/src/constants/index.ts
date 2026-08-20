@@ -21,6 +21,8 @@ export const API_ENDPOINTS = {
     },
     UPDATE_ME: `${API_BASE_URL}/auth/update/me`,
     SWITCH_TENANT: `${API_BASE_URL}/auth/switch-tenant`,
+    FORGOT_PASSWORD: `${API_BASE_URL}/auth/forgot-password`,
+    FORGOT_PASSWORD_RESET: `${API_BASE_URL}/auth/forgot-password/reset`,
   },
 
   // --- PHÂN HỆ THỰC ĐƠN (MENU SYSTEM) ---
@@ -189,5 +191,6 @@ export const API_ENDPOINTS = {
     KDS_VERIFY: '/settings/kds/verify',
     KDS_CODE: (id: string) => `/settings/${id}/kds-code`,
     GATEWAY: '/settings/gateway',
+    TEST_EMAIL: '/settings/gateway/test-email',
   },
 };
