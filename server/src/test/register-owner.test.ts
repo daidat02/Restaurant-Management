@@ -1,12 +1,19 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { request, signToken } from './utils.js';
 import DB_Connection from '../models/DB_Connection.js';
+import { sendEmailAsync } from '../services/email.service.js';
 import { SEED_IDS } from './seed.js';
 
 const day = 24 * 3600 * 1000;
 
+const sendEmailMock = vi.mocked(sendEmailAsync);
+
 describe('T4 — Đăng ký chủ + tạo nhà hàng', () => {
-  it('POST /api/auth/register-owner — tạo chủ role admin, restaurantIds rỗng', async () => {
+  beforeEach(() => {
+    sendEmailMock.mockClear();
+  });
+
+  it('POST /api/auth/register-owner — tạo chủ role admin, emailVerified=false, gửi email OTP (không auto-login)', async () => {
     const res = await request.post('/api/auth/register-owner').send({
       name: 'Chủ Mới',
       email: 'owner.new@nhamnhi.vn',
@@ -14,8 +21,27 @@ describe('T4 — Đăng ký chủ + tạo nhà hàng', () => {
       phone: '0912345678',
     });
     expect(res.status).toBe(201);
-    expect(res.body.data.role).toBe('admin');
-    expect(res.body.data.restaurantIds).toEqual([]);
+    // Không còn auto-login → response chỉ có _id + email.
+    expect(res.body.data.email).toBe('owner.new@nhamnhi.vn');
+    expect(res.body.data._id).toBeTruthy();
+    expect(res.body.data.accessToken).toBeUndefined();
+    expect(res.body.data.role).toBeUndefined();
+
+    const user = await DB_Connection.User.findById(res.body.data._id).lean();
+    expect((user as any).role).toBe('admin');
+    expect((user as any).restaurantIds).toEqual([]);
+    expect((user as any).emailVerified).toBe(false);
+    expect((user as any).emailOtp).toMatch(/^\d{6}$/);
+    expect((user as any).emailOtpExpires).toBeTruthy();
+
+    // Đã gửi email OTP (sendEmailAsync mock — không đụng SMTP thật).
+    expect(sendEmailMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        template: 'otp-verification',
+        to: 'owner.new@nhamnhi.vn',
+      }),
+    );
+
     const log = await DB_Connection.AuditLog.exists({ action: 'user.register' });
     expect(log).toBeTruthy();
   });

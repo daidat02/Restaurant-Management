@@ -23,6 +23,8 @@ export const API_ENDPOINTS = {
     SWITCH_TENANT: `${API_BASE_URL}/auth/switch-tenant`,
     FORGOT_PASSWORD: `${API_BASE_URL}/auth/forgot-password`,
     FORGOT_PASSWORD_RESET: `${API_BASE_URL}/auth/forgot-password/reset`,
+    VERIFY_OTP: `${API_BASE_URL}/auth/verify-otp`,
+    RESEND_OTP: `${API_BASE_URL}/auth/resend-otp`,
   },
 
   // --- PHÂN HỆ THỰC ĐƠN (MENU SYSTEM) ---

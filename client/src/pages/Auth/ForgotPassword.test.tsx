@@ -1,32 +1,45 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { Provider } from 'react-redux';
+import { store } from '@/redux/store/store';
 import ForgotPassword from '@/pages/Auth/ForgotPassword';
 import ResetPassword from '@/pages/Auth/ResetPassword';
 
 vi.mock('@/api/auth.api', () => ({
   forgotPassword: vi.fn(),
   forgotPasswordReset: vi.fn(),
+  verifyOtp: vi.fn(),
+  resendOtp: vi.fn(),
+  loginUser: vi.fn(),
+  registerUser: vi.fn(),
+  registerOwner: vi.fn(),
+  changePassword: vi.fn(),
+  updateProfileMe: vi.fn(),
+  switchTenant: vi.fn(),
 }));
 vi.mock('@/assets/logo_app.svg', () => ({ default: 'logo.svg' }));
 
 const api = vi.mocked(await import('@/api/auth.api'));
 
+const wrap = (ui: React.ReactNode, initialEntries: string[] = ['/forgot-password']) => (
+  <Provider store={store}>
+    <MemoryRouter initialEntries={initialEntries}>{ui}</MemoryRouter>
+  </Provider>
+);
+
 function renderForgot() {
-  return render(
-    <MemoryRouter initialEntries={['/forgot-password']}>
-      <ForgotPassword />
-    </MemoryRouter>,
-  );
+  return render(wrap(<ForgotPassword />));
 }
 
 function renderReset(token = 'abc123') {
   return render(
-    <MemoryRouter initialEntries={[`/reset-password/${token}`]}>
+    wrap(
       <Routes>
         <Route path="/reset-password/:token" element={<ResetPassword />} />
-      </Routes>
-    </MemoryRouter>,
+      </Routes>,
+      [`/reset-password/${token}`],
+    ),
   );
 }
 
@@ -38,17 +51,17 @@ describe('ForgotPassword', () => {
 
   it('submit thiếu email → hiện lỗi, không gọi API', async () => {
     renderForgot();
-    fireEvent.click(screen.getByRole('button', { name: /Gửi Link Đặt Lại Mật Khẩu/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Gửi link đặt lại mật khẩu/i }));
     expect(await screen.findByText(/Vui lòng nhập email/i)).toBeInTheDocument();
     expect(api.forgotPassword).not.toHaveBeenCalled();
   });
 
   it('submit có email → gọi API và hiện thông báo chung (không rò email tồn tại)', async () => {
     renderForgot();
-    fireEvent.change(screen.getByPlaceholderText('Input email'), {
+    fireEvent.change(screen.getByPlaceholderText('ban@nhahangos.vn'), {
       target: { value: 'admin@nhamnhi.vn' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /Gửi Link Đặt Lại Mật Khẩu/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Gửi link đặt lại mật khẩu/i }));
     expect(await screen.findByText(/Nếu email tồn tại/i)).toBeInTheDocument();
     expect(api.forgotPassword).toHaveBeenCalledWith('admin@nhamnhi.vn');
   });
@@ -56,10 +69,10 @@ describe('ForgotPassword', () => {
   it('API lỗi → hiện thông báo lỗi', async () => {
     api.forgotPassword.mockResolvedValue({ success: false, message: 'Có lỗi xảy ra' });
     renderForgot();
-    fireEvent.change(screen.getByPlaceholderText('Input email'), {
+    fireEvent.change(screen.getByPlaceholderText('ban@nhahangos.vn'), {
       target: { value: 'a@b.vn' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /Gửi Link Đặt Lại Mật Khẩu/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Gửi link đặt lại mật khẩu/i }));
     expect(await screen.findByText(/Có lỗi xảy ra/i)).toBeInTheDocument();
   });
 });
@@ -75,10 +88,10 @@ describe('ResetPassword', () => {
   });
 
   function fillAndSubmit(password: string, confirm: string) {
-    const inputs = screen.getAllByPlaceholderText(/password/i);
+    const inputs = screen.getAllByPlaceholderText(/mật khẩu/i);
     fireEvent.change(inputs[0]!, { target: { value: password } });
     fireEvent.change(inputs[1]!, { target: { value: confirm } });
-    fireEvent.click(screen.getByRole('button', { name: /Đặt Lại Mật Khẩu/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Đặt lại mật khẩu/i }));
   }
 
   it('mật khẩu không khớp → lỗi, không gọi API', async () => {

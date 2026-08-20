@@ -1,21 +1,21 @@
-import React, { useEffect, useState } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import Navbar from './Navbar';
 import Footer from './Footer';
-import AuthModal, { type AuthMode } from './AuthModal';
+
+export type AuthMode = 'login' | 'owner';
 
 export type LandingAuthContext = {
   openAuth: (mode?: AuthMode) => void;
 };
 
 export default function LandingLayout() {
-  const [authOpen, setAuthOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<AuthMode>('login');
+  const navigate = useNavigate();
   const { pathname } = useLocation();
 
+  // Auth chuyển từ modal sang trang riêng — các nút "Đăng nhập"/"Tạo tài khoản" điều hướng tới /login, /register.
   const openAuth = (mode: AuthMode = 'login') => {
-    setAuthMode(mode);
-    setAuthOpen(true);
+    navigate(mode === 'owner' ? '/register' : '/login');
   };
 
   // Cuộn lên đầu trang khi đổi route
@@ -30,12 +30,6 @@ export default function LandingLayout() {
         <Outlet context={{ openAuth } satisfies LandingAuthContext} />
       </main>
       <Footer onOpenAuth={openAuth} />
-      <AuthModal
-        key={authOpen ? authMode : 'closed'}
-        open={authOpen}
-        initialMode={authMode}
-        onClose={() => setAuthOpen(false)}
-      />
     </div>
   );
 }

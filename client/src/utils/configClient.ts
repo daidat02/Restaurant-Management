@@ -57,8 +57,12 @@ axiosClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // Xử lý riêng khi lỗi là 401 (Hết hạn Access Token)
-    if (error.response?.status === 403 && !originalRequest._retry) {
+    // Xử lý riêng khi lỗi là 401 (Hết hạn Access Token).
+    // CHỈ áp dụng cho request ĐÃ xác thực (có Bearer token). Các endpoint public
+    // trả 403 hợp lệ (vd: login trả EMAIL_NOT_VERIFIED) phải đi qua như lỗi thường,
+    // không được kéo vào vòng lặp refresh.
+    const hadAuthHeader = Boolean((originalRequest.headers as any)?.Authorization);
+    if (error.response?.status === 403 && hadAuthHeader && !originalRequest._retry) {
       // Nếu API đang gọi chính là API refresh mà bị 401 -> Tránh lặp vô hạn
       if (originalRequest.url.includes('/auth/refresh')) {
         store.dispatch(logout());

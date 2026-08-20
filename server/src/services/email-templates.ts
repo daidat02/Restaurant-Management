@@ -15,7 +15,8 @@ export type EmailTemplateKey =
   | 'subscription-expiring'
   | 'subscription-downgraded'
   | 'account-created'
-  | 'reset-password';
+  | 'reset-password'
+  | 'otp-verification';
 
 export interface EmailTemplateDef {
   key: EmailTemplateKey;
@@ -28,33 +29,38 @@ export interface EmailTemplateDef {
 export const EMAIL_TEMPLATES: Record<EmailTemplateKey, EmailTemplateDef> = {
   test: {
     key: 'test',
-    subject: 'Kiểm tra cấu hình email SMTP — NhamNhi',
+    subject: 'Kiểm tra cấu hình email SMTP — NhaHang OS',
     file: 'test.hbs',
   },
   'subscription-receipt': {
     key: 'subscription-receipt',
-    subject: 'Biên lai thanh toán gói {{planName}} — NhamNhi',
+    subject: 'Biên lai thanh toán gói {{planName}} — NhaHang OS',
     file: 'subscription-receipt.hbs',
   },
   'subscription-expiring': {
     key: 'subscription-expiring',
-    subject: 'Gói dịch vụ sắp hết hạn — NhamNhi',
+    subject: 'Gói dịch vụ sắp hết hạn — NhaHang OS',
     file: 'subscription-expiring.hbs',
   },
   'subscription-downgraded': {
     key: 'subscription-downgraded',
-    subject: 'Gói dịch vụ đã được hạ cấp — NhamNhi',
+    subject: 'Gói dịch vụ đã được hạ cấp — NhaHang OS',
     file: 'subscription-downgraded.hbs',
   },
   'account-created': {
     key: 'account-created',
-    subject: 'Tài khoản của bạn đã được tạo — NhamNhi',
+    subject: 'Tài khoản của bạn đã được tạo — NhaHang OS',
     file: 'account-created.hbs',
   },
   'reset-password': {
     key: 'reset-password',
-    subject: 'Đặt lại mật khẩu — NhamNhi',
+    subject: 'Đặt lại mật khẩu — NhaHang OS',
     file: 'reset-password.hbs',
+  },
+  'otp-verification': {
+    key: 'otp-verification',
+    subject: 'Mã xác thực đăng ký — NhaHang OS',
+    file: 'otp-verification.hbs',
   },
 };
 

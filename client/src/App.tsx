@@ -58,6 +58,12 @@ import RequireFeature from './components/RequireFeature';
 import type { IUser } from '@/types/user.type';
 import ForgotPassword from './pages/Auth/ForgotPassword';
 import ResetPassword from './pages/Auth/ResetPassword';
+import LoginPage from './pages/Auth/Login';
+import RegisterPage from './pages/Auth/Register';
+import VerifyOtpPage from './pages/Auth/VerifyOtp';
+import AuthLayout from './layouts/AuthLayout';
+import TermsPage from './pages/Landing/Terms';
+import PrivacyPage from './pages/Landing/Privacy';
 
 /**
  * Kiểm tra admin có nhà hàng chưa (theo restaurantIds — nguồn chính thức của scope).
@@ -354,13 +360,26 @@ export default function App() {
         </Route>
       </Route>
 
-      {/* ---------------- QUÊN MẬT KHẨU (PUBLIC, BLANK LAYOUT) ---------------- */}
-      <Route path="/forgot-password" element={<LayoutBlank />}>
+      {/* ---------------- TRANG AUTH (PUBLIC, LAYOUT CHIA ĐÔI THƯƠNG HIỆU) ---------------- */}
+      <Route path="/login" element={<AuthLayout />}>
+        <Route index element={<LoginPage />} />
+      </Route>
+      <Route path="/register" element={<AuthLayout />}>
+        <Route index element={<RegisterPage />} />
+      </Route>
+      <Route path="/forgot-password" element={<AuthLayout />}>
         <Route index element={<ForgotPassword />} />
       </Route>
-      <Route path="/reset-password/:token" element={<LayoutBlank />}>
+      <Route path="/verify-otp" element={<AuthLayout />}>
+        <Route index element={<VerifyOtpPage />} />
+      </Route>
+      <Route path="/reset-password/:token" element={<AuthLayout />}>
         <Route index element={<ResetPassword />} />
       </Route>
+
+      {/* ---------------- ĐIỀU KHOẢN / CHÍNH SÁCH (PUBLIC) ---------------- */}
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
 
       {/* ---------------- KDS (MÀN HÌNH BẾP): STANDALONE, VÀO BẰNG MÃ NHÀ BẾP ---------------- */}
       {/* Không bọc ProtectedRoute vì không cần đăng nhập staff - bảo mật bằng mã nhà bếp */}

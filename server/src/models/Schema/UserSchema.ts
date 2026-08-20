@@ -92,6 +92,14 @@ export interface IUser extends Document {
   lockUntil?: Date;
   emailVerified: boolean;
   emailVerifiedAt?: Date;
+  /** Mã OTP xác thực email khi đăng ký (6 chữ số). */
+  emailOtp?: string;
+  /** Hết hạn của OTP hiện tại (TTL 10 phút). */
+  emailOtpExpires?: Date;
+  /** Lần gửi OTP gần nhất — chặn spam resend (cooldown 60s). */
+  emailOtpSentAt?: Date;
+  /** Số lần nhập sai OTP liên tiếp (tối đa 5 — quá thì OTP vô hiệu). */
+  emailOtpAttempts: number;
   phoneVerified: boolean;
   /** Tăng mỗi khi đổi mật khẩu/đăng xuất toàn bộ — revoke token cũ. */
   tokenVersion: number;
@@ -178,6 +186,10 @@ const UserSchema = new Schema<IUserDocument>(
     lockUntil: { type: Date },
     emailVerified: { type: Boolean, default: false },
     emailVerifiedAt: { type: Date },
+    emailOtp: { type: String },
+    emailOtpExpires: { type: Date },
+    emailOtpSentAt: { type: Date },
+    emailOtpAttempts: { type: Number, default: 0, min: 0 },
     phoneVerified: { type: Boolean, default: false },
     tokenVersion: { type: Number, default: 0, min: 0 },
     deletedAt: { type: Date, default: null },

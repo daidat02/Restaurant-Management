@@ -116,6 +116,33 @@ export const forgotPasswordReset = async (token: string, newPassword: string) =>
   }
 };
 
+// Xác thực mã OTP hoàn tất đăng ký — thành công thì server trả tokens (auto-login), dispatch login.
+export const verifyOtp = async (email: string, otp: string, dispatch: any) => {
+  try {
+    const res = await axiosClient.post<any, ApiResponse<any>>(AUTH.VERIFY_OTP, { email, otp });
+    const user = res.data.user;
+    const token = res.data.accessToken;
+    if (user && token) {
+      dispatch(login({ user, token }));
+    }
+    return { success: true, message: res.message, user };
+  } catch (error: any) {
+    return error;
+  }
+};
+
+// Gửi lại mã OTP — server chặn nếu trong cooldown 60s (trả OTP_COOLDOWN).
+export const resendOtp = async (email: string) => {
+  try {
+    const res = await axiosClient.post<unknown, ApiResponse>(AUTH.RESEND_OTP, { email });
+    return { success: true, message: res.message };
+  } catch (error) {
+    const err = error as { response?: { data?: { message?: string } } };
+    const message = err?.response?.data?.message || 'Gửi lại mã thất bại, vui lòng thử lại.';
+    return { success: false, message };
+  }
+};
+
 // Đổi nhà hàng đang làm việc (tenant switcher): server cấp access token mới, cập nhật ngay vào Redux
 export const switchTenant = async (restaurantId: string, dispatch: any) => {
   try {

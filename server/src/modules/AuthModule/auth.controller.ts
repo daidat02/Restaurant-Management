@@ -244,6 +244,40 @@ class AuthController {
   }
 
   /**
+   * Xác thực mã OTP để hoàn tất đăng ký — public + rate-limit.
+   * Thành công → set refreshToken cookie + trả tokens (auto-login).
+   */
+  async verifyOtp(req: Request, res: Response) {
+    const { email, otp } = req.body;
+    try {
+      const result = await authService.verifyOtpService(String(email || ''), String(otp || ''));
+      if (result.code === 200 && result.data?.refreshToken) {
+        res.cookie('refreshToken', result.data.refreshToken, refreshCookieOptions());
+        const { refreshToken: _refreshToken, ...dataWithoutRefreshToken } = result.data;
+        return res.status(200).json({ ...result, data: dataWithoutRefreshToken });
+      }
+      return res.status(result.code).json(result);
+    } catch (error) {
+      console.error('Error verifying OTP:', error);
+      return res.status(500).json({ message: 'Lỗi server khi xác thực mã OTP' });
+    }
+  }
+
+  /**
+   * Gửi lại mã OTP — public + rate-limit (cooldown 60s phía service).
+   */
+  async resendOtp(req: Request, res: Response) {
+    const { email } = req.body;
+    try {
+      const result = await authService.resendOtpService(String(email || ''));
+      return res.status(result.code).json(result);
+    } catch (error) {
+      console.error('Error resending OTP:', error);
+      return res.status(500).json({ message: 'Lỗi server khi gửi lại mã OTP' });
+    }
+  }
+
+  /**
    * Xóa tài khoản (Xóa mềm bằng Service)
    */
   async deleteUser(req: AuthRequest, res: Response) {

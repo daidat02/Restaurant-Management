@@ -106,6 +106,9 @@ async function seedUsers(): Promise<void> {
     password: hashed,
     isActive: true,
     notificationEnabled: true,
+    // Seed user tồn tại trước khi có OTP → coi như đã xác thực (login-gate không chặn).
+    emailVerified: true,
+    emailVerifiedAt: new Date(),
   }));
   await DB_Connection.User.insertMany(users);
 }

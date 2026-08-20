@@ -21,8 +21,15 @@ describe('T11 — Verify lifecycle subscription (free → upgrade → hết hạ
       phone: '0912345678',
     });
     expect(reg.status).toBe(201);
-    expect(reg.body.data.role).toBe('admin');
     const ownerId = reg.body.data._id as string;
+    // register-owner không còn auto-login → chỉ trả {_id, email}; role admin xác nhận qua DB.
+    const owner = await DB_Connection.User.findById(ownerId).lean();
+    expect((owner as any).role).toBe('admin');
+    // Xác thực email (OTP) để bước 6 đăng nhập sau unblock được — register-owner không auto-login.
+    await request.post('/api/auth/verify-otp').send({
+      email: 'owner.lifecycle@nhamnhi.vn',
+      otp: (owner as any).emailOtp,
+    });
     const ownerToken = signToken(ownerId, 'admin');
 
     // 1. Nhà hàng đầu tiên → active + gói Miễn Phí (không trial, không paidUntil)

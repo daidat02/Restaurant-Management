@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Layers } from 'lucide-react';
 import { BrandLogo } from './Navbar';
-import type { AuthMode } from './AuthModal';
+import type { AuthMode } from './LandingLayout';
 
 interface FooterProps {
   onOpenAuth: (mode: AuthMode) => void;

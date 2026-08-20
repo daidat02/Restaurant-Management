@@ -20,6 +20,9 @@ router.post('/refresh', authController.refreshToken);
 // Quên mật khẩu — public + rate-limit (chống spam email/spam brute-force token).
 router.post('/forgot-password', authRateLimit, authController.forgotPassword);
 router.post('/forgot-password/reset', authRateLimit, authController.forgotPasswordReset);
+// Xác thực email OTP khi đăng ký owner — public + rate-limit.
+router.post('/verify-otp', authRateLimit, authController.verifyOtp);
+router.post('/resend-otp', authRateLimit, authController.resendOtp);
 router.post('/switch-tenant', verifyToken, authController.switchTenant);
 router.patch('/update/me', verifyToken, authController.updateUser);
 router.post('/reset-password', verifyToken, authController.updatePassword);

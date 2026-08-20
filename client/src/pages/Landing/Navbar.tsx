@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
 import { UtensilsCrossed } from 'lucide-react';
-import type { AuthMode } from './AuthModal';
+import type { AuthMode } from './LandingLayout';
 
 const NAV_LINKS = [
   { to: '/', label: 'Trang chủ' },

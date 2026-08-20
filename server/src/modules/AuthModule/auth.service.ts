@@ -12,6 +12,13 @@ import { APP_PUBLIC_URL } from '../../configs/constants.js';
 /** Thời hạn hiệu lực của token đặt lại mật khẩu (30 phút). */
 const RESET_PASSWORD_TTL_MS = 30 * 60 * 1000;
 
+/** Thời hạn hiệu lực của mã OTP xác thực email khi đăng ký (10 phút). */
+const OTP_TTL_MS = 10 * 60 * 1000;
+/** Khoảng thời gian tối thiểu giữa 2 lần gửi lại OTP (60 giây — chống spam). */
+const OTP_RESEND_COOLDOWN_MS = 60 * 1000;
+/** Số lần nhập sai OTP tối đa — quá giới hạn thì OTP bị vô hiệu, phải gửi lại. */
+const OTP_MAX_ATTEMPTS = 5;
+
 const generateAccessToken = (userId: string, role: string, restaurantId?: string): string => {
   return jwt.sign({ _id: userId, role: role, restaurantId }, process.env.JWT_ACCESS_SECRET || '', {
     expiresIn: '30m',
@@ -27,6 +34,11 @@ const generateRefreshToken = (userId: string, role: string): string => {
 /** Sinh token đặt lại mật khẩu (32 hex ngẫu nhiên). */
 function generateResetToken(): string {
   return crypto.randomBytes(16).toString('hex');
+}
+
+/** Sinh mã OTP xác thực email (6 chữ số). */
+function generateOtp(): string {
+  return crypto.randomInt(0, 1000000).toString().padStart(6, '0');
 }
 
 /** Link đặt lại mật khẩu hiển thị trong email. */
@@ -103,6 +115,9 @@ class AuthService {
       ...rest,
       role: 'customer',
       restaurantIds: [],
+      // Customer tự đăng ký không có bước xác thực email (chỉ owner dùng OTP) →
+      // coi như đã xác thực để không bị chặn bởi login-gate EMAIL_NOT_VERIFIED.
+      emailVerified: true,
     };
     const user = await authRepository.createUser(createData);
     return { message: 'Đăng ký thành công!', data: this.serializeUser(user), code: 201 };
@@ -110,7 +125,9 @@ class AuthService {
 
   /**
    * Đăng ký chủ nhà hàng (self-serve SaaS): role = admin, restaurantIds = [].
-   * Chủ đăng ký xong sẽ vào wizard tạo nhà hàng đầu tiên (trial 30 ngày).
+   * Tài khoản được tạo ở trạng thái CHƯA xác thực email (emailVerified=false) kèm mã OTP,
+   * gửi email OTP và KHÔNG auto-login — phải nhập đúng OTP (verify-otp) mới đăng ký thành công.
+   * Chủ đăng ký xong (sau verify) sẽ vào wizard tạo nhà hàng đầu tiên (trial 30 ngày).
    */
   async registerOwnerService(userData: Partial<IUser>): Promise<ServiceResponse<any>> {
     const exitUser = await authRepository.findOneUser({ email: userData.email });
@@ -119,15 +136,32 @@ class AuthService {
     }
 
     const { restaurant: _legacyRestaurant, restaurantIds: _legacyIds, ...rest } = userData;
+    const otp = generateOtp();
     const createData: Partial<IUser> = {
       ...rest,
       role: 'admin',
       restaurantIds: [],
+      emailVerified: false,
+      emailOtp: otp,
+      emailOtpExpires: new Date(Date.now() + OTP_TTL_MS),
+      emailOtpSentAt: new Date(),
     };
     const user = await authRepository.createUser(createData);
+
+    // Gửi email OTP — lỗi gửi không làm hỏng đăng ký (user vẫn ở trạng thái pending chờ xác thực).
+    try {
+      await sendEmailAsync({
+        template: 'otp-verification',
+        to: user.email,
+        data: { name: user.name || user.email, otp },
+      });
+    } catch (error) {
+      console.error('[registerOwnerService] Gửi email OTP thất bại:', error);
+    }
+
     return {
-      message: 'Đăng ký chủ nhà hàng thành công!',
-      data: this.serializeUser(user),
+      message: 'Đăng ký thành công! Kiểm tra email để nhận mã xác thực.',
+      data: { _id: user._id, email: user.email },
       code: 201,
     };
   }
@@ -185,6 +219,15 @@ class AuthService {
       return { message: 'Tài khoản đã bị khóa!', code: 400 };
     }
 
+    // Email chưa xác thực (đăng ký OTP chưa hoàn tất) → chặn đăng nhập, không trả token.
+    if (!exitUser.emailVerified) {
+      return {
+        message: 'Tài khoản chưa xác thực email. Vui lòng nhập mã OTP để hoàn tất đăng ký.',
+        code: 403,
+        errorCode: 'EMAIL_NOT_VERIFIED',
+      };
+    }
+
     // Đăng nhập thành công → reset đếm sai + ghi nhận lần đăng nhập gần nhất.
     await authRepository.updateLoginSuccess(exitUser._id.toString());
 
@@ -213,6 +256,126 @@ class AuthService {
     };
   }
 
+  /**
+   * Xác thực mã OTP để hoàn tất đăng ký tài khoản owner.
+   * Đúng → set emailVerified + trả tokens (auto-login); sai → lỗi rõ ràng;
+   * sai quá OTP_MAX_ATTEMPTS lần → OTP vô hiệu, phải gửi lại mã.
+   */
+  async verifyOtpService(email: string, otp: string): Promise<ServiceResponse<any>> {
+    if (!email || !otp) {
+      return { message: 'Vui lòng nhập email và mã OTP.', code: 400 };
+    }
+    const user = await authRepository.findOneUser({ email, deletedAt: null });
+    if (!user) {
+      return { message: 'Email không tồn tại.', code: 400 };
+    }
+    if (user.emailVerified) {
+      return { message: 'Email đã được xác thực.', code: 400 };
+    }
+    if (!user.emailOtp || !user.emailOtpExpires || user.emailOtpExpires.getTime() < Date.now()) {
+      return {
+        message: 'Mã OTP không hợp lệ hoặc đã hết hạn. Vui lòng gửi lại mã.',
+        code: 400,
+      };
+    }
+
+    if (user.emailOtp !== otp) {
+      const attempts = (user.emailOtpAttempts ?? 0) + 1;
+      if (attempts >= OTP_MAX_ATTEMPTS) {
+        await DB_Connection.User.findByIdAndUpdate(user._id, {
+          $set: { emailOtpAttempts: 0 },
+          $unset: { emailOtp: 1, emailOtpExpires: 1, emailOtpSentAt: 1 },
+        });
+        return {
+          message: 'Nhập sai mã quá nhiều lần. Vui lòng gửi lại mã OTP.',
+          code: 400,
+        };
+      }
+      await DB_Connection.User.findByIdAndUpdate(user._id, { $set: { emailOtpAttempts: attempts } });
+      return {
+        message: `Mã OTP không đúng. Còn ${OTP_MAX_ATTEMPTS - attempts} lần thử.`,
+        code: 400,
+      };
+    }
+
+    // OTP đúng → đánh dấu đã xác thực + xoá mã OTP + tự đăng nhập (trả tokens như login).
+    await DB_Connection.User.findByIdAndUpdate(user._id, {
+      $set: { emailVerified: true, emailVerifiedAt: new Date(), emailOtpAttempts: 0 },
+      $unset: { emailOtp: 1, emailOtpExpires: 1, emailOtpSentAt: 1 },
+    });
+
+    const refreshed = await authRepository.findUserById(String(user._id));
+    if (!refreshed) {
+      return { message: 'Không tìm thấy người dùng.', code: 400 };
+    }
+    const accessToken = generateAccessToken(
+      refreshed._id.toString(),
+      refreshed.role,
+      this.getActiveRestaurantId(refreshed),
+    );
+    const refreshToken = generateRefreshToken(refreshed._id.toString(), refreshed.role);
+    const populated = await refreshed.populate('restaurantIds', 'name');
+
+    return {
+      message: 'Xác thực email thành công! Đăng ký hoàn tất.',
+      data: {
+        user: this.serializeUser(populated),
+        accessToken,
+        refreshToken,
+      },
+      code: 200,
+    };
+  }
+
+  /**
+   * Gửi lại mã OTP — cooldown 60s chống spam; sinh mã mới + cập nhật thời hạn,
+   * reset đếm lần nhập sai.
+   */
+  async resendOtpService(email: string): Promise<ServiceResponse<any>> {
+    if (!email) {
+      return { message: 'Vui lòng nhập email.', code: 400 };
+    }
+    const user = await authRepository.findOneUser({ email, deletedAt: null });
+    if (!user) {
+      return { message: 'Email không tồn tại.', code: 400 };
+    }
+    if (user.emailVerified) {
+      return { message: 'Email đã được xác thực.', code: 400 };
+    }
+
+    const now = Date.now();
+    if (user.emailOtpSentAt && user.emailOtpSentAt.getTime() + OTP_RESEND_COOLDOWN_MS > now) {
+      const secondsLeft = Math.ceil(
+        (user.emailOtpSentAt.getTime() + OTP_RESEND_COOLDOWN_MS - now) / 1000,
+      );
+      return {
+        message: `Vui lòng chờ ${secondsLeft} giây nữa để gửi lại mã.`,
+        code: 429,
+        errorCode: 'OTP_COOLDOWN',
+      };
+    }
+
+    const otp = generateOtp();
+    await DB_Connection.User.findByIdAndUpdate(user._id, {
+      $set: {
+        emailOtp: otp,
+        emailOtpExpires: new Date(now + OTP_TTL_MS),
+        emailOtpSentAt: new Date(),
+        emailOtpAttempts: 0,
+      },
+    });
+    try {
+      await sendEmailAsync({
+        template: 'otp-verification',
+        to: user.email,
+        data: { name: user.name || user.email, otp },
+      });
+    } catch (error) {
+      console.error('[resendOtpService] Gửi email OTP thất bại:', error);
+    }
+    return { message: 'Đã gửi lại mã xác thực. Kiểm tra email của bạn.', code: 200 };
+  }
+
   // Danh sách trường người dùng tự cập nhật cho chính mình (Profile/Settings)
   private readonly SELF_UPDATE_FIELDS = [
     'name',
@@ -232,7 +395,12 @@ class AuthService {
    * - staff/customer: không quản lý ai.
    * Tự cập nhật bản thân luôn được phép.
    */
-  private canManageTarget(actorRole: string, actorId: string, targetId: string, targetRole: string): boolean {
+  private canManageTarget(
+    actorRole: string,
+    actorId: string,
+    targetId: string,
+    targetRole: string,
+  ): boolean {
     if (actorId === targetId) return true;
     if (actorRole === 'super-admin') return true;
     if (actorRole === 'admin') return targetRole === 'staff' || targetRole === 'manager';
@@ -260,7 +428,8 @@ class AuthService {
       }
       if (!this.canManageTarget(exitUser.role, userId, id, targetUser.role)) {
         return {
-          message: 'Bạn không có quyền cập nhật người dùng này (chỉ quản lý được staff/manager trong phạm vi của bạn)!!!',
+          message:
+            'Bạn không có quyền cập nhật người dùng này (chỉ quản lý được staff/manager trong phạm vi của bạn)!!!',
           code: 403,
         };
       }
@@ -400,7 +569,10 @@ class AuthService {
    * Đặt mật khẩu mới bằng token (từ link trong email) — xác thực token + hết hạn,
    * băm mật khẩu, xoá token, tăng tokenVersion để vô hiệu phiên cũ.
    */
-  async forgotPasswordResetService(token: string, newPassword: string): Promise<ServiceResponse<any>> {
+  async forgotPasswordResetService(
+    token: string,
+    newPassword: string,
+  ): Promise<ServiceResponse<any>> {
     if (!token) return { message: 'Liên kết đặt lại mật khẩu không hợp lệ.', code: 400 };
     if (!newPassword || newPassword.length < 6) {
       return { message: 'Mật khẩu mới phải có ít nhất 6 ký tự.', code: 400 };
@@ -428,7 +600,11 @@ class AuthService {
   /**
    * Xóa tài khoản (Xóa mềm - ẩn hoạt động)
    */
-  async deleteUserService(actorUserId: string, actorRole: string, id: string): Promise<ServiceResponse<any>> {
+  async deleteUserService(
+    actorUserId: string,
+    actorRole: string,
+    id: string,
+  ): Promise<ServiceResponse<any>> {
     const exitUser = await authRepository.findUserById(id);
     if (!exitUser) {
       return { message: 'Không tìm thấy người dùng!!!', code: 400 };
@@ -436,7 +612,8 @@ class AuthService {
 
     if (!this.canManageTarget(actorRole, actorUserId, id, exitUser.role)) {
       return {
-        message: 'Bạn không có quyền xóa người dùng này (chỉ quản lý được staff/manager trong phạm vi của bạn)!!!',
+        message:
+          'Bạn không có quyền xóa người dùng này (chỉ quản lý được staff/manager trong phạm vi của bạn)!!!',
         code: 403,
       };
     }
@@ -530,6 +707,8 @@ class AuthService {
       // Nhà hàng chính + thời điểm khởi tạo mật khẩu (nhân sự mới được admin/manager tạo)
       primaryRestaurantId: restaurantIds[0] as unknown as ObjectId,
       passwordChangedAt: new Date(),
+      // Nhân sự do admin/manager tạo không qua xác thực email OTP → coi như đã xác thực.
+      emailVerified: true,
       // Token đặt mật khẩu (dùng cho email account-created; đặt trước để user không phải chờ).
       resetPasswordToken: resetToken,
       resetPasswordExpires: new Date(Date.now() + RESET_PASSWORD_TTL_MS),
@@ -552,9 +731,9 @@ class AuthService {
     let restaurantName = '';
     if (user.primaryRestaurantId || (user.restaurantIds?.length ?? 0) > 0) {
       const restaurantId = user.primaryRestaurantId ?? user.restaurantIds![0];
-      const restaurant = (await DB_Connection.Restaurant.findById(restaurantId).select('name').lean()) as
-        | { name?: string }
-        | null;
+      const restaurant = (await DB_Connection.Restaurant.findById(restaurantId)
+        .select('name')
+        .lean()) as { name?: string } | null;
       restaurantName = restaurant?.name || '';
     }
     await sendEmailAsync({

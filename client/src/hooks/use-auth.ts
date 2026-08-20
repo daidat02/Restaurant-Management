@@ -1,5 +1,15 @@
 import { useAppDispatch, useAppSelector } from './redux-hook'; // Hook của Redux ta đã tạo ở bước trước
-import { loginUser, changePassword as changePasswordApi, registerOwner, registerUser, updateProfileMe } from '@/api/auth.api'; // Đường dẫn tới file chứa hàm loginUser bạn vừa viết
+import {
+  loginUser,
+  changePassword as changePasswordApi,
+  registerOwner,
+  registerUser,
+  updateProfileMe,
+  forgotPassword as forgotPasswordApi,
+  forgotPasswordReset as forgotPasswordResetApi,
+  verifyOtp as verifyOtpApi,
+  resendOtp as resendOtpApi,
+} from '@/api/auth.api'; // Đường dẫn tới file chứa hàm loginUser bạn vừa viết
 import { logout, updateUserInfo } from '@/redux/slices/authSlice';
 import type { IUser, RegisterCredentials } from '@/types/user.type';
 import { useNavigate } from 'react-router-dom';
@@ -28,12 +38,28 @@ export const useAuth = () => {
   };
 
   const handleRegisterOwner = async (credentials: RegisterCredentials & { phone?: string }) => {
-    const result = await registerOwner(credentials);
-    if (result.success) {
-      // Tự động đăng nhập để vào wizard tạo nhà hàng đầu tiên
-      await loginUser({ email: credentials.email, password: credentials.password }, dispatch);
-    }
-    return result;
+    // KHÔNG auto-login — đăng ký owner tạo user chưa xác thực email, phải nhập OTP (verifyOtp) xong mới đăng nhập.
+    return registerOwner(credentials);
+  };
+
+  // Yêu cầu đặt lại mật khẩu (quên mật khẩu) — trả thông báo chung, không rò email tồn tại.
+  const handleForgotPassword = async (email: string) => {
+    return forgotPasswordApi(email);
+  };
+
+  // Đặt mật khẩu mới bằng token từ email.
+  const handleForgotPasswordReset = async (token: string, newPassword: string) => {
+    return forgotPasswordResetApi(token, newPassword);
+  };
+
+  // Xác thực mã OTP để hoàn tất đăng ký — thành công thì tự đăng nhập (dispatch login).
+  const handleVerifyOtp = async (email: string, otp: string) => {
+    return verifyOtpApi(email, otp, dispatch);
+  };
+
+  // Gửi lại mã OTP (cooldown 60s phía server).
+  const handleResendOtp = async (email: string) => {
+    return resendOtpApi(email);
   };
 
   // Cập nhật thông tin cá nhân (Settings → Tài khoản) rồi đồng bộ vào Redux
@@ -67,6 +93,10 @@ export const useAuth = () => {
     logout: handleLogout,
     register: handleRegister,
     registerOwner: handleRegisterOwner,
+    forgotPassword: handleForgotPassword,
+    forgotPasswordReset: handleForgotPasswordReset,
+    verifyOtp: handleVerifyOtp,
+    resendOtp: handleResendOtp,
     updateProfile: handleUpdateProfile,
     changePassword: handleChangePassword,
   };
