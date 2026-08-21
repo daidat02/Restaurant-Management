@@ -10,6 +10,9 @@ const mocks = vi.hoisted(() => ({
   useActiveRestaurantId: vi.fn(),
   useRestaurant: vi.fn(),
   useSubscription: vi.fn(),
+  // Mock API usage để effect trong PlanProvider không bắn axios thật trong jsdom
+  // (request reject muộn sau teardown → EnvironmentTeardownError).
+  getSubscriptionUsage: vi.fn(),
 }));
 
 vi.mock('@/hooks/use-auth', () => ({ useAuth: mocks.useAuth }));
@@ -18,6 +21,9 @@ vi.mock('@/hooks/use-active-restaurant', () => ({
 }));
 vi.mock('@/hooks/use-restaurant', () => ({ useRestaurant: mocks.useRestaurant }));
 vi.mock('@/hooks/use-subscription', () => ({ useSubscription: mocks.useSubscription }));
+vi.mock('@/api/subscription.api', () => ({
+  getSubscriptionUsage: mocks.getSubscriptionUsage,
+}));
 
 function Probe() {
   const { planKey, plan, hasFeature, isLimitReached, limitReached, getUsagePercentage } =
@@ -66,6 +72,8 @@ beforeEach(() => {
   mocks.useActiveRestaurantId.mockReturnValue('');
   mocks.useRestaurant.mockReturnValue(emptyRestaurantHook());
   mocks.useSubscription.mockReturnValue({ pricing: null });
+  mocks.getSubscriptionUsage.mockReset();
+  mocks.getSubscriptionUsage.mockResolvedValue(null);
 });
 
 describe('PlanContext — hasFeature', () => {

@@ -50,7 +50,12 @@ describe('T02 — Plan gate (giới hạn số lượng)', () => {
       .send({ tableData: { restaurant: freeId, tableNumber: '6', status: 'available' } });
     expect(blocked.status).toBe(403);
     expect(blocked.body.errorCode).toBe('PLAN_LIMIT_REACHED');
-    expect(blocked.body.meta).toMatchObject({ resource: 'tables', limit: 5, used: 5, planKey: 'free' });
+    expect(blocked.body.meta).toMatchObject({
+      resource: 'tables',
+      limit: 5,
+      used: 5,
+      planKey: 'free',
+    });
   });
 
   it('Pro: tạo bàn thứ 3 vẫn OK (giới hạn 100)', async () => {
@@ -84,7 +89,13 @@ describe('T02 — Plan gate (giới hạn số lượng)', () => {
       request
         .post('/api/auth/admin/create')
         .set('Authorization', `Bearer ${tokenFor('admin', freeId)}`)
-        .send({ name: `NV${n}`, email: `nv${n}.${Date.now()}@nhamnhi.vn`, password: 'Test@NhamNhi2026', role: 'staff', restaurant: freeId });
+        .send({
+          name: `NV${n}`,
+          email: `nv${n}.${Date.now()}@nhamnhi.vn`,
+          password: 'Test@NhamNhi2026',
+          role: 'staff',
+          restaurant: freeId,
+        });
 
     const s1 = await makeStaff(1);
     expect(s1.status).toBe(201);
@@ -286,7 +297,7 @@ describe('T02 — Plan gate (tính năng theo gói)', () => {
     expect(res.body.meta).toMatchObject({ feature: 'payos', planKey: 'free' });
   });
 
-  it('pro: cài đặt phương thức thanh toán PayOS → 200', async () => {
+  it('pro: cài đặt phương thức thanh toán PayOS → 403 PLAN_LIMIT_REACHED (payos chỉ từ gói cao)', async () => {
     const pro = await makeRestaurant('pro');
     const proId = idOf(pro._id);
     await DB_Connection.User.findByIdAndUpdate(SEED_IDS.adminX, {
@@ -310,7 +321,9 @@ describe('T02 — Plan gate (tính năng theo gói)', () => {
           },
         },
       });
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(403);
+    expect(res.body.errorCode).toBe('PLAN_LIMIT_REACHED');
+    expect(res.body.meta).toMatchObject({ feature: 'payos', planKey: 'pro' });
   });
 
   it('free: cài đặt Chuyển khoản ngân hàng (QR thủ công) → 403 PLAN_LIMIT_REACHED (qr_manual||payos)', async () => {
@@ -345,22 +358,22 @@ describe('T02 — Plan gate (tính năng theo gói)', () => {
     expect(res.body.meta).toMatchObject({ planKey: 'free', anyOf: true });
   });
 
-  it('pro: cài đặt Chuyển khoản ngân hàng → 200 (có payos → OR pass)', async () => {
-    const pro = await makeRestaurant('pro');
-    const proId = idOf(pro._id);
+  it('enterprise: cài đặt Chuyển khoản ngân hàng → 200 (có qr_manual/payos → OR pass)', async () => {
+    const ent = await makeRestaurant('enterprise');
+    const entId = idOf(ent._id);
     await DB_Connection.User.findByIdAndUpdate(SEED_IDS.adminX, {
-      $addToSet: { restaurantIds: pro._id },
+      $addToSet: { restaurantIds: ent._id },
     });
     const setting = await DB_Connection.Setting.create({
       scope: 'restaurant',
       targetModel: 'Restaurant',
-      targetId: pro._id,
+      targetId: ent._id,
       paymentMethodType: 'none',
     });
 
     const res = await request
       .patch(`/api/settings/${idOf(setting._id)}/payment-method`)
-      .set('Authorization', `Bearer ${tokenFor('admin', proId)}`)
+      .set('Authorization', `Bearer ${tokenFor('admin', entId)}`)
       .send({
         paymentMethodType: 'bank_transfer',
         payload: {

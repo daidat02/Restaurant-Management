@@ -99,11 +99,13 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     };
   }, [usageRestaurantId, isSuperAdmin]);
 
-  /** ⚡ BẬC BẢO VỆ CHẶT CHẼ: Super-admin bypass (true). Chưa có plan/planKey -> Khóa (false). */
+  /** Gate phía client chỉ phục vụ UX/upsell — server mới là lớp thực thi cuối cùng.
+   *  Super-admin bypass. Plan KHÔNG resolve được (admin chưa có chi nhánh/onboarding,
+   *  currentPlanKey lạ) → cho phép để không khoá nhầm; plan resolve được → theo đúng featureKeys. */
   const hasFeature = useCallback(
     (feature: FeatureKey): boolean => {
       if (isSuperAdmin) return true;
-      if (!planKey || !plan) return false;
+      if (!planKey || !plan) return true;
       return (plan.featureKeys ?? []).includes(feature);
     },
     [isSuperAdmin, planKey, plan],

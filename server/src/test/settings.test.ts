@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { request, tokenFor, idOf } from './utils.js';
+import DB_Connection from '../models/DB_Connection.js';
 import { SEED_IDS } from './seed.js';
 
 const X = SEED_IDS.tenantX.toString();
@@ -34,10 +35,31 @@ describe('T11 — Settings', () => {
     expect(res.status).toBe(200);
   });
 
-  it('PATCH /settings/:id/payment-method (bank_transfer) — admin X → 200', async () => {
+  it('PATCH /settings/:id/payment-method (bank_transfer) — admin nhà hàng enterprise → 200', async () => {
+    // tenantX là gói pro (không có payos/qr_manual → bị gate 403, xem plan-gate.test).
+    // Happy path của endpoint chạy trên nhà hàng enterprise (có đủ feature thanh toán).
+    const ent = await DB_Connection.Restaurant.create({
+      name: `NH Ent ${Date.now()}`,
+      email: `ent.${Date.now()}@nhamnhi.vn`,
+      status: 'active',
+      ownerId: SEED_IDS.adminX,
+      subscription: 'active',
+      paidUntil: new Date(Date.now() + 30 * 24 * 3600 * 1000),
+      currentPlanKey: 'enterprise',
+    });
+    await DB_Connection.User.findByIdAndUpdate(SEED_IDS.adminX, {
+      $addToSet: { restaurantIds: ent._id },
+    });
+    const setting = await DB_Connection.Setting.create({
+      scope: 'restaurant',
+      targetModel: 'Restaurant',
+      targetId: ent._id,
+      paymentMethodType: 'none',
+    });
+
     const res = await request
-      .patch(`/api/settings/${idOf(SEED_IDS.settingX)}/payment-method`)
-      .set('Authorization', `Bearer ${adminX()}`)
+      .patch(`/api/settings/${idOf(setting._id)}/payment-method`)
+      .set('Authorization', `Bearer ${tokenFor('admin', idOf(ent._id))}`)
       .send({
         paymentMethodType: 'bank_transfer',
         payload: {
