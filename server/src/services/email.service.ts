@@ -60,13 +60,13 @@ export async function getSMTPConfig(): Promise<SMTPConfig | null> {
   // };
 
   return {
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false,
-    user: 'nhahangos.suport@gmail.com',
-    pass: 'kjef mccv edpt fvev',
-    fromName: 'NhaHang OS',
-    fromEmail: 'nhahangos.suport@gmail.com',
+    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.EMAIL_PORT || '') || 587,
+    secure: process.env.PRODUCT_ENV !== 'development', // true nếu production, false nếu dev
+    user: process.env.EMAIL_USER || 'nhahangos.suport@gmail.com',
+    pass: process.env.EMAIL_PASSWORD || 'kjef mccv edpt fvev',
+    fromName: process.env.EMAIL_FROM_NAME || 'NhaHang OS',
+    fromEmail: process.env.EMAIL_FROM_ADDRESS || 'nhahangos.suport@gmail.com',
   };
 }
 

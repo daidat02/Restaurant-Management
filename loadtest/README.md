@@ -20,6 +20,7 @@ Express server (local, ENABLE_REDIS=true)
 ```
 
 Tỷ lệ công việc:
+
 - **80%** đọc menu (`GET /api/menu/items/available/:restaurantId`) — tải đọc.
 - **20%** tạo đơn (`POST /api/orders`) kèm `POST /api/orders/add-item` — mỗi đơn
   đẩy **2 job** vào queue `order-fanout` (1 CREATE + 1 ADD_ITEMS), mô phỏng tiêu
@@ -73,15 +74,16 @@ k6 run -e BASE_URL=http://localhost:8000 \
 
 `run.sh` in ở cuối (từ `handleSummary`):
 
-| Metric | Ý nghĩa | Chữa lỗi |
-| ------ | ------- | -------- |
-| `q_backlog_*` | (waiting + active) max của queue — **reflection nghẽn tiêu thụ** | backlog dài → tăng `concurrency` trong `server/src/queues/*`, xem processor cost |
-| `q_completed_*` | tổng job đã xong (nên ≈ số đơn × 2 phút cuối test) | chênh lệch lớn → mất job / bị retry |
-| `q_failed_*` | job thất bại | đọc `server/src/jobs` + log server |
-| `order_create_latency` | P95 latency tạo đơn (đã tính thời gian chờ add-job) | P95 cao kèm backlog 0 → chậm ở DB/API, không phải queue |
-| `http_req_failed` | tỷ lệ lỗi HTTP (threshold < 1%) | 429 → set lại `RATE_LIMIT_ENABLED`; 500 → xem log |
+| Metric                 | Ý nghĩa                                                          | Chữa lỗi                                                                         |
+| ---------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `q_backlog_*`          | (waiting + active) max của queue — **reflection nghẽn tiêu thụ** | backlog dài → tăng `concurrency` trong `server/src/queues/*`, xem processor cost |
+| `q_completed_*`        | tổng job đã xong (nên ≈ số đơn × 2 phút cuối test)               | chênh lệch lớn → mất job / bị retry                                              |
+| `q_failed_*`           | job thất bại                                                     | đọc `server/src/jobs` + log server                                               |
+| `order_create_latency` | P95 latency tạo đơn (đã tính thời gian chờ add-job)              | P95 cao kèm backlog 0 → chậm ở DB/API, không phải queue                          |
+| `http_req_failed`      | tỷ lệ lỗi HTTP (threshold < 1%)                                  | 429 → set lại `RATE_LIMIT_ENABLED`; 500 → xem log                                |
 
 Tiêu chí chấp nhận đề xuất:
+
 - `http_req_failed < 1%` trong toàn thời gian ramp.
 - `order_create P95 < 1500ms` ngay cả ở tải 50 VU.
 - Backlog `order-fanout`/`notification` trở về **0** trong vòng vài giây sau

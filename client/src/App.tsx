@@ -195,6 +195,7 @@ export default function App() {
           {/* Redirect các path cũ từ HeaderCustomer sang cấu trúc mới */}
           <Route path="/profile" element={<Navigate to="/account/profile" replace />} />
           <Route path="/orders-history" element={<Navigate to="/account/orders" replace />} />
+
           <Route path="/settings" element={<Navigate to="/account/settings" replace />} />
         </Route>
       </Route>
