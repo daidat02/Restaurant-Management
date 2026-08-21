@@ -8,8 +8,7 @@ import { EMAIL_TEMPLATES, type EmailTemplateKey } from './email-templates.js';
 import settingRepository from '../modules/SettingModule/setting.repository.js';
 import { QUEUE_NAMES } from '../queues/queue.js';
 import { addJob } from '../jobs/handlers.js';
-import dns from 'dns';
-dns.setDefaultResultOrder('ipv4first');
+
 /**
  * ==========================================
  * EMAIL SERVICE (GỬI EMAIL QUA SMTP)
