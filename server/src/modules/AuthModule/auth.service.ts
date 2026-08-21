@@ -291,7 +291,9 @@ class AuthService {
           code: 400,
         };
       }
-      await DB_Connection.User.findByIdAndUpdate(user._id, { $set: { emailOtpAttempts: attempts } });
+      await DB_Connection.User.findByIdAndUpdate(user._id, {
+        $set: { emailOtpAttempts: attempts },
+      });
       return {
         message: `Mã OTP không đúng. Còn ${OTP_MAX_ATTEMPTS - attempts} lần thử.`,
         code: 400,
@@ -540,6 +542,10 @@ class AuthService {
    */
   async forgotPasswordService(email: string): Promise<ServiceResponse<any>> {
     const user = await authRepository.findOneUser({ email, deletedAt: null });
+    console.log(
+      `[forgotPasswordService] Tài khoản ${user?.email} tồn tại, gửi email reset-password.`,
+    );
+
     if (user) {
       const resetToken = generateResetToken();
       user.resetPasswordToken = resetToken;
