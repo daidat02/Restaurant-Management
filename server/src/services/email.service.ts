@@ -8,7 +8,8 @@ import { EMAIL_TEMPLATES, type EmailTemplateKey } from './email-templates.js';
 import settingRepository from '../modules/SettingModule/setting.repository.js';
 import { QUEUE_NAMES } from '../queues/queue.js';
 import { addJob } from '../jobs/handlers.js';
-
+import dns from 'dns';
+dns.setDefaultResultOrder('ipv4first');
 /**
  * ==========================================
  * EMAIL SERVICE (GỬI EMAIL QUA SMTP)
@@ -62,7 +63,7 @@ export async function getSMTPConfig(): Promise<SMTPConfig | null> {
   return {
     host: process.env.EMAIL_HOST || 'smtp.gmail.com',
     port: parseInt(process.env.EMAIL_PORT || '') || 587,
-    secure: process.env.SMTP_SECURE === 'true', // true nếu production, false nếu dev
+    secure: (parseInt(process.env.EMAIL_PORT || '') || 587) === 465,
     user: process.env.EMAIL_USER || 'nhahangos.suport@gmail.com',
     pass: process.env.EMAIL_PASSWORD || 'kjef mccv edpt fvev',
     fromName: process.env.EMAIL_FROM_NAME || 'NhaHang OS',
@@ -117,6 +118,7 @@ export async function sendEmailNow(payload: SendEmailPayload): Promise<void> {
     port: config.port,
     secure: config.secure,
     ...(config.user ? { auth: { user: config.user, pass: config.pass } } : {}),
+    connectionTimeout: 10000,
   });
 
   try {
