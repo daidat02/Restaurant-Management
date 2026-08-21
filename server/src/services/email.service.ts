@@ -2,12 +2,15 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Handlebars from 'handlebars';
+import { Resend } from 'resend';
 import nodemailer from 'nodemailer';
 import { decryptKey } from '../configs/constants.js';
 import { EMAIL_TEMPLATES, type EmailTemplateKey } from './email-templates.js';
 import settingRepository from '../modules/SettingModule/setting.repository.js';
 import { QUEUE_NAMES } from '../queues/queue.js';
 import { addJob } from '../jobs/handlers.js';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 /**
  * ==========================================
@@ -100,40 +103,64 @@ export interface SendEmailPayload {
 }
 
 /** Gửi email NGAY (đồng bộ) qua SMTP đã cấu hình. Lỗi SMTP → throw (caller tự xử lý). */
-export async function sendEmailNow(payload: SendEmailPayload): Promise<void> {
-  const config = await getSMTPConfig();
-  const recipients = Array.isArray(payload.to) ? payload.to.join(', ') : payload.to;
-  if (!config) {
-    console.warn(
-      `[Email] SMTP chưa cấu hình — bỏ qua gửi "${payload.template}" tới ${recipients}.`,
-    );
-    return;
-  }
+// export async function sendEmailNow(payload: SendEmailPayload): Promise<void> {
+//   const config = await getSMTPConfig();
+//   const recipients = Array.isArray(payload.to) ? payload.to.join(', ') : payload.to;
+//   if (!config) {
+//     console.warn(
+//       `[Email] SMTP chưa cấu hình — bỏ qua gửi "${payload.template}" tới ${recipients}.`,
+//     );
+//     return;
+//   }
 
+//   const { subject, html } = renderEmail(payload.template, payload.data, payload.subject);
+
+//   const transport = nodemailer.createTransport({
+//     host: config.host,
+//     port: config.port,
+//     secure: config.secure,
+//     ...(config.user ? { auth: { user: config.user, pass: config.pass } } : {}),
+//     connectionTimeout: 10000,
+//   });
+
+//   try {
+//     const info = await transport.sendMail({
+//       from: `"${config.fromName}" <${config.fromEmail}>`,
+//       to: recipients,
+//       subject,
+//       html,
+//     });
+//     console.log(
+//       `[Email] Đã gửi "${payload.template}" → ${info.envelope?.to?.join(', ') ?? recipients} (${info.messageId})`,
+//     );
+//   } catch (error) {
+//     console.error(`[Email] Lỗi khi gửi "${payload.template}" → ${recipients}:`, error);
+//     throw error;
+//   } finally {
+//     transport.close();
+//   }
+// }
+
+export async function sendEmailNow(payload: SendEmailPayload): Promise<void> {
+  const recipients = Array.isArray(payload.to) ? payload.to : [payload.to];
   const { subject, html } = renderEmail(payload.template, payload.data, payload.subject);
 
-  const transport = nodemailer.createTransport({
-    host: config.host,
-    port: config.port,
-    secure: config.secure,
-    ...(config.user ? { auth: { user: config.user, pass: config.pass } } : {}),
-    connectionTimeout: 10000,
-  });
-
   try {
-    const info = await transport.sendMail({
-      from: `"${config.fromName}" <${config.fromEmail}>`,
+    const { data, error } = await resend.emails.send({
+      from: process.env.EMAIL_FROM || 'NhaHangOS <onboarding@resend.dev>', // Email gửi
       to: recipients,
       subject,
       html,
     });
-    console.log(
-      `[Email] Đã gửi "${payload.template}" → ${info.envelope?.to?.join(', ') ?? recipients} (${info.messageId})`,
-    );
+
+    if (error) {
+      throw new Error(`Resend API Error: ${error.message}`);
+    }
+
+    console.log(`[Email] Đã gửi "${payload.template}" → ${recipients.join(', ')} (${data?.id})`);
   } catch (error) {
-    console.error(`[Email] Lỗi khi gửi "${payload.template}" → ${recipients}:`, error);
-  } finally {
-    transport.close();
+    console.error(`[Email] Lỗi khi gửi "${payload.template}" → ${recipients.join(', ')}:`, error);
+    throw error; // Ném lỗi cho BullMQ retry
   }
 }
 
