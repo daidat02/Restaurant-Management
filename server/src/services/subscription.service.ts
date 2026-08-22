@@ -4,6 +4,7 @@ import type {
   RestaurantSubscription,
 } from '../models/Schema/RestaurantSchema.js';
 import { writeAuditLog } from './auditLog.service.js';
+import notificationService from '../modules/Notification/notification.service.js';
 import pricingService from '../modules/SubscriptionModule/pricing.service.js';
 import { sendEmailAsync } from './email.service.js';
 import { APP_PUBLIC_URL } from '../configs/constants.js';
@@ -120,11 +121,43 @@ export async function applySubscriptionState(restaurantId: string): Promise<Subs
       await restaurant.save();
       const planName =
         (await pricingService.getPlanName(restaurant.currentPlanKey!)) ?? restaurant.currentPlanKey!;
+      const daysLeft = Math.ceil((paidUntil.getTime() - nowTime) / (24 * 3600 * 1000));
+
+      // Audit cảnh báo sắp hết hạn — trước đây chỉ gửi email, chưa có log (PA-5).
+      await writeAuditLog({
+        action: 'subscription.expiring',
+        restaurant: String(restaurant._id),
+        actor: null,
+        actorInfo: { role: 'system' },
+        targetType: 'restaurant',
+        targetId: String(restaurant._id),
+        summary: `Nhà hàng "${restaurant.name}" sắp hết hạn gói "${planName}" (còn ~${daysLeft} ngày)`,
+        meta: { planKey: restaurant.currentPlanKey ?? undefined, daysLeft, paidUntil },
+      });
+
+      // Thông báo nền tảng cho super-admin — 1 lần/chu kỳ nhờ cờ expiringEmailSentAt.
+      try {
+        await notificationService.createPlatformNotification({
+          type: 'subscription',
+          message: `Nhà hàng "${restaurant.name}" sắp hết hạn gói ${planName} (còn ~${daysLeft} ngày)`,
+          data: {
+            restaurantId: String(restaurant._id),
+            restaurantName: restaurant.name,
+            planKey: restaurant.currentPlanKey ?? undefined,
+            planName,
+            daysLeft,
+            paidUntil: paidUntil.toISOString(),
+          },
+        });
+      } catch (error) {
+        console.error('[applySubscriptionState] Tạo thông báo nền tảng thất bại:', error);
+      }
+
       await sendOwnerEmail(restaurant, {
         template: 'subscription-expiring',
         data: {
           planName,
-          daysLeft: Math.ceil((paidUntil.getTime() - nowTime) / (24 * 3600 * 1000)),
+          daysLeft,
           paidUntil: paidUntil.toLocaleDateString('vi-VN'),
           billingUrl: `${APP_PUBLIC_URL}/admin/billing`,
         },

@@ -7,6 +7,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import DB_Connection from '../../models/DB_Connection.js';
 import { sendEmailAsync } from '../../services/email.service.js';
+import notificationService from '../Notification/notification.service.js';
 import { APP_PUBLIC_URL } from '../../configs/constants.js';
 
 /** Thời hạn hiệu lực của token đặt lại mật khẩu (30 phút). */
@@ -305,6 +306,18 @@ class AuthService {
       $set: { emailVerified: true, emailVerifiedAt: new Date(), emailOtpAttempts: 0 },
       $unset: { emailOtp: 1, emailOtpExpires: 1, emailOtpSentAt: 1 },
     });
+
+    // Thông báo nền tảng cho super-admin: có người dùng mới chính thức hoạt động (PA-3).
+    // Lỗi tạo noti không làm hỏng luồng xác thực.
+    try {
+      await notificationService.createPlatformNotification({
+        type: 'system',
+        message: `Người dùng mới ${user.name || user.email} (${user.email}) vừa đăng ký sử dụng hệ thống`,
+        data: { email: user.email, name: user.name ?? '', userId: String(user._id) },
+      });
+    } catch (error) {
+      console.error('[verifyOtp] Tạo thông báo nền tảng thất bại:', error);
+    }
 
     const refreshed = await authRepository.findUserById(String(user._id));
     if (!refreshed) {

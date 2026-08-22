@@ -33,6 +33,8 @@ export const AuditAction = {
   subscriptionLocked: 'subscription.locked',
   subscriptionUnlocked: 'subscription.unlocked',
   subscriptionExpiring: 'subscription.expiring',
+  subscriptionRenewed: 'subscription.renewed',
+  subscriptionUpgraded: 'subscription.upgraded',
   transactionCreate: 'transaction.create',
 
   // ============ PAYMENT ============

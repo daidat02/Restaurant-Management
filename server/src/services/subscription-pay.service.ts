@@ -5,6 +5,7 @@ import { writeAuditLog } from './auditLog.service.js';
 import { generateTransactionId } from './transaction-id.service.js';
 import { countResource } from './plan-gate.service.js';
 import { sendEmailAsync } from './email.service.js';
+import notificationService from '../modules/Notification/notification.service.js';
 
 const VALID_CYCLES = [1, 3, 6, 12];
 const DAY_MS = 24 * 3600 * 1000;
@@ -147,7 +148,7 @@ export async function completeSubscription(
   planId?: string,
   existingTransactionId?: string,
 ) {
-  const { restaurant, price, planName, paidUntil, wasLocked, cycleMonths } = prepared;
+  const { restaurant, price, planName, paidUntil, wasLocked, cycleMonths, changeType } = prepared;
 
   const transactionData = {
     restaurant: restaurant._id,
@@ -214,17 +215,61 @@ export async function completeSubscription(
     });
   }
 
+  // Audit riêng cho gia hạn / nâng cấp (PA-4) — giúp super-admin phân biệt trong whitelist.
+  const planLabel =
+    planName ??
+    (await pricingService.getPlanName(resolvedPlanKey ?? '')) ??
+    resolvedPlanKey ??
+    'Miễn Phí';
+  await writeAuditLog({
+    action: changeType === 'upgrade' ? 'subscription.upgraded' : 'subscription.renewed',
+    restaurant: String(restaurant._id),
+    actor: actorUserId || null,
+    actorInfo: { role: 'admin' },
+    targetType: 'restaurant',
+    targetId: String(restaurant._id),
+    summary:
+      changeType === 'upgrade'
+        ? `Nhà hàng "${restaurant.name}" đã nâng cấp lên gói "${planLabel}" (${cycleMonths} tháng)`
+        : `Nhà hàng "${restaurant.name}" đã gia hạn gói "${planLabel}" (${cycleMonths} tháng)`,
+    meta: {
+      transactionId: String(transaction._id),
+      amount: price,
+      cycleMonths,
+      planKey: resolvedPlanKey ?? undefined,
+      changeType,
+    },
+  });
+
+  // Thông báo nền tảng cho super-admin (PA-4). Lỗi noti không làm hỏng luồng thanh toán.
+  try {
+    await notificationService.createPlatformNotification({
+      type: 'subscription',
+      message:
+        changeType === 'upgrade'
+          ? `Nhà hàng "${restaurant.name}" đã nâng cấp lên gói ${planLabel} (${cycleMonths} tháng)`
+          : `Nhà hàng "${restaurant.name}" đã gia hạn gói ${planLabel} (${cycleMonths} tháng)`,
+      data: {
+        restaurantId: String(restaurant._id),
+        restaurantName: restaurant.name,
+        planKey: resolvedPlanKey ?? undefined,
+        planName: planLabel,
+        cycleMonths,
+        amount: price,
+        transactionId: String(transaction._id),
+        changeType,
+      },
+    });
+  } catch (error) {
+    console.error('[completeSubscription] Tạo thông báo nền tảng thất bại:', error);
+  }
+
   // Gửi email biên lai cho chủ sở hữu (nền qua queue — không chặn webhook/CRUD).
   try {
     const owner = (await DB_Connection.User.findById(restaurant.ownerId).lean()) as
       | { name?: string; email?: string }
       | null;
     if (owner?.email) {
-      const planLabel =
-        planName ??
-        (await pricingService.getPlanName(resolvedPlanKey ?? '')) ??
-        resolvedPlanKey ??
-        'Miễn Phí';
       await sendEmailAsync({
         template: 'subscription-receipt',
         to: owner.email,
