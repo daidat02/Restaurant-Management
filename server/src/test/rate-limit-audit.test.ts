@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { request, tokenFor } from './utils.js';
 import DB_Connection from '../models/DB_Connection.js';
 import { SEED_IDS } from './seed.js';
+import { SUPER_ADMIN_ALLOWED_ACTIONS } from '../services/auditAction.js';
 
 const X = SEED_IDS.tenantX.toString();
 const Y = SEED_IDS.tenantY.toString();
@@ -93,26 +94,33 @@ describe('T05 — Rate limit + Audit log', () => {
       expect(res.status).toBe(403);
     });
 
-    it('super-admin → 200, có danh sách log + total', async () => {
-      const res = await request
-        .get('/api/audit-logs?limit=10')
-        .set('Authorization', `Bearer ${superAdmin()}`);
-      expect(res.status).toBe(200);
-      expect(Array.isArray(res.body.data)).toBe(true);
-      expect(res.body.total).toBeGreaterThanOrEqual(3);
-    });
-
-    it('super-admin → KHÔNG thấy action vận hành order.* (chỉ log nền tảng)', async () => {
+    it('super-admin → 200, chỉ thấy log NỀN TẢNG trong whitelist (PA-6)', async () => {
       const res = await request
         .get('/api/audit-logs?limit=50')
         .set('Authorization', `Bearer ${superAdmin()}`);
       expect(res.status).toBe(200);
+      expect(Array.isArray(res.body.data)).toBe(true);
+      // Seed có user.register + transaction.create (whitelist) → ít nhất 2 log nền tảng
+      expect(res.body.total).toBeGreaterThanOrEqual(2);
+      for (const log of res.body.data as any[]) {
+        expect(SUPER_ADMIN_ALLOWED_ACTIONS).toContain(String(log.action));
+      }
+    });
+
+    it('super-admin → KHÔNG thấy action vận hành tenant (order.*, kds-code...)', async () => {
+      const res = await request
+        .get('/api/audit-logs?limit=50')
+        .set('Authorization', `Bearer ${superAdmin()}`);
+      expect(res.status).toBe(200);
+      const actions = (res.body.data as any[]).map((l) => String(l.action));
+      expect(actions).not.toContain('order.create');
+      expect(actions).not.toContain('setting.kds-code.generate');
       for (const log of res.body.data as any[]) {
         expect(String(log.action).startsWith('order.')).toBe(false);
       }
     });
 
-    it('super-admin lọc theo restaurantId=X → chỉ log của X, vẫn không có order.*', async () => {
+    it('super-admin lọc theo restaurantId=X → chỉ log của X, vẫn đúng whitelist', async () => {
       const res = await request
         .get(`/api/audit-logs?restaurantId=${X}&limit=50`)
         .set('Authorization', `Bearer ${superAdmin()}`);

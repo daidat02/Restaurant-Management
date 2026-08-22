@@ -55,20 +55,18 @@ async function resolveTargetNames(
 /** Truy vấn audit log theo restaurant (optional, hỗ trợ mảng $in) + phân trang. */
 export async function listAuditLogs(params: {
   restaurantIds?: string[];
-  /** Loại bỏ các action thuộc prefix này (vd super-admin không xem order.*). */
-  excludedActionPrefixes?: string[];
+  /** Whitelist action được phép xem (super-admin — chỉ thấy action nền tảng). */
+  allowedActions?: string[];
   page?: number;
   limit?: number;
 }): Promise<{ data: any[]; total: number }> {
-  const { restaurantIds, excludedActionPrefixes, page = 1, limit = 50 } = params;
+  const { restaurantIds, allowedActions, page = 1, limit = 50 } = params;
   const filter: Record<string, unknown> = {};
   if (restaurantIds && restaurantIds.length > 0) {
     filter.restaurant = { $in: restaurantIds };
   }
-  if (excludedActionPrefixes && excludedActionPrefixes.length > 0) {
-    filter.$and = excludedActionPrefixes.map((prefix) => ({
-      action: { $not: new RegExp(`^${prefix}`) },
-    }));
+  if (allowedActions && allowedActions.length > 0) {
+    filter.action = { $in: allowedActions };
   }
 
   const [data, total] = await Promise.all([

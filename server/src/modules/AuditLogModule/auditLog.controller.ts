@@ -1,13 +1,13 @@
 import type { Request, Response } from 'express';
 import auditLogService from './auditLog.service.js';
 import type { AuthRequest } from '../../middlewares/auth.middleware.js';
-import { SUPER_ADMIN_RESTRICTED_PREFIXES } from '../../services/auditAction.js';
+import { SUPER_ADMIN_ALLOWED_ACTIONS } from '../../services/auditAction.js';
 
 class AuditLogController {
   /**
    * GET /api/audit-logs
-   * - super-admin: quyền nền tảng — xem log nền tảng; KHÔNG xem action vận hành tenant (order.*)
-   *   (SUPER_ADMIN_RESTRICTED_PREFIXES), filter restaurantId tùy ý.
+   * - super-admin: quyền nền tảng — CHỈ thấy action trong whitelist
+   *   (SUPER_ADMIN_ALLOWED_ACTIONS), filter restaurantId tùy ý.
    * - admin (chủ chuỗi): chỉ thấy log của các chi nhánh trong restaurantIds của mình
    *   (đã được intersectRestaurantIds lọc, ngoài phạm vi → 403).
    * - manager (chi nhánh): chỉ thấy log của chi nhánh mình (intersectRestaurantIds giới hạn).
@@ -18,11 +18,11 @@ class AuditLogController {
       const limit = req.query.limit ? Number(req.query.limit) : undefined;
 
       let restaurantIds: string[] | undefined;
-      let excludedActionPrefixes: string[] | undefined;
+      let allowedActions: string[] | undefined;
       if (req.user?.role === 'super-admin') {
         const restaurantId = (req.query.restaurantId as string) || undefined;
         if (restaurantId) restaurantIds = [restaurantId];
-        excludedActionPrefixes = [...SUPER_ADMIN_RESTRICTED_PREFIXES];
+        allowedActions = [...SUPER_ADMIN_ALLOWED_ACTIONS];
       } else {
         // admin/manager: danh sách chi nhánh đã intersect (mặc định toàn chuỗi / chi nhánh mình)
         restaurantIds = req.user?.restaurantIds;
@@ -30,9 +30,7 @@ class AuditLogController {
 
       const result = await auditLogService.getAuditLogs({
         ...(restaurantIds && restaurantIds.length > 0 ? { restaurantIds } : {}),
-        ...(excludedActionPrefixes && excludedActionPrefixes.length > 0
-          ? { excludedActionPrefixes }
-          : {}),
+        ...(allowedActions && allowedActions.length > 0 ? { allowedActions } : {}),
         ...(page !== undefined ? { page } : {}),
         ...(limit !== undefined ? { limit } : {}),
       });

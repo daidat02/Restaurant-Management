@@ -3,7 +3,7 @@ import { listAuditLogs, listPaymentLogs } from './auditLog.repository.js';
 class AuditLogService {
   async getAuditLogs(params: {
     restaurantIds?: string[];
-    excludedActionPrefixes?: string[];
+    allowedActions?: string[];
     page?: number;
     limit?: number;
   }): Promise<{ code: number; message: string; data?: any[]; total?: number }> {
@@ -13,8 +13,8 @@ class AuditLogService {
       ...(params.restaurantIds && params.restaurantIds.length > 0
         ? { restaurantIds: params.restaurantIds }
         : {}),
-      ...(params.excludedActionPrefixes && params.excludedActionPrefixes.length > 0
-        ? { excludedActionPrefixes: params.excludedActionPrefixes }
+      ...(params.allowedActions && params.allowedActions.length > 0
+        ? { allowedActions: params.allowedActions }
         : {}),
       page,
       limit,

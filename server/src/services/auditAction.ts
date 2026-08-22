@@ -5,10 +5,43 @@
  */
 
 /**
- * Nhóm action là dữ liệu VẬN HÀNH của tenant (order.*...) — super-admin KHÔNG được xem,
+ * Nhóm action là dữ liệu VẬN HÀNH của tenant — super-admin KHÔNG được xem,
  * chỉ admin (chủ chuỗi) và manager (chi nhánh) thấy trong phạm vi tenant của mình.
+ *
+ * @deprecated Thay bằng whitelist `SUPER_ADMIN_ALLOWED_ACTIONS` (PA-6) — action mới
+ * mặc định KHÔNG lộ cho super-admin tới khi được thêm vào danh sách cho phép.
  */
 export const SUPER_ADMIN_RESTRICTED_PREFIXES = ['order.'] as const;
+
+/**
+ * Whitelist action NỀN TẢNG super-admin được xem trong /api/audit-logs (PA-6).
+ * Ngoài danh sách này (order.*, kds-code, nhân sự tenant, menu/bàn/đặt chỗ...)
+ * super-admin không thấy — kể cả action mới thêm sau này.
+ */
+export const SUPER_ADMIN_ALLOWED_ACTIONS = [
+  // Tài khoản chủ / người dùng nền tảng
+  'user.register',
+  'user.block',
+  'user.unblock',
+  // Nhà hàng (tenant lifecycle)
+  'restaurant.create',
+  'restaurant.delete',
+  'restaurant.lock',
+  'restaurant.unlock',
+  // Thuê bao & giao dịch gói cước
+  'subscription.trial.started',
+  'subscription.locked',
+  'subscription.unlocked',
+  'subscription.expiring',
+  'subscription.downgrade',
+  'subscription.renewed',
+  'subscription.upgraded',
+  'transaction.create',
+  // Cấu hình nền tảng
+  'pricing.create',
+  'pricing.update',
+  'setting.gateway.update',
+] as const;
 
 export const AuditAction = {
   // ============ USER ============

@@ -518,6 +518,32 @@ async function seedAuditLogs(): Promise<void> {
       targetId: SEED_IDS.orderYActive,
       summary: 'Tạo đơn ORD-Y-001',
     },
+    // ── Log nền tảng super-admin ĐƯỢC xem (whitelist — PA-6) ──
+    {
+      action: 'user.register',
+      restaurant: null,
+      actorInfo: { role: 'system' },
+      targetType: 'user',
+      summary: 'Đăng ký chủ nhà hàng mới (owner.audit@nhamnhi.vn)',
+      meta: { email: 'owner.audit@nhamnhi.vn' },
+    },
+    {
+      action: 'transaction.create',
+      restaurant: SEED_IDS.tenantSubEnterprise,
+      actorInfo: { name: 'Owner Sub Test', role: 'admin' },
+      targetType: 'restaurant',
+      targetId: SEED_IDS.tenantSubEnterprise,
+      summary: 'Thanh toán 2.990.000đ cho 12 tháng',
+    },
+    // ── Log vận hành tenant super-admin KHÔNG được xem (bẫy kiểm tra whitelist) ──
+    {
+      action: 'setting.kds-code.generate',
+      restaurant: SEED_IDS.tenantX,
+      actor: SEED_IDS.adminX,
+      actorInfo: { name: 'Admin Test', role: 'admin' },
+      targetType: 'setting',
+      summary: 'Tạo lại mã nhà bếp',
+    },
   ]);
 }
 
