@@ -75,37 +75,25 @@ export const USERS = {
   superAdmin: { email: 'super.admin@nhamnhi.vn', name: 'Super Admin' },
 } as const;
 
-/** Mở auth modal trên landing (route /auth đã bị gỡ — auth qua modal). */
-export async function openAuthModal(page: Page, mode: 'login' | 'owner' = 'login') {
-  await page.goto('/');
-  if (mode === 'login') {
-    await page.getByRole('button', { name: 'Đăng nhập' }).first().click();
-  } else {
-    await page.getByRole('button', { name: 'Tạo tài khoản', exact: true }).click();
-  }
+/** Trang đăng nhập (route riêng — auth modal trên landing đã bị gỡ ở ticket auth-pages). */
+export async function gotoLogin(page: Page) {
+  await page.goto('/login');
 }
 
-/** Đăng nhập admin/staff/customer qua UI (landing page + auth modal). */
+/**
+ * Đăng nhập bất kỳ role nào qua UI trang /login.
+ * Sau khi submit, client điều hướng theo role (admin→/admin, manager→/manager...).
+ */
 export async function login(
   page: Page,
   email: string,
   password: string = PASSWORD,
 ): Promise<void> {
-  await openAuthModal(page, 'login');
-  await page.getByPlaceholder('quanly@nhahang.vn').fill(email);
+  await gotoLogin(page);
+  await page.getByPlaceholder('ban@nhahangos.vn').fill(email);
   await page.getByPlaceholder('••••••••').fill(password);
-  // Submit form bằng Enter — tránh nhầm nút "Đăng nhập" (navbar/hero/tab modal/submit)
+  // Submit bằng Enter trong ô mật khẩu (form submit mặc định)
   await page.getByPlaceholder('••••••••').press('Enter');
-}
-
-/** Đăng nhập admin (chủ chuỗi) → vào thẳng /admin, KHÔNG qua /select-restaurant. */
-export async function loginAdminAndSelect(
-  _page: Page,
-  _restaurantName: string,
-): Promise<void> {
-  throw new Error(
-    'RestaurantSwitcher đã bị gỡ (admin vào thẳng /admin, quản toàn chuỗi). Dùng login(page, USERS.admin.email) rồi chờ URL /admin.',
-  );
 }
 
 /** Đăng nhập qua API → trả accessToken. Dùng để tạo data / verify chặn. */
@@ -122,4 +110,55 @@ export async function apiLogin(
   const token = body?.data?.accessToken;
   expect(token).toBeTruthy();
   return token as string;
+}
+
+/** Endpoint test-only trên server e2e — đọc OTP từ Memory Server (E2E không có SMTP thật). */
+export const E2E_OTP_URL = 'http://localhost:8100/__e2e__/otp';
+
+/** Lấy mã OTP xác thực email từ endpoint test-only của server e2e. */
+export async function fetchOtp(request: APIRequestContext, email: string): Promise<string> {
+  const res = await request.get(`${E2E_OTP_URL}?email=${encodeURIComponent(email)}`);
+  expect(res.status()).toBe(200);
+  return ((await res.json()) as { data?: { otp?: string } }).data?.otp ?? '';
+}
+
+/**
+ * Đăng ký owner qua API + xác thực OTP ngay (luồng mới bắt buộc verify email).
+ * Sau hàm này tài khoản đăng nhập bình thường.
+ */
+export async function apiRegisterOwner(
+  request: APIRequestContext,
+  email: string,
+  name = 'Chủ E2E',
+): Promise<void> {
+  const reg = await request.post(`${API_BASE}/auth/register-owner`, {
+    data: { name, email, password: PASSWORD },
+  });
+  expect(reg.status()).toBe(201);
+  const otp = await fetchOtp(request, email);
+  const ver = await request.post(`${API_BASE}/auth/verify-otp`, {
+    data: { email, otp },
+  });
+  expect(ver.status()).toBe(200);
+}
+
+/** Đăng ký owner qua UI (/register → /verify-otp) → tự đăng nhập → về /onboarding. */
+export async function registerOwnerViaUi(page: Page, email: string, name = 'Chủ Mới E2E') {
+  await page.goto('/register');
+  await page.getByPlaceholder('Nguyễn Văn A').fill(name);
+  await page.getByPlaceholder('ban@nhahangos.vn').fill(email);
+  await page.getByPlaceholder('0xxxxxxxxx').fill('0912345678');
+  await page.getByPlaceholder('Tối thiểu 6 ký tự').fill(PASSWORD);
+  // Đồng ý điều khoản (checkbox duy nhất trên trang)
+  await page.locator('input[type=checkbox]').check();
+  await page.getByRole('button', { name: 'Đăng ký miễn phí' }).click();
+
+  // Chuyển sang trang nhập mã OTP xác thực email
+  await expect(page).toHaveURL(/\/verify-otp/, { timeout: 15_000 });
+  const otp = await fetchOtp(page.request, email);
+  await page.getByPlaceholder('••••••').fill(otp);
+  await page.getByRole('button', { name: 'Xác thực', exact: true }).click();
+
+  // Verify xong → auto-login → vào wizard tạo nhà hàng đầu tiên
+  await expect(page).toHaveURL(/\/onboarding/, { timeout: 15_000 });
 }

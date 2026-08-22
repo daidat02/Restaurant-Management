@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { login, API_BASE, apiLogin, USERS, SEED_IDS } from './helpers';
+import { login, API_BASE, apiLogin, apiRegisterOwner, USERS, SEED_IDS } from './helpers';
 
 const OWNER_EMAIL = 'owner.sub@nhamnhi.vn';
 const PASSWORD = 'Test@NhamNhi2026';
@@ -31,10 +31,7 @@ test.describe('T07 — Subscription plans: gate + vòng đời mới', () => {
 
     // Owner riêng + nhà hàng đầu tiên → active + gói Miễn Phí (trần 5 bàn / 30 món / 2 NV)
     const email = `e2e.plan.${Date.now()}@nhamnhi.vn`;
-    const reg = await request.post(`${API_BASE}/auth/register-owner`, {
-      data: { name: 'E2E Plan Owner', email, password: PASSWORD },
-    });
-    expect(reg.status()).toBe(201);
+    await apiRegisterOwner(request, email, 'E2E Plan Owner');
 
     const create = await request.post(`${API_BASE}/restaurants`, {
       headers: auth(await apiLogin(request, email)),
@@ -325,10 +322,7 @@ test.describe('T07 — Subscription plans: gate + vòng đời mới', () => {
 
   test('8. Chi nhánh 2+ (pending) regression: pending → 403 RESTAURANT_LOCKED → thanh toán → active', async ({ request }) => {
     const email = `e2e.branch.${Date.now()}@nhamnhi.vn`;
-    const reg = await request.post(`${API_BASE}/auth/register-owner`, {
-      data: { name: 'E2E Branch Owner', email, password: PASSWORD },
-    });
-    expect(reg.status()).toBe(201);
+    await apiRegisterOwner(request, email, 'E2E Branch Owner');
     const token = await apiLogin(request, email);
 
     // Nhà hàng đầu (free) → đủ điều kiện mở chi nhánh 2+

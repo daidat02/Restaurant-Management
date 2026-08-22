@@ -36,6 +36,18 @@ await seedDatabase();
 await mongoose.connection.syncIndexes();
 
 const app = createApp();
+
+// Endpoint test-only: đọc mã OTP xác thực email từ Memory Server.
+// Lý do: E2E không có SMTP/Redis thật nên spec không thể nhận email —
+// route nằm ngoài /api và chỉ tồn tại trong binary e2e (dist/test/server.js).
+app.get('/__e2e__/otp', async (req, res) => {
+  const email = String(req.query.email || '').trim().toLowerCase();
+  if (!email) return res.status(400).json({ message: 'Thiếu email' });
+  const user = await mongoose.connection.collection('users').findOne({ email });
+  if (!user || !user.emailOtp) return res.status(404).json({ message: 'Không tìm thấy OTP' });
+  return res.json({ data: { otp: user.emailOtp } });
+});
+
 const server = http.createServer(app);
 initSocket(server);
 

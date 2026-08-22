@@ -61,13 +61,15 @@ test.describe('T12 — Khách tại bàn (scan-to-order)', () => {
 });
 
 test.describe('T12 — Khách delivery (landing page)', () => {
-  test('mở trang chủ → landing hiển thị, auth modal mở được', async ({ page }) => {
+  test('mở trang chủ → landing hiển thị, vào được trang đăng nhập', async ({ page }) => {
     await page.goto('/');
-    // Landing hiển thị đúng (route /auth cũ đã được thay bằng landing + auth modal)
+    // Landing hiển thị đúng
     await expect(
       page.getByRole('heading', { name: /Vận hành nhà hàng của bạn trên một nền tảng duy nhất/ }),
     ).toBeVisible({ timeout: 15_000 });
+    // Nút Đăng nhập điều hướng sang trang /login riêng (auth modal đã bị gỡ)
     await page.getByRole('button', { name: 'Đăng nhập' }).first().click();
-    await expect(page.getByPlaceholder('quanly@nhahang.vn')).toBeVisible({ timeout: 15_000 });
+    await expect(page).toHaveURL(/\/login$/, { timeout: 15_000 });
+    await expect(page.getByPlaceholder('ban@nhahangos.vn')).toBeVisible();
   });
 });

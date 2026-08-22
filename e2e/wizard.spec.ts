@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { login, API_BASE, PASSWORD } from './helpers';
+import { login, apiRegisterOwner, API_BASE } from './helpers';
 
 test.describe('T07 — Wizard onboarding 4 bước', () => {
   test('owner mới (chưa có nhà hàng) tạo cơ sở đầu tiên qua wizard → active + gói Miễn Phí', async ({ page, request }) => {
@@ -7,11 +7,8 @@ test.describe('T07 — Wizard onboarding 4 bước', () => {
     const ownerEmail = `wiz.owner.${unique}@nhamnhi.vn`;
     const tenantName = `NhamNhi Wizard ${unique}`;
 
-    // Đăng ký chủ mới qua API → chưa sở hữu nhà hàng nào
-    const reg = await request.post(`${API_BASE}/auth/register-owner`, {
-      data: { name: 'Wizard Owner', email: ownerEmail, password: PASSWORD },
-    });
-    expect(reg.status()).toBe(201);
+    // Đăng ký chủ mới qua API + xác thực OTP (luồng mới bắt buộc verify email)
+    await apiRegisterOwner(request, ownerEmail, 'Wizard Owner');
 
     // Login UI → guard đưa owner chưa có nhà hàng vào thẳng /onboarding (blank layout — ticket 04)
     await login(page, ownerEmail);

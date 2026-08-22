@@ -1,22 +1,12 @@
-import { test, expect, type Page } from '@playwright/test';
-import { PASSWORD } from './helpers';
+import { test, expect } from '@playwright/test';
+import { registerOwnerViaUi } from './helpers';
 
-/** Đăng ký chủ mới qua auth modal trên landing → tự đăng nhập → vào wizard. */
-async function registerOwner(page: Page, email: string) {
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Tạo tài khoản', exact: true }).click();
-  // Giải thích giá rõ ràng cho người thuê
-  await expect(page.getByText(/Miễn phí 30 ngày dùng thử/)).toBeVisible();
+/** Đăng ký chủ mới qua trang /register + xác thực OTP → tự đăng nhập → vào wizard. */
+async function registerOwner(page: import('@playwright/test').Page, email: string) {
+  // registerOwnerViaUi: /register → /verify-otp (nhập OTP từ endpoint test-only) → /onboarding
+  await registerOwnerViaUi(page, email);
 
-  await page.getByPlaceholder('Nguyễn Văn A').fill('Chủ Mới E2E');
-  await page.getByPlaceholder('example@gmail.com').fill(email);
-  await page.getByPlaceholder('0123456789').fill('0912345678');
-  await page.getByPlaceholder('Tạo mật khẩu').fill(PASSWORD);
-  await page.getByRole('button', { name: 'Tạo tài khoản chủ nhà hàng' }).click();
-
-  // Chuyển thẳng vào wizard tạo nhà hàng đầu tiên (không tính phí, bắt đầu trial)
   // Route /onboarding cấp cao nhất — blank layout (không Sidebar/Header).
-  await expect(page).toHaveURL(/\/onboarding/, { timeout: 15_000 });
   await expect(page.getByText('Khởi tạo cơ sở mới')).toBeVisible();
 }
 
@@ -51,14 +41,13 @@ test.describe('T9 — Đăng ký chủ + wizard nhà hàng đầu', () => {
     await expect(page).toHaveURL(/\/admin$/, { timeout: 20_000 });
   });
 
-  test('link từ trang đăng nhập tới đăng ký chủ nhà hàng', async ({ page }) => {
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Đăng nhập' }).first().click();
-    // Trong modal login, "Đăng ký tại đây" chuyển sang tab Chủ nhà hàng
-    await page.getByRole('button', { name: 'Đăng ký tại đây' }).click();
-    await expect(page.getByText(/Miễn phí 30 ngày dùng thử/)).toBeVisible();
+  test('link từ trang đăng nhập tới trang đăng ký chủ nhà hàng', async ({ page }) => {
+    await page.goto('/login');
+    // Link "Đăng ký miễn phí" dưới form login chuyển sang trang đăng ký
+    await page.getByRole('link', { name: 'Đăng ký miễn phí' }).click();
+    await expect(page).toHaveURL(/\/register$/);
     await expect(
-      page.getByRole('button', { name: 'Tạo tài khoản chủ nhà hàng' }),
+      page.getByRole('button', { name: 'Đăng ký miễn phí' }),
     ).toBeVisible();
   });
 });

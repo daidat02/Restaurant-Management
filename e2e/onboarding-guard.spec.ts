@@ -1,12 +1,9 @@
-import { test, expect } from '@playwright/test';
-import { login, waitAuthPersisted, PASSWORD, API_BASE } from './helpers';
+import { test, expect, type APIRequestContext } from '@playwright/test';
+import { login, waitAuthPersisted, apiRegisterOwner, API_BASE, PASSWORD } from './helpers';
 
-/** Tạo admin mới (chưa có nhà hàng) qua API → trả email để đăng nhập. */
-async function createFreshOwner(request: import('@playwright/test').APIRequestContext, email: string) {
-  const res = await request.post(`${API_BASE}/auth/register-owner`, {
-    data: { name: 'Chủ Onboarding E2E', email, password: PASSWORD },
-  });
-  expect(res.status()).toBe(201);
+/** Tạo admin mới (chưa có nhà hàng) qua API + verify OTP → trả email để đăng nhập. */
+async function createFreshOwner(request: APIRequestContext, email: string) {
+  await apiRegisterOwner(request, email);
   return email;
 }
 
