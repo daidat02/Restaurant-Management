@@ -29,6 +29,10 @@ export function PlanCard({
   onSelect,
 }: PlanCardProps) {
   const isFree = price === 0 && !plan.contactOnly;
+  // Hạ gói về Miễn Phí giữa chu kỳ vẫn phải bấm được (lên lịch áp dụng cuối kỳ) —
+  // chỉ khoá nút khi gói free KHÔNG phải hành động hạ gói (vd: mua lại khi đã hết hạn).
+  const isDowngradeAction = changeType === 'downgrade';
+  const isLocked = isCurrent || (isFree && !isDowngradeAction);
 
   return (
     <div
@@ -91,11 +95,11 @@ export function PlanCard({
       <div className="mt-8 pt-2">
         <button
           type="button"
-          disabled={isCurrent || isFree}
+          disabled={isLocked}
           onClick={onSelect}
           className={cn(
             'w-full rounded-2xl py-2.5 text-xs font-bold transition-all',
-            isCurrent || isFree
+            isLocked
               ? 'border border-slate-200 bg-white text-slate-400 cursor-not-allowed'
               : isPopularNow
                 ? 'bg-cerulean-blue-600 text-white shadow-sm hover:bg-cerulean-blue-700'
@@ -106,12 +110,12 @@ export function PlanCard({
         >
           {isCurrent
             ? 'Gói hiện tại'
-            : isFree
-              ? 'Gói miễn phí'
-              : plan.contactOnly
-                ? 'Liên hệ'
-                : changeType === 'downgrade'
-                  ? 'Lên lịch hạ gói'
+            : isDowngradeAction
+              ? 'Lên lịch hạ gói'
+              : isFree
+                ? 'Gói miễn phí'
+                : plan.contactOnly
+                  ? 'Liên hệ'
                   : 'Nâng cấp'}
         </button>
       </div>
