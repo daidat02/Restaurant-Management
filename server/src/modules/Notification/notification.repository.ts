@@ -44,7 +44,16 @@ class NotificationRepository {
     limit = 20,
     skip = 0
   ): Promise<INotification[]> {
-    return await DB_Connection.Notification.find(filter) 
+    return await DB_Connection.Notification.find(filter)
+      .skip(skip)
+      .limit(limit)
+      .exec();
+  }
+
+  // LẤY THÔNG BÁO NỀN TẢNG (marker restaurant = null) — dành cho super-admin
+  async getPlatformNotifications(limit = 20, skip = 0): Promise<INotification[]> {
+    return DB_Connection.Notification.find({ restaurant: null })
+      .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
       .exec();

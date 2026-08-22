@@ -18,6 +18,13 @@ export const ResgisterSocketIO = (io:SocketIOServer) =>{
         console.log("User connected:", socket.id, "| role:", socket.user?.role);
 
         const userId = String(socket.user?.userId ?? "");
+
+        // Super-admin tự vào room 'platform' — nhận realtime thông báo nền tảng
+        // (đăng ký mới, gia hạn/nâng cấp gói, sắp hết hạn...).
+        if (socket.user?.role === "super-admin") {
+            socket.join("platform");
+        }
+
         const onlineRooms = (socket.user?.role === "kds" && socket.user?.restaurantIds)
             ? socket.user.restaurantIds
             : (socket.user?.role === "customer" ? [] : (socket.user?.restaurantIds ?? []));

@@ -2,8 +2,10 @@ import { Schema, model, Document, Types } from 'mongoose';
 const ObjectId = Schema.Types.ObjectId;
 
 export interface INotification extends Document {
-  user?: Types.ObjectId;
-  restaurant?: Types.ObjectId;
+  /** null = thông báo NỀN TẢNG (super-admin); có giá trị = thông báo tenant */
+  user?: Types.ObjectId | null;
+  /** null = thông báo NỀN TẢNG (super-admin); có giá trị = thông báo tenant */
+  restaurant?: Types.ObjectId | null;
   type:
     | 'new_order'
     | 'orderUpdate'

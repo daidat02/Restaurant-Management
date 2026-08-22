@@ -70,6 +70,29 @@ class NotificationController {
         return  res.status(500).json(error);
     }
   }
+
+  // [GET] /api/notifications/platform — super-admin: thông báo nền tảng (restaurant = null)
+  async getPlatformNotifications(req: AuthRequest, res: Response) {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+
+      const result = await notificationService.getPlatformNotifications(page, limit);
+      return res.status(result.code).json(result);
+    } catch (error) {
+        return  res.status(500).json(error);
+    }
+  }
+
+  // [POST] /api/notifications/platform/read-all — super-admin đọc tất cả thông báo nền tảng
+  async markAllPlatformRead(_req: AuthRequest, res: Response) {
+    try {
+      const result = await notificationService.readAllPlatformNotifications();
+      return res.status(result.code).json(result);
+    } catch (error) {
+        return  res.status(500).json(error);
+    }
+  }
 }
 
 export default new NotificationController();

@@ -54,11 +54,53 @@ class NotificationService {
     // 3. Đọc 1 thông báo cụ thể
     async readSingleNotification(notificationId: string): Promise<ServiceResponse<INotification | null>> {
         const updatedNoti = await notificationRepository.markAsRead(notificationId);
-        
+
         return {
             data: updatedNoti,
             code: 200,
             message: updatedNoti ? "Đã đọc thông báo" : "Không tìm thấy thông báo",
+        };
+    }
+
+    /**
+     * Tạo thông báo NỀN TẢNG cho super-admin (marker: restaurant = null)
+     * và đẩy realtime vào room 'platform' (mọi session super-admin tự join khi connect).
+     */
+    async createPlatformNotification(payload: {
+        type: INotification["type"];
+        message: string;
+        data?: Record<string, unknown>;
+    }): Promise<void> {
+        const noti = await notificationRepository.createNotification({
+            type: payload.type,
+            message: payload.message,
+            data: payload.data,
+            restaurant: null,
+            user: null,
+        });
+
+        const io = getIO();
+        io.to("platform").emit("platform_notification", { notiData: noti });
+    }
+
+    // Danh sách thông báo nền tảng (super-admin)
+    async getPlatformNotifications(page = 1, limit = 20): Promise<ServiceResponse<INotification[]>> {
+        const skip = (page - 1) * limit;
+        const list = await notificationRepository.getPlatformNotifications(limit, skip);
+        return {
+            data: list,
+            code: 200,
+            message: "Lấy thông báo nền tảng thành công",
+        };
+    }
+
+    // Đọc tất cả thông báo nền tảng
+    async readAllPlatformNotifications(): Promise<ServiceResponse<null>> {
+        await notificationRepository.markAllAsRead({ restaurant: null, isRead: false });
+        return {
+            data: null,
+            code: 200,
+            message: "Đã đọc tất cả thông báo nền tảng",
         };
     }
 
