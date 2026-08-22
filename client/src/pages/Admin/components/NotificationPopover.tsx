@@ -96,6 +96,21 @@ export function NotificationPopover({
     // Giả sử API/Socket trả về có kèm data.orderId hoặc data._id của đơn hàng
     const orderId = notif.data?._id || notif.data?.id;
     onMarkAsRead(notif._id);
+    // Super-admin: thông báo nền tảng — điều hướng tới trang quản trị tương ứng
+    if (role === 'super-admin') {
+      switch (notif.type) {
+        case 'system':
+          navigate('/super-admin/tenants'); // Người dùng mới đăng ký → danh sách người thuê
+          break;
+        case 'subscription':
+          navigate('/super-admin/transactions'); // Gia hạn/nâng cấp/sắp hết hạn → giao dịch gói cước
+          break;
+        default:
+          navigate('/super-admin');
+          break;
+      }
+      return;
+    }
     switch (notif.type) {
       case 'new_order':
       case 'orderUpdate':
@@ -139,7 +154,11 @@ export function NotificationPopover({
         }
       }}
       trigger={
-        <button className="relative p-1 sm:p-2.5 bg-white border hover:bg-gray-100 rounded-lg transition">
+        <button
+          type="button"
+          aria-label="Thông báo"
+          className="relative p-1 sm:p-2.5 bg-white border hover:bg-gray-100 rounded-lg transition"
+        >
           <Bell className="h-4 w-4 text-gray-700" />
           {unreadCount > 0 && (
             <span className="absolute -top-1.5 -right-1.5 bg-[#EB5757] text-white text-[10px] font-bold h-5 min-w-[20px] flex items-center justify-center rounded-full border-2 border-white px-1">

@@ -21,7 +21,7 @@ const ROLE_BADGE: Record<string, { label: string; cls: string }> = {
 export default function Header() {
   const { user } = useAuth();
   const activeRestaurantId = useActiveRestaurantId();
-  const { notifications, startLiseningNotification, markReadNoti, markReadAllNoti } =
+  const { notifications, startLiseningNotification, startListeningPlatform, markReadNoti, markReadAllNoti } =
     useNotification(soundNotification);
 
   const location = useLocation();
@@ -46,8 +46,13 @@ export default function Header() {
 
   // Kích hoạt lắng nghe Socket thông báo khi Header được tải
   useEffect(() => {
+    // Super-admin: kênh NỀN TẢNG riêng (đăng ký mới, gia hạn/nâng cấp gói, sắp hết hạn...)
+    if (user?.role === 'super-admin') {
+      startListeningPlatform();
+      return;
+    }
     startLiseningNotification(notificationScope);
-  }, [startLiseningNotification, notificationScope]);
+  }, [startLiseningNotification, startListeningPlatform, notificationScope, user?.role]);
 
   // DATA MOCK: Đã bỏ — dùng realtime qua use-messaging (MessagingProvider) cho MailBoxPopover.
   const unreadNotificationsCount = notifications.filter((n) => n.isRead === false).length;

@@ -59,6 +59,9 @@ export const API_ENDPOINTS = {
     MARK_READ: (id: string) => `${API_BASE_URL}/notifications/${id}/read`,
     MARK_READ_ALL: (restaurantId: string) =>
       `${API_BASE_URL}/notifications/read-all/${restaurantId}`,
+    // Super-admin: thông báo NỀN TẢNG (đăng ký mới, gia hạn/nâng cấp gói, sắp hết hạn...)
+    GET_PLATFORM: () => `${API_BASE_URL}/notifications/platform`,
+    MARK_READ_ALL_PLATFORM: () => `${API_BASE_URL}/notifications/platform/read-all`,
   },
 
   // --- PHÂN HỆ NHẮN TIN NỘI BỘ (CONVERSATIONS) ---
