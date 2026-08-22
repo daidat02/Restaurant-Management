@@ -10,7 +10,14 @@ import settingRepository from '../modules/SettingModule/setting.repository.js';
 import { QUEUE_NAMES } from '../queues/queue.js';
 import { addJob } from '../jobs/handlers.js';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Client Resend tạo LAZY — ESM hoist các import lên trước dotenv.config() trong
+// server bootstrap, nên constructor tại module-load sẽ thấy env rỗng và crash app
+// khi RESEND_API_KEY chưa có (dev/E2E không cần email thật).
+let resendClient: Resend | null = null;
+function getResend(): Resend {
+  if (!resendClient) resendClient = new Resend(process.env.RESEND_API_KEY);
+  return resendClient;
+}
 
 /**
  * ==========================================
@@ -146,7 +153,7 @@ export async function sendEmailNow(payload: SendEmailPayload): Promise<void> {
   const { subject, html } = renderEmail(payload.template, payload.data, payload.subject);
 
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await getResend().emails.send({
       from: process.env.EMAIL_FROM || 'NhaHangOS <onboarding@resend.dev>', // Email gửi
       to: recipients,
       subject,
