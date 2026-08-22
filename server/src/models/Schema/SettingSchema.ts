@@ -158,7 +158,7 @@ const SettingSchema = new Schema<ISetting>(
   {
     scope: {
       type: String,
-      enum: ['admin', 'restaurant'],
+      enum: ['admin', 'restaurant', 'platform'],
       required: true,
       index: true,
     },
