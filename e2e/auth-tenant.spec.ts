@@ -13,6 +13,17 @@ test.describe('T04 — Admin & tenant sau redesign (bỏ /select-restaurant)', (
     expect(page.url()).not.toContain('select-restaurant');
   });
 
+  test('đã đăng nhập mà mở lại /login hoặc /register → điều hướng ngay về trang chủ theo role', async ({ page }) => {
+    // Login manager (role có home riêng /manager) rồi quay lại trang auth
+    await login(page, USERS.manager.email);
+    await expect(page).toHaveURL(/\/manager/, { timeout: 15_000 });
+
+    await page.goto('/login');
+    await expect(page).toHaveURL(/\/manager$/, { timeout: 10_000 });
+    await page.goto('/register');
+    await expect(page).toHaveURL(/\/manager$/, { timeout: 10_000 });
+  });
+
   test('admin login → currentRestaurantId = null (quản toàn chuỗi)', async ({ page }) => {
     await login(page, USERS.admin.email);
     await expect(page).toHaveURL(/\/admin/, { timeout: 15_000 });

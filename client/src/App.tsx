@@ -149,6 +149,29 @@ const CustomerRoute = ({
 
   return <Outlet />;
 };
+
+/**
+ * Guard trang auth (login/register) — chỉ dành cho khách CHƯA đăng nhập.
+ * Đã đăng nhập mà vào lại trang này thì điều hướng ngay về trang chủ theo role
+ * (admin chưa có nhà hàng vẫn được chuỗi ProtectedRoute đưa sang /onboarding).
+ */
+const GuestRoute = ({
+  children,
+  isAuthenticated,
+  userRole,
+}: {
+  children: React.ReactNode;
+  isAuthenticated: boolean;
+  userRole: string;
+}) => {
+  if (!isAuthenticated) return <>{children}</>;
+  if (userRole === 'super-admin') return <Navigate to="/super-admin" replace />;
+  if (userRole === 'admin') return <Navigate to="/admin" replace />;
+  if (userRole === 'manager') return <Navigate to="/manager" replace />;
+  if (userRole === 'staff') return <Navigate to="/staff" replace />;
+  return <Navigate to="/" replace />;
+};
+
 export default function App() {
   const { isAuthenticated, user, token } = useAuth();
   const userRole = user?.role || '';
@@ -362,10 +385,24 @@ export default function App() {
       </Route>
 
       {/* ---------------- TRANG AUTH (PUBLIC, LAYOUT CHIA ĐÔI THƯƠNG HIỆU) ---------------- */}
-      <Route path="/login" element={<AuthLayout />}>
+      <Route
+        path="/login"
+        element={
+          <GuestRoute isAuthenticated={isAuthenticated} userRole={userRole}>
+            <AuthLayout />
+          </GuestRoute>
+        }
+      >
         <Route index element={<LoginPage />} />
       </Route>
-      <Route path="/register" element={<AuthLayout />}>
+      <Route
+        path="/register"
+        element={
+          <GuestRoute isAuthenticated={isAuthenticated} userRole={userRole}>
+            <AuthLayout />
+          </GuestRoute>
+        }
+      >
         <Route index element={<RegisterPage />} />
       </Route>
       <Route path="/forgot-password" element={<AuthLayout />}>
