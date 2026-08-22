@@ -143,7 +143,7 @@ export default function SuperAdminPricing() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="min-h-screen bg-slate-50 text-slate-800 p-4 md:p-8">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+        <div className="mb-6">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-950">
               Gói Cước &amp; Giá
@@ -153,13 +153,6 @@ export default function SuperAdminPricing() {
               toàn bộ chủ trên nền tảng
             </p>
           </div>
-          <Button
-            onClick={addPlan}
-            className="inline-flex items-center gap-2 rounded-xl bg-white text-slate-700 border border-slate-200 hover:border-cerulean-blue-300 hover:text-cerulean-blue-600"
-            variant="outline"
-          >
-            <Plus className="h-4 w-4" /> Thêm gói mới
-          </Button>
         </div>
 
         {isLoading ? (
@@ -168,22 +161,14 @@ export default function SuperAdminPricing() {
           </div>
         ) : (
           <div className="max-w-5xl space-y-4">
-            {/* Thanh hành động lưu */}
-            <div className="flex items-center justify-between rounded-2xl border border-slate-200/80 bg-white px-5 py-4 shadow-sm">
-              <div className="flex items-center gap-2 text-xs text-slate-500">
-                <Info className="h-4 w-4 text-cerulean-blue-600" />
+            {/* Ghi chú sử dụng */}
+            <div className="flex items-start gap-2 rounded-2xl border border-slate-200/80 bg-white px-5 py-4 shadow-sm">
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-cerulean-blue-600" />
+              <p className="text-xs text-slate-500">
                 Gói "Liên hệ" không cần nhập giá — trang thanh toán sẽ hiển thị "Liên hệ bán hàng".
                 Số 0 trong giới hạn có nghĩa là không giới hạn. "Tính năng được cấp" là quyền truy
                 cập thật, còn "Tính năng" chỉ hiển thị trên card bán hàng.
-              </div>
-              <Button
-                onClick={handleSave}
-                disabled={isSaving}
-                className="inline-flex items-center gap-2 rounded-xl bg-cerulean-blue-600 hover:bg-cerulean-blue-700 text-white shrink-0"
-              >
-                <Save className="h-4 w-4" />
-                {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
-              </Button>
+              </p>
             </div>
 
             {plans.length === 0 && (
@@ -220,6 +205,7 @@ export default function SuperAdminPricing() {
                       <Switch
                         checked={plan.isActive}
                         onCheckedChange={(v) => updatePlan(index, { isActive: v })}
+                        className="data-[state=checked]:bg-cerulean-blue-600"
                       />
                       Hiển thị
                     </label>
@@ -228,6 +214,7 @@ export default function SuperAdminPricing() {
                       <Switch
                         checked={plan.isPopular}
                         onCheckedChange={(v) => updatePlan(index, { isPopular: v })}
+                        className="data-[state=checked]:bg-cerulean-blue-600"
                       />
                       Nổi bật
                     </label>
@@ -243,6 +230,7 @@ export default function SuperAdminPricing() {
                             });
                           }
                         }}
+                        className="data-[state=checked]:bg-cerulean-blue-600"
                       />
                       Gói "Miễn Phí"
                     </label>
@@ -250,6 +238,7 @@ export default function SuperAdminPricing() {
                       <Switch
                         checked={plan.contactOnly}
                         onCheckedChange={(v) => updatePlan(index, { contactOnly: v })}
+                        className="data-[state=checked]:bg-cerulean-blue-600"
                       />
                       Gói "Liên hệ"
                     </label>
@@ -462,20 +451,28 @@ export default function SuperAdminPricing() {
               </div>
             ))}
 
-            {/* Lưu cuối trang */}
-            <div className="flex justify-end pb-6">
-              <Button
-                onClick={handleSave}
-                disabled={isSaving}
-                className="inline-flex items-center gap-2 rounded-xl bg-cerulean-blue-600 hover:bg-cerulean-blue-700 text-white"
-              >
-                <Save className="h-4 w-4" />
-                {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
-              </Button>
-            </div>
+            {/* Thêm gói mới — full width, ngang hàng với card gói phía trên */}
+            <Button
+              onClick={addPlan}
+              variant="outline"
+              className="h-12 w-full rounded-2xl border-dashed border-slate-300 bg-white text-sm font-semibold text-slate-500 hover:border-cerulean-blue-400 hover:bg-cerulean-blue-50/40 hover:text-cerulean-blue-600"
+            >
+              <Plus className="h-4 w-4" /> Thêm gói mới
+            </Button>
           </div>
         )}
       </div>
+
+      {/* ══════════ ACTION BAR: LƯU THAY ĐỔI (FIXED) — đồng bộ với trang Cài Đặt ══════════ */}
+      <button
+        type="button"
+        onClick={handleSave}
+        disabled={isSaving}
+        className="fixed bottom-6 right-6 z-50 flex h-11 items-center gap-2 rounded-2xl bg-cerulean-blue-600 px-5 text-sm font-semibold text-white shadow-xl shadow-cerulean-blue-300/60 transition hover:bg-cerulean-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        <Save className="h-4 w-4" />
+        {isSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
+      </button>
     </div>
   );
 }
