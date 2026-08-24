@@ -88,7 +88,7 @@ export interface ITransaction {
   amount: number;
   cycleMonths: number;
   type: 'restaurant-fee' | 'trial-expire';
-  status: string;
+  status: 'pending' | 'paid' | 'cancelled';
   paidUntil: string;
   createdAt: string;
 }

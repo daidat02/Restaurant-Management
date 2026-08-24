@@ -1,18 +1,29 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Search } from 'lucide-react';
+import { CalendarDays, Search, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { getAdminTransactions } from '@/api/superadmin.api';
 import type { ITransaction } from '@/types/superadmin.type';
 import { formatVND } from '@/utils/helpers';
+import { CustomSelect } from '@/components/SelectCustom';
 
 import { DataTable, type ColumnDef } from '@/components/TableData';
 import { FilterToolbar } from '../Admin/OrderPage/management-order';
+
+const STATUS_OPTIONS = [
+  { value: 'all', label: 'Tất cả trạng thái' },
+  { value: 'paid', label: 'Đã thanh toán' },
+  { value: 'pending', label: 'Đang chờ' },
+  { value: 'cancelled', label: 'Đã huỷ' },
+];
 
 export default function SuperAdminTransactions() {
   const [transactions, setTransactions] = useState<ITransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
 
@@ -27,6 +38,19 @@ export default function SuperAdminTransactions() {
 
   const filtered = useMemo(() => {
     let result = [...transactions];
+    if (statusFilter !== 'all') {
+      result = result.filter((item) => item.status === statusFilter);
+    }
+    if (fromDate) {
+      const from = new Date(fromDate);
+      from.setHours(0, 0, 0, 0);
+      result = result.filter((item) => new Date(item.createdAt) >= from);
+    }
+    if (toDate) {
+      const to = new Date(toDate);
+      to.setHours(23, 59, 59, 999);
+      result = result.filter((item) => new Date(item.createdAt) <= to);
+    }
     if (searchTerm.trim() !== '') {
       const keyword = searchTerm.toLowerCase();
       result = result.filter((item) => {
@@ -45,7 +69,18 @@ export default function SuperAdminTransactions() {
       });
     }
     return result;
-  }, [transactions, searchTerm]);
+  }, [transactions, searchTerm, statusFilter, fromDate, toDate]);
+
+  const hasActiveFilters =
+    statusFilter !== 'all' || fromDate !== '' || toDate !== '' || searchTerm.trim() !== '';
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('all');
+    setFromDate('');
+    setToDate('');
+    setCurrentPage(1);
+  };
 
   const paginatedData = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
@@ -103,6 +138,37 @@ export default function SuperAdminTransactions() {
       ),
     },
     {
+      header: 'Trạng thái',
+      className: 'text-center',
+      render: (item) => {
+        const statusMap: Record<string, { label: string; className: string }> = {
+          paid: {
+            label: 'Đã thanh toán',
+            className: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+          },
+          pending: {
+            label: 'Đang chờ',
+            className: 'bg-amber-50 text-amber-700 ring-amber-200',
+          },
+          cancelled: {
+            label: 'Đã huỷ',
+            className: 'bg-red-50 text-red-700 ring-red-200',
+          },
+        };
+        const status = statusMap[item.status] ?? {
+          label: item.status,
+          className: 'bg-slate-100 text-slate-600 ring-slate-200',
+        };
+        return (
+          <span
+            className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${status.className}`}
+          >
+            {status.label}
+          </span>
+        );
+      },
+    },
+    {
       header: 'Trả đến',
       render: (item) => (
         <span className="text-xs text-slate-600">
@@ -126,7 +192,20 @@ export default function SuperAdminTransactions() {
           </div>
         </div>
 
-        <FilterToolbar>
+        <FilterToolbar
+          rightActions={
+            hasActiveFilters ? (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-sm font-medium text-slate-600 shadow-sm transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+              >
+                <X size={15} />
+                Xoá bộ lọc
+              </button>
+            ) : undefined
+          }
+        >
           <div className="relative flex-1 min-w-[240px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input
@@ -138,6 +217,44 @@ export default function SuperAdminTransactions() {
                 setCurrentPage(1);
               }}
               className="w-full pl-10 pr-4 py-2 h-9 rounded-xl border border-slate-200 focus:outline-none focus:border-cerulean-blue-500 text-sm bg-slate-50/50"
+            />
+          </div>
+
+          <CustomSelect
+            options={STATUS_OPTIONS}
+            value={statusFilter}
+            onChange={(val: string) => {
+              setStatusFilter(val);
+              setCurrentPage(1);
+            }}
+            className="w-full sm:w-44"
+            triggerClass="h-9"
+          />
+
+          <div className="flex items-center gap-2">
+            <CalendarDays className="h-4 w-4 shrink-0 text-slate-400" />
+            <input
+              type="date"
+              title="Từ ngày"
+              value={fromDate}
+              max={toDate || undefined}
+              onChange={(e) => {
+                setFromDate(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="h-9 rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-sm text-slate-700 outline-none transition-colors focus:border-cerulean-blue-500 focus:bg-white"
+            />
+            <span className="text-xs text-slate-400">→</span>
+            <input
+              type="date"
+              title="Đến ngày"
+              value={toDate}
+              min={fromDate || undefined}
+              onChange={(e) => {
+                setToDate(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="h-9 rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-sm text-slate-700 outline-none transition-colors focus:border-cerulean-blue-500 focus:bg-white"
             />
           </div>
         </FilterToolbar>
