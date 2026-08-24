@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
+  cancelSubscriptionPayos,
   createSubscriptionPayosUrl,
   createSubscriptionVnpayUrl,
   getMySubscriptions,
@@ -157,6 +158,7 @@ export const useSubscription = () => {
 
   /**
    * Tạo link thanh toán gói cước bằng PayOS cho 1 nhà hàng.
+   * Truyền transactionId → khởi tạo lại link cho giao dịch pending có sẵn.
    * Trả về { success, data } với checkoutUrl + qrCodeData để màn hình điều hướng/hiển thị.
    */
   const createPayosUrl = useCallback(
@@ -164,9 +166,10 @@ export const useSubscription = () => {
       restaurantId: string,
       cycleMonths: number,
       planId?: string,
+      transactionId?: string,
     ): Promise<{ success: boolean; data: IPayosCreateUrlResult | null; message: string }> => {
       try {
-        const data = await createSubscriptionPayosUrl(restaurantId, cycleMonths, planId);
+        const data = await createSubscriptionPayosUrl(restaurantId, cycleMonths, planId, transactionId);
         return { success: true, data, message: 'Tạo link thanh toán thành công' };
       } catch (err) {
         const msg =
@@ -176,6 +179,24 @@ export const useSubscription = () => {
       }
     },
     [],
+  );
+
+  /** Huỷ đơn thanh toán PayOS đang chờ theo transactionId — cập nhật lại danh sách giao dịch. */
+  const cancelPendingPayment = useCallback(
+    async (transactionId: string): Promise<boolean> => {
+      try {
+        await cancelSubscriptionPayos(transactionId);
+        toast.success('Đã huỷ đơn thanh toán đang chờ', { position: 'top-right' });
+        await fetchTransactions();
+        return true;
+      } catch (err: any) {
+        toast.error(err?.message || 'Không thể huỷ thanh toán, vui lòng thử lại', {
+          position: 'top-right',
+        });
+        return false;
+      }
+    },
+    [fetchTransactions],
   );
 
   /**
@@ -217,6 +238,7 @@ export const useSubscription = () => {
     refresh,
     pay,
     createPayosUrl,
+    cancelPendingPayment,
     createVnpayUrl,
     getStateForRestaurant,
   };

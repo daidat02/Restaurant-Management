@@ -25,17 +25,30 @@ class SubscriptionController {
   /** POST /api/subscriptions/payos/create-url — tạo link thanh toán gói cước bằng PayOS. */
   async payosCreateUrl(req: AuthRequest, res: Response) {
     try {
-      const { restaurantId, cycleMonths, planId } = req.body;
+      const { restaurantId, cycleMonths, planId, transactionId } = req.body;
       const result = await subscriptionPayosService.createUrl(
         restaurantId,
         Number(cycleMonths),
         req.user?.userId,
         planId,
+        transactionId,
       );
       return res.status(result.code).json(result);
     } catch (error) {
       console.error('Error creating PayOS subscription URL:', error);
       return res.status(500).json({ message: 'Lỗi server khi tạo link thanh toán gói cước' });
+    }
+  }
+
+  /** POST /api/subscriptions/payos/cancel — huỷ thanh toán PayOS của 1 giao dịch pending. */
+  async payosCancel(req: AuthRequest, res: Response) {
+    try {
+      const { transactionId } = req.body;
+      const result = await subscriptionPayosService.cancelPayment(transactionId, req.user?.userId);
+      return res.status(result.code).json(result);
+    } catch (error) {
+      console.error('Error cancelling PayOS subscription payment:', error);
+      return res.status(500).json({ message: 'Lỗi server khi huỷ thanh toán gói cước' });
     }
   }
 

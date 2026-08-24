@@ -92,14 +92,20 @@ class SubscriptionPayosService {
   /**
    * Tạo link thanh toán PayOS cho gói cước / gia hạn.
    * Tạo Transaction status='pending' với orderCode → tạo link → trả checkoutUrl + qrCode.
+   * Truyền `existingTransactionId` → khởi tạo lại link cho giao dịch pending có sẵn
+   * (giữ nguyên transactionId, cấp orderCode mới — dùng khi đơn cũ hết hạn/bị bỏ qua).
    */
   async createUrl(
     restaurantId: string,
     cycleMonths: number,
     actorUserId: string | undefined,
     planId?: string,
+    existingTransactionId?: string,
   ): Promise<PayosServiceResult> {
     try {
+      if (existingTransactionId) {
+        return await this.recreateUrl(existingTransactionId, actorUserId);
+      }
       const prepared = await prepareSubscription(restaurantId, cycleMonths, actorUserId, planId);
       if (!prepared.ok) return prepared.result;
       const data = prepared.data as PreparedSubscription;
@@ -182,6 +188,130 @@ class SubscriptionPayosService {
       return {
         success: false,
         message: 'Khởi tạo thanh toán gói cước PayOS thất bại',
+        error: error?.message || error,
+        code: 500,
+      };
+    }
+  }
+
+  /**
+   * Khởi tạo lại link PayOS cho 1 giao dịch đang chờ: giữ nguyên transactionId,
+   * cấp orderCode mới (link cũ có thể đã hết hạn) — số tiền/chu kỳ lấy từ bản ghi cũ.
+   */
+  private async recreateUrl(
+    existingTransactionId: string,
+    actorUserId: string | undefined,
+  ): Promise<PayosServiceResult> {
+    const transaction = await DB_Connection.Transaction.findById(existingTransactionId);
+    if (!transaction || String(transaction.ownerId) !== String(actorUserId)) {
+      return {
+        success: false,
+        message: 'Không tìm thấy giao dịch hoặc bạn không có quyền thao tác!',
+        code: 403,
+      };
+    }
+    if (transaction.status !== 'pending') {
+      return {
+        success: false,
+        message: 'Giao dịch này đã được xử lý, không thể thanh toán lại!',
+        code: 400,
+      };
+    }
+
+    const orderCode = this.generateOrderCode(String(transaction.restaurant));
+    const description = `GOI CUOC ${orderCode}`.substring(0, 25).replace(/[^a-zA-Z0-9 ]/g, '');
+    const expiredAt = Math.floor(Date.now() / 1000) + EXPIRE_IN_MINUTES * 60;
+
+    const payos = await this.getPlatformPayos();
+    const paymentLinkRes = await payos.paymentRequests.create({
+      orderCode,
+      amount: transaction.amount,
+      description,
+      cancelUrl: CANCEL_URL,
+      returnUrl: RETURN_URL,
+      expiredAt,
+    });
+
+    await DB_Connection.Transaction.findByIdAndUpdate(transaction._id, {
+      orderCode,
+      paymentLinkId: paymentLinkRes.paymentLinkId,
+    });
+
+    return {
+      success: true,
+      message: 'Khởi tạo lại link thanh toán thành công',
+      data: {
+        transactionId: String(transaction._id),
+        orderCode,
+        checkoutUrl: paymentLinkRes.checkoutUrl,
+        qrCodeData: paymentLinkRes.qrCode,
+        paymentLinkId: paymentLinkRes.paymentLinkId,
+        amount: transaction.amount,
+        planKey: transaction.planKey ?? null,
+        planName: transaction.planName ?? null,
+        paidUntil: transaction.paidUntil,
+      },
+      code: 200,
+    };
+  }
+
+  /**
+   * Huỷ thanh toán của 1 giao dịch pending: gọi PayOS huỷ link theo orderCode
+   * (lỗi từ PayOS — hết hạn/huỷ trước đó — không chặn việc huỷ cục bộ),
+   * đánh dấu cancelled và phát sự kiện socket cho client đang lắng nghe.
+   */
+  async cancelPayment(
+    transactionId: string,
+    actorUserId: string | undefined,
+  ): Promise<PayosServiceResult> {
+    try {
+      const transaction = await DB_Connection.Transaction.findById(transactionId);
+      if (!transaction || String(transaction.ownerId) !== String(actorUserId)) {
+        return {
+          success: false,
+          message: 'Không tìm thấy giao dịch hoặc bạn không có quyền thao tác!',
+          code: 403,
+        };
+      }
+      if (transaction.status !== 'pending') {
+        return { success: false, message: 'Giao dịch này đã được xử lý!', code: 400 };
+      }
+      const restaurantIdStr = String(transaction.restaurant);
+
+      let detail = 'Đơn không có liên kết PayOS để huỷ';
+      if (transaction.orderCode) {
+        try {
+          const payos = await this.getPlatformPayos();
+          await payos.paymentRequests.cancel(
+            transaction.orderCode,
+            'Nguoi dung huy don goi cuoc',
+          );
+          detail = 'Đã huỷ liên kết thanh toán trên PayOS';
+        } catch (err: any) {
+          console.warn(
+            '[SubscriptionPayosService] Huỷ trên PayOS thất bại (bỏ qua):',
+            err?.message || err,
+          );
+          detail = 'Liên kết PayOS không còn hiệu lực — đã huỷ cục bộ';
+        }
+      }
+
+      await DB_Connection.Transaction.findByIdAndUpdate(transaction._id, { status: 'cancelled' });
+      this.emitPaymentEvent(restaurantIdStr, String(transaction._id), 'cancelled', {
+        reason: 'user-cancelled',
+      });
+
+      return {
+        success: true,
+        message: 'Đã huỷ đơn thanh toán gói cước',
+        data: { transactionId: String(transaction._id), status: 'cancelled', detail },
+        code: 200,
+      };
+    } catch (error: any) {
+      console.error('Lỗi SubscriptionPayosService - cancelPayment:', error);
+      return {
+        success: false,
+        message: 'Huỷ thanh toán gói cước thất bại',
         error: error?.message || error,
         code: 500,
       };

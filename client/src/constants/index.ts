@@ -177,6 +177,7 @@ export const API_ENDPOINTS = {
     ME: `${API_BASE_URL}/subscriptions/me`,
     PAY: `${API_BASE_URL}/subscriptions/pay`,
     PAYOS_CREATE_URL: `${API_BASE_URL}/subscriptions/payos/create-url`,
+    PAYOS_CANCEL: `${API_BASE_URL}/subscriptions/payos/cancel`,
     VNPAY_CREATE_URL: `${API_BASE_URL}/subscriptions/vnpay/create-url`,
     TRANSACTIONS: `${API_BASE_URL}/subscriptions/transactions`,
     USAGE: `${API_BASE_URL}/subscriptions/usage`,

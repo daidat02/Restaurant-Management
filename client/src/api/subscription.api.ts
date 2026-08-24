@@ -29,18 +29,30 @@ export const paySubscription = async (restaurantId: string, cycleMonths: number,
   return res;
 };
 
-/** Tạo link thanh toán gói cước bằng PayOS — trả checkoutUrl + qrCode. */
+/** Tạo link thanh toán gói cước bằng PayOS — trả checkoutUrl + qrCode.
+ *  Truyền transactionId → khởi tạo lại link cho giao dịch pending có sẵn. */
 export const createSubscriptionPayosUrl = async (
   restaurantId: string,
   cycleMonths: number,
   planId?: string,
+  transactionId?: string,
 ): Promise<IPayosCreateUrlResult> => {
   const res = await axiosClient.post<any, ApiResponse<IPayosCreateUrlResult>>(SUB.PAYOS_CREATE_URL, {
     restaurantId,
     cycleMonths,
     planId,
+    transactionId,
   });
   return res.data;
+};
+
+/** Huỷ thanh toán PayOS của 1 giao dịch đang chờ (theo transactionId). */
+export const cancelSubscriptionPayos = async (transactionId: string) => {
+  const res = await axiosClient.post<
+    any,
+    ApiResponse<{ transactionId: string; status: string; detail?: string }>
+  >(SUB.PAYOS_CANCEL, { transactionId });
+  return res;
 };
 
 /** Tạo link thanh toán gói cước bằng VNPay — trả checkoutUrl. */

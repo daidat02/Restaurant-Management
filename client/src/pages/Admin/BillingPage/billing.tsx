@@ -22,6 +22,7 @@ export default function BillingPage() {
     isLoading,
     pay,
     createPayosUrl,
+    cancelPendingPayment,
     createVnpayUrl,
     listenPaymentResult,
     stopListeningPaymentResult,
@@ -65,6 +66,19 @@ export default function BillingPage() {
   }, [subscriptions]);
 
   const selected = subscriptions.find((s) => String(s._id) === restaurantId) || defaultRestaurant;
+
+  // Đơn thanh toán đang chờ gần nhất của nhà hàng đang chọn (pending + có link PayOS).
+  const pendingOrder = useMemo(() => {
+    if (!selected) return undefined;
+    return transactions.find(
+      (t) =>
+        t.status === 'pending' &&
+        !!t.orderCode &&
+        (typeof t.restaurant === 'object'
+          ? String(t.restaurant._id) === String(selected._id)
+          : String(t.restaurant) === String(selected._id)),
+    );
+  }, [transactions, selected]);
 
   // Gói đang dùng: ưu tiên gói lưu trên nhà hàng (currentPlanKey), fallback transaction mới nhất, rồi gói nổi bật.
   const currentPlan = useMemo<IPlan | undefined>(() => {
@@ -223,6 +237,46 @@ export default function BillingPage() {
     }
   };
 
+  /** Thanh toán đơn đang chờ: khởi tạo lại link PayOS với đúng transaction cũ. */
+  const resumePendingPayment = async () => {
+    if (!pendingOrder || !selected) return;
+    setPaymentPlan(plans.find((p) => p.key === pendingOrder.planKey));
+    setCheckoutUrl('');
+    setQrCodeData('');
+    setPaymentAmount(pendingOrder.amount);
+    setPaymentPriceNote(undefined);
+    stopListeningPaymentResult();
+    setPaymentOpen(true);
+
+    setPaying(true);
+    try {
+      const res = await createPayosUrl(
+        selected._id,
+        pendingOrder.cycleMonths,
+        pendingOrder.planKey,
+        pendingOrder._id,
+      );
+      if (res.success && res.data) {
+        setPaymentAmount(res.data.amount);
+        setCheckoutUrl(res.data.checkoutUrl || '');
+        setQrCodeData(res.data.qrCodeData || '');
+        if (res.data.transactionId) {
+          listenPaymentResult(res.data.transactionId, handlePaymentResult);
+        }
+      } else {
+        setPaymentOpen(false);
+      }
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  /** Huỷ đơn đang chờ: huỷ link trên PayOS + đánh dấu giao dịch cancelled. */
+  const handleCancelPendingOrder = async () => {
+    if (!pendingOrder) return;
+    await cancelPendingPayment(pendingOrder._id);
+  };
+
   // Tự mở modal thanh toán khi vào từ upsell (?plan=<key>&cycle=<n>) với gói đề xuất.
   const autoOpenRef = useRef(false);
   useEffect(() => {
@@ -297,6 +351,17 @@ export default function BillingPage() {
             changeTypeFor={changeTypeFor}
             onSelectPlan={openPayDialog}
             containerRef={plansRef}
+            pendingOrder={
+              pendingOrder
+                ? {
+                    planName: pendingOrder.planName ?? 'Gói dịch vụ',
+                    code: pendingOrder.transactionId ?? pendingOrder._id,
+                    amount: pendingOrder.amount,
+                  }
+                : null
+            }
+            onResumePayment={resumePendingPayment}
+            onCancelPendingOrder={handleCancelPendingOrder}
           />
 
           {/* LỊCH SỬ THANH TOÁN */}

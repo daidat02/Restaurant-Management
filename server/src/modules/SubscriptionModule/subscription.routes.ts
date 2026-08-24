@@ -7,12 +7,19 @@ const router = Router();
 
 // Thanh toán / gia hạn mock (chủ sở hữu nhà hàng)
 router.post('/pay', verifyToken, verifyRole(['admin']), subscriptionController.pay);
-// Tạo link thanh toán gói cước bằng PayOS (chủ sở hữu nhà hàng)
+// Tạo link thanh toán gói cước bằng PayOS (chủ sở hữu nhà hàng; truyền transactionId → khởi tạo lại đơn pending)
 router.post(
   '/payos/create-url',
   verifyToken,
   verifyRole(['admin']),
   subscriptionController.payosCreateUrl,
+);
+// Huỷ thanh toán PayOS của 1 giao dịch pending (chủ sở hữu nhà hàng)
+router.post(
+  '/payos/cancel',
+  verifyToken,
+  verifyRole(['admin']),
+  subscriptionController.payosCancel,
 );
 // Webhook PayOS cho gói cước (public, rate-limit mạnh)
 router.post('/webhook', paymentWebhookRateLimit, subscriptionController.payosWebhook);

@@ -5,12 +5,16 @@ import { cn } from '@/lib/utils';
 import type { IPlan } from '@/types/subscription.type';
 
 import { PlanCard, type PlanChangeType } from './PlanCard';
+import { fmtVND } from './billing-utils';
 
 export type CycleMonths = 1 | 3 | 6 | 12;
 
-interface PendingOrder {
+/** Đơn thanh toán đang chờ xác nhận (transaction pending có link PayOS). */
+export interface PendingOrder {
   planName: string;
+  /** Mã giao dịch hiển thị (transactionId). */
   code: string;
+  amount: number;
 }
 
 interface PlansSectionProps {
@@ -25,7 +29,7 @@ interface PlansSectionProps {
   onSelectPlan: (plan: IPlan) => void;
   containerRef: RefObject<HTMLDivElement | null>;
   pendingOrder?: PendingOrder | null;
-  onViewInstruction?: () => void;
+  onResumePayment?: () => void;
   onCancelPendingOrder?: () => void;
   onApplyPromoCode?: (code: string) => void;
 }
@@ -41,8 +45,8 @@ export function PlansSection({
   changeTypeFor,
   onSelectPlan,
   containerRef,
-  pendingOrder = { planName: 'Bán hàng', code: 'UWEBF2QGH4' },
-  onViewInstruction,
+  pendingOrder = null,
+  onResumePayment,
   onCancelPendingOrder,
   onApplyPromoCode,
 }: PlansSectionProps) {
@@ -112,17 +116,18 @@ export function PlansSection({
           <div className="flex items-center gap-2.5 text-[10px] sm:text-xs font-medium text-amber-900">
             <Sparkles className="h-4 w-4 shrink-0 text-amber-600" />
             <span>
-              Bạn có một đơn nâng cấp <strong>{pendingOrder.planName}</strong> đang chờ chuyển khoản
-              — mã <strong className="font-mono text-amber-950">{pendingOrder.code}</strong>
+              Bạn có một đơn <strong>{pendingOrder.planName}</strong> đang chờ xác nhận (
+              {fmtVND(pendingOrder.amount)}) — mã{' '}
+              <strong className="font-mono text-amber-950">{pendingOrder.code}</strong>
             </span>
           </div>
           <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
             <button
               type="button"
-              onClick={onViewInstruction}
-              className="rounded-full bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition"
+              onClick={onResumePayment}
+              className="rounded-full bg-amber-500 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-amber-600 transition"
             >
-              Xem hướng dẫn
+              Thanh toán
             </button>
             <button
               type="button"

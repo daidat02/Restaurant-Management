@@ -75,11 +75,13 @@ export interface ITransaction {
   amount: number;
   cycleMonths: 1 | 3 | 6 | 12;
   type: 'restaurant-fee' | 'trial-expire';
-  status: 'paid';
+  status: 'pending' | 'paid' | 'cancelled';
   paidUntil: Date | string;
   /** Gói dịch vụ đã thanh toán. */
   planKey?: string;
   planName?: string;
+  /** Mã đơn PayOS — có trên giao dịch pending chờ chuyển khoản. */
+  orderCode?: number;
   createdAt: Date | string;
   updatedAt: Date | string;
 }
