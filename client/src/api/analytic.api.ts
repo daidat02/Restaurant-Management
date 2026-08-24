@@ -6,6 +6,9 @@ import type {
   IOrderChannel,
   IAnalyticQueryParams,
   IRevenueBranch,
+  ITopItem,
+  IChannelTrendDay,
+  IHourMatrixCell,
 } from '@/types/analytic.type';
 
 import { API_ENDPOINTS } from '@/constants/index';
@@ -46,4 +49,30 @@ export const getRevenueBranches = async (params: IAnalyticQueryParams) => {
     params,
   });
   return res.data;
+};
+
+// Top món bán chạy (Home — mọi gói).
+export const getTopItems = async (
+  params: IAnalyticQueryParams & { limit?: number },
+): Promise<ITopItem[]> => {
+  const res = await axiosClient.get<any, ApiResponse<ITopItem[]>>(ANALYTIC.TOP_ITEMS, {
+    params,
+  });
+  return res.data ?? [];
+};
+
+// Xu hướng doanh thu theo ngày × kênh (Advanced).
+export const getChannelTrend = async (params: IAnalyticQueryParams): Promise<IChannelTrendDay[]> => {
+  const res = await axiosClient.get<any, ApiResponse<IChannelTrendDay[]>>(ANALYTIC.CHANNEL_TREND, {
+    params,
+  });
+  return res.data ?? [];
+};
+
+// Ma trận thứ × giờ cho heatmap (Advanced).
+export const getHourMatrix = async (params: IAnalyticQueryParams): Promise<IHourMatrixCell[]> => {
+  const res = await axiosClient.get<any, ApiResponse<IHourMatrixCell[]>>(ANALYTIC.HOUR_MATRIX, {
+    params,
+  });
+  return res.data ?? [];
 };

@@ -14,7 +14,7 @@ import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
 import { formatVND, extractId } from '@/utils/helpers';
 import type { IAnalyticQueryParams } from '@/types/analytic.type';
 import { ChartsSection } from './components/ChartsSection';
-import { OverviewCards } from './components/OverView';
+import { OverviewCards } from './components/OverviewCards';
 
 /**
  * Trang Báo Cáo Kinh Doanh (admin /admin/reports).

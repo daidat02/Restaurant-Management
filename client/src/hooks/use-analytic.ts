@@ -6,15 +6,16 @@ import type {
   IOrderChannel,
   IAnalyticQueryParams,
   IRevenueBranch,
+  ITopItem,
 } from '@/types/analytic.type';
 
-// Import 3 hàm lẻ từ file API của bạn
+// Import các hàm lẻ từ file API
 import {
   getOverviewStats,
   getRevenueHourly,
   getOrderChannels,
-  getRevenueChannels,
   getRevenueBranches,
+  getTopItems,
 } from '@/api/analytic.api';
 
 import { useGlobalLoading } from '@/components/LoadingOverlay';
@@ -27,13 +28,17 @@ export const useAnalytic = () => {
   const [revenueHourly, setRevenueHourly] = useState<IRevenueHourly[]>([]);
   const [orderChannels, setOrderChannels] = useState<IOrderChannel[]>([]);
   const [revenueBranch, setRevenueBranch] = useState<IRevenueBranch[]>([]);
+  const [topItems, setTopItems] = useState<ITopItem[]>([]);
 
   // State trạng thái chung cho cả cụm dashboard
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   /**
-   * Hàm duy nhất kích hoạt gọi cả 3 API song song phục vụ cho Dashboard
+   * Hàm duy nhất kích hoạt các API song song phục vụ trang HOME (mọi gói):
+   * overview + revenue-hourly + top-items (không gate) + revenue-branches khi có restaurantIds.
+   * LƯU Ý: KHÔNG gọi order-channels ở đây — endpoint này gate `advanced_report`,
+   * gọi sẽ 403 với gói Free/Basic làm vỡ cả cụm Promise.all.
    */
   const fetchDashboardData = useCallback(
     async (params: IAnalyticQueryParams) => {
@@ -42,17 +47,18 @@ export const useAnalytic = () => {
       setError(null);
 
       try {
-        // Gom 3 hàm lẻ chạy song song cùng lúc tại đây
-        const [overviewRes, hourlyRes, channelsRes] = await Promise.all([
+        const isAdminChain = Array.isArray(params.restaurantIds) && params.restaurantIds.length > 0;
+        const [overviewRes, hourlyRes, topItemsRes, branchRes] = await Promise.all([
           getOverviewStats(params),
           getRevenueHourly(params),
-          getOrderChannels(params),
+          getTopItems({ ...params, limit: 5 }),
+          isAdminChain ? getRevenueBranches(params) : Promise.resolve([]),
         ]);
 
-        // Cập nhật dữ liệu vào các state tương ứng
         setOverviewStats(overviewRes ?? null);
         setRevenueHourly(hourlyRes ?? []);
-        setOrderChannels(channelsRes ?? []);
+        setTopItems(topItemsRes ?? []);
+        if (isAdminChain) setRevenueBranch(branchRes ?? []);
       } catch (err: any) {
         const errMsg = err.message || 'Đã xảy ra lỗi khi tải dữ liệu báo cáo';
         setError(errMsg);
@@ -65,26 +71,18 @@ export const useAnalytic = () => {
     [showLoading, hideLoading],
   );
 
-  const fetchRevenueChannels = useCallback(
+  /** Kênh đặt đơn (Advanced — gate advanced_report): gọi riêng cho trang báo cáo nâng cao. */
+  const fetchOrderChannels = useCallback(
     async (params: IAnalyticQueryParams) => {
-      setIsLoading(true);
-      showLoading();
-      setError(null);
-
       try {
-        // Gom 3 hàm lẻ chạy song song cùng lúc tại đây
-        const channelRevenueRes = await getRevenueChannels(params);
-        setRevenueBranch(channelRevenueRes);
+        const channelsRes = await getOrderChannels(params);
+        setOrderChannels(channelsRes ?? []);
       } catch (err: any) {
-        const errMsg = err.message || 'Đã xảy ra lỗi khi tải dữ liệu báo cáo';
-        setError(errMsg);
+        const errMsg = err.message || 'Không tải được dữ liệu kênh đặt đơn';
         toast.error(errMsg, { position: 'top-right' });
-      } finally {
-        setIsLoading(false);
-        hideLoading(); // Tắt loading overlay
       }
     },
-    [showLoading, hideLoading],
+    [],
   );
 
   const fetchRevenueBranches = useCallback(
@@ -113,10 +111,11 @@ export const useAnalytic = () => {
     revenueHourly,
     orderChannels,
     revenueBranch,
+    topItems,
     isLoading,
     error,
-    fetchDashboardData, // Chỉ cần export hàm gộp này ra cho Dashboard dùng
-    fetchRevenueChannels,
+    fetchDashboardData,
+    fetchOrderChannels,
     fetchRevenueBranches,
   };
 };

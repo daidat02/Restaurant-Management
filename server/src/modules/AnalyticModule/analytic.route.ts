@@ -78,6 +78,16 @@ router.get(
 );
 
 router.get(
+  '/export',
+  verifyToken,
+  verifyRole(['manager', 'admin']),
+  verifyTenant,
+  intersectRestaurantIds,
+  assertFeature('advanced_report'),
+  analyticController.exportReport,
+);
+
+router.get(
   '/revenue-channels',
   verifyToken,
   verifyRole(['super-admin']),

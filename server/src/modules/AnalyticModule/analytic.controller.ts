@@ -1,4 +1,5 @@
 import analyticService from './analytic.service.js';
+import exportService from './export.service.js';
 import type { Request, Response } from 'express';
 import type { AuthRequest } from '../../middlewares/auth.middleware.js';
 
@@ -273,6 +274,63 @@ class AnalyticController {
       return res.status(500).json({
         success: false,
         message: 'Đã xảy ra lỗi hệ thống khi tính ma trận giờ cao điểm.',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+      });
+    }
+  }
+
+  /** GET /analytics/export?startDate&endDate — file Excel 4 sheet (Advanced). */
+  async exportReport(req: AuthRequest, res: Response): Promise<Response> {
+    try {
+      const { startDate, endDate } = req.query;
+      const restaurantIds = req.user?.restaurantIds;
+
+      if (!startDate || !endDate) {
+        return res.status(400).json({
+          success: false,
+          message: 'Thiếu tham số bắt buộc: startDate hoặc endDate.',
+        });
+      }
+
+      const start = new Date(startDate as string);
+      const end = new Date(endDate as string);
+
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        return res.status(400).json({
+          success: false,
+          message: 'Định dạng ngày tháng không hợp lệ (Chuẩn ISO: YYYY-MM-DD).',
+        });
+      }
+      if (start > end) {
+        return res.status(400).json({
+          success: false,
+          message: 'Ngày bắt đầu (startDate) không thể lớn hơn ngày kết thúc (endDate).',
+        });
+      }
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+
+      const { buffer, fileName } = await exportService.buildWorkbook(
+        start,
+        end,
+        restaurantIds as string[],
+      );
+
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${fileName}"`,
+      );
+      res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+      return res.status(200).send(Buffer.from(buffer));
+    } catch (error: any) {
+      console.error('Error in AnalyticController.exportReport:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'Đã xảy ra lỗi hệ thống khi xuất báo cáo Excel.',
         error: process.env.NODE_ENV === 'development' ? error.message : undefined,
       });
     }
