@@ -1,207 +1,254 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
-import { Download, BarChart3 } from 'lucide-react';
-import { Bar, BarChart, CartesianGrid, XAxis } from 'recharts';
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from '@/components/ui/chart';
+import { BarChart3, Sparkles } from 'lucide-react';
 import { useAnalytic } from '@/hooks/use-analytic';
 import { useAuth } from '@/hooks/use-auth';
 import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
-import { formatVND, extractId } from '@/utils/helpers';
-import type { IAnalyticQueryParams } from '@/types/analytic.type';
-import { ChartsSection } from './components/ChartsSection';
+import { extractId } from '@/utils/helpers';
+import type {
+  IAnalyticQueryParams,
+  IChannelTrendDay,
+  IHourMatrixCell,
+} from '@/types/analytic.type';
+import { getChannelTrend, getHourMatrix } from '@/api/analytic.api';
+
 import { OverviewCards } from './components/OverviewCards';
+import { ChartsSection } from './components/ChartsSection';
+import { HourHeatmap } from './components/HourHeatmap';
+import { ChannelSection } from './components/ChannelSection';
+import { ReviewsPlaceholder } from './components/ReviewsPlaceholder';
+import { ExportButton } from './components/ExportButton';
+import { DatePickerWithRange } from '@/components/DatePickerRange';
 
 /**
- * Trang Báo Cáo Kinh Doanh (admin /admin/reports).
- * Dữ liệu thật từ API mảng restaurantIds (ticket 02) — không còn mock data.
+ * Trang BÁO CÁO NÂNG CAO (admin /admin/reports) — chỉ gói có advanced_report.
+ * Một trang cuộn dọc theo section: Header(export) → KPI → Chi nhánh →
+ * Heatmap giờ → Kênh & xu hướng → Đánh giá KH (dev-only mock).
+ * Section nặng (heatmap/trend) lazy fetch khi gần vào viewport.
  */
 
-function computeDateRange(range: string): { from: string; to: string } {
+const PRESETS = [
+  { key: 'today', label: 'Hôm nay' },
+  { key: 'week', label: '7 ngày qua' },
+  { key: 'month', label: 'Tháng này' },
+  { key: 'year', label: 'Năm nay' },
+] as const;
+
+type PresetKey = (typeof PRESETS)[number]['key'] | 'custom';
+
+function computeDateRange(range: PresetKey): { from: string; to: string } {
   const now = new Date();
   const to = format(now, 'yyyy-MM-dd');
-  let from: string;
-
   switch (range) {
     case 'today':
-      from = to;
-      break;
+      return { from: to, to };
     case 'week': {
       const d = new Date(now);
       d.setDate(d.getDate() - 7);
-      from = format(d, 'yyyy-MM-dd');
-      break;
+      return { from: format(d, 'yyyy-MM-dd'), to };
     }
-    case 'year': {
-      from = `${now.getFullYear()}-01-01`;
-      break;
-    }
+    case 'year':
+      return { from: `${now.getFullYear()}-01-01`, to };
     case 'month':
-    default: {
-      from = format(new Date(now.getFullYear(), now.getMonth(), 1), 'yyyy-MM-dd');
-      break;
-    }
+    default:
+      return { from: format(new Date(now.getFullYear(), now.getMonth(), 1), 'yyyy-MM-dd'), to };
   }
+}
 
-  return { from, to };
+/** Hook đơn giản phát hiện element vào viewport — dùng lazy-fetch section nặng. */
+function useInView<T extends HTMLElement>() {
+  const [node, setNode] = useState<T | null>(null);
+  const [inView, setInView] = useState(false);
+
+  // Callback ref — tương thích mọi phiên bản React
+  const ref = useCallback((el: T | null) => setNode(el), []);
+
+  useEffect(() => {
+    if (!node || inView) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) setInView(true);
+      },
+      { rootMargin: '200px' },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [node, inView]);
+
+  return { ref, inView };
 }
 
 export default function AnalyticsPage() {
-  const [timeRange, setTimeRange] = useState('month');
-  const { overviewStats, revenueHourly, orderChannels, revenueBranch, fetchDashboardData, fetchRevenueBranches } =
-    useAnalytic();
+  // Bộ chọn kỳ: preset hoặc khoảng tùy chỉnh (DatePickerWithRange)
+  const [preset, setPreset] = useState<PresetKey>('month');
+  const [customRange, setCustomRange] = useState<{ from: string; to: string }>(() =>
+    computeDateRange('month'),
+  );
+
+  const dateRange = useMemo(
+    () => (preset === 'custom' ? customRange : computeDateRange(preset)),
+    [preset, customRange],
+  );
+  const { from, to } = dateRange;
+
+  const {
+    overviewStats,
+    revenueBranch,
+    orderChannels,
+    fetchDashboardData,
+    fetchRevenueBranches,
+    fetchOrderChannels,
+  } = useAnalytic();
   const { user } = useAuth();
   const activeRestaurantId = useActiveRestaurantId();
 
-  // Admin (chủ chuỗi): danh sách nhà hàng trong chuỗi — không phụ thuộc nhà hàng đang chọn.
+  // Dữ liệu section lazy
+  const [hourCells, setHourCells] = useState<IHourMatrixCell[]>([]);
+  const [trend, setTrend] = useState<IChannelTrendDay[]>([]);
+  const [isLoadingHeatmap, setIsLoadingHeatmap] = useState(false);
+  const [isLoadingTrend, setIsLoadingTrend] = useState(false);
+
   const adminRestaurantIds = Array.isArray(user?.restaurantIds)
     ? user!.restaurantIds.map((id) => extractId(id)).filter((id) => id.length > 0)
     : [];
   const adminRestaurantIdsKey = adminRestaurantIds.join(',');
 
-  const { from, to } = useMemo(() => computeDateRange(timeRange), [timeRange]);
-
-  useEffect(() => {
-    if (!user?.role) return;
-
+  const buildPayload = (): IAnalyticQueryParams => {
     const payload: IAnalyticQueryParams = {
       startDate: from,
       endDate: to,
       restaurantId: activeRestaurantId,
     };
-
     if (user?.role === 'admin' && adminRestaurantIdsKey.length > 0) {
       payload.restaurantIds = adminRestaurantIdsKey.split(',').filter(Boolean);
     }
+    return payload;
+  };
 
+  const payloadRef = useRef<IAnalyticQueryParams>(buildPayload());
+  payloadRef.current = buildPayload();
+
+  // Nhóm dữ liệu chính: overview + chi nhánh + kênh (donut)
+  useEffect(() => {
+    if (!user?.role) return;
+    const payload = buildPayload();
     fetchDashboardData(payload);
     if (user?.role === 'admin') {
       fetchRevenueBranches(payload);
     }
-  }, [
-    from,
-    to,
-    user?.role,
-    activeRestaurantId,
-    adminRestaurantIdsKey,
-    fetchDashboardData,
-    fetchRevenueBranches,
-  ]);
+    fetchOrderChannels(payload);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [from, to, user?.role, activeRestaurantId, adminRestaurantIdsKey]);
 
-  // Biểu đồ so sánh doanh thu giữa các chi nhánh (cùng trục thời gian đã lọc).
-  const branchChartConfig = {
-    revenue: {
-      label: 'Doanh thu',
-      color: 'rgb(99, 102, 241)',
-    },
-  } satisfies ChartConfig;
+  // Lazy-fetch heatmap khi vào viewport (và refetch khi đổi kỳ nếu đã visible)
+  const heatmap = useInView<HTMLDivElement>();
+  useEffect(() => {
+    if (!heatmap.inView) return;
+    let cancelled = false;
+    setIsLoadingHeatmap(true);
+    getHourMatrix(payloadRef.current)
+      .then((data) => !cancelled && setHourCells(data))
+      .finally(() => !cancelled && setIsLoadingHeatmap(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [heatmap.inView, from, to]);
 
-  const branchChartData = revenueBranch.map((b) => ({
-    name: b.branchName,
-    revenue: b.revenue,
-  }));
+  // Lazy-fetch trend khi vào viewport
+  const trendRef = useInView<HTMLDivElement>();
+  useEffect(() => {
+    if (!trendRef.inView) return;
+    let cancelled = false;
+    setIsLoadingTrend(true);
+    getChannelTrend(payloadRef.current)
+      .then((data) => !cancelled && setTrend(data))
+      .finally(() => !cancelled && setIsLoadingTrend(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [trendRef.inView, from, to]);
+
+  const handleSelectDate = (val: { from: string; to: string }) => {
+    setCustomRange(val);
+    setPreset('custom');
+  };
 
   return (
     <div className="h-full overflow-y-auto bg-slate-50/50">
       <div className="min-h-screen p-4 md:p-8 space-y-6">
-        {/* TOP HEADER & BỘ LỌC THỜI GIAN */}
+        {/* HEADER: tiêu đề + bộ chọn kỳ + nút xuất Excel */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200/60 pb-5">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-950">
-              Báo Cáo Kinh Doanh
+              Báo Cáo Nâng Cao
             </h1>
             <p className="text-sm text-slate-500 mt-1">
-              Phân tích doanh thu, hiệu suất chi nhánh và hành vi gọi món toàn hệ thống chuỗi.
+              Phân tích sâu giờ cao điểm, kênh đặt đơn và hiệu suất chuỗi — kèm xuất Excel.
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <select
-              value={timeRange}
-              onChange={(e) => setTimeRange(e.target.value)}
+              value={preset === 'custom' ? '' : preset}
+              onChange={(e) => setPreset(e.target.value as PresetKey)}
               className="h-9 px-3 text-xs font-medium rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-cerulean-blue-500 text-slate-700 shadow-sm"
             >
-              <option value="today">Hôm nay</option>
-              <option value="week">7 ngày qua</option>
-              <option value="month">Tháng này</option>
-              <option value="year">Năm nay</option>
+              {PRESETS.map((p) => (
+                <option key={p.key} value={p.key}>
+                  {p.label}
+                </option>
+              ))}
+              {preset === 'custom' && <option value="">Tùy chỉnh</option>}
             </select>
 
-            <ButtonExport />
+            <DatePickerWithRange mode="range" value={dateRange} onChange={handleSelectDate} />
+
+            <ExportButton params={{ startDate: from, endDate: to }} />
           </div>
         </div>
 
-        {/* CỤM 1: OVERVIEW CARD (DỮ LIỆU THẬT TOÀN CHUỖI) */}
-        <OverviewCards overviewStats={overviewStats} />
+        {/* CỤM 1: OVERVIEW CARD */}
+        <section>
+          <SectionTitle icon={<Sparkles size={14} />} text="Tổng quan kỳ này" />
+          <OverviewCards overviewStats={overviewStats} />
+        </section>
 
-        {/* CỤM 2: BẢNG XẾP HẠNG CHI NHÁNH (ADMIN) + KÊNH ĐẶT MÓN */}
-        <ChartsSection
-          userRole="admin"
-          revenueBranch={revenueBranch}
-          revenueHourly={revenueHourly}
-          orderChannels={orderChannels}
-        />
+        {/* CỤM 2: HIỆU SUẤT CHI NHÁNH + SO SÁNH DOANH THU */}
+        <section>
+          <SectionTitle text="Hiệu suất chuỗi" />
+          <ChartsSection
+            userRole="admin"
+            revenueBranch={revenueBranch}
+            revenueHourly={[]}
+          />
+        </section>
 
-        {/* CỤM 3: BIỂU ĐỒ SO SÁNH DOANH THU CÁC CHI NHÁNH */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center gap-2">
-              <BarChart3 className="text-slate-500" size={18} />
-              <h3 className="font-bold text-sm text-slate-900">
-                So Sánh Doanh Thu Giữa Các Chi Nhánh
-              </h3>
-            </div>
-            <span className="text-xs font-medium text-slate-400">Đơn vị: VNĐ</span>
-          </div>
+        {/* CỤM 3: HEATMAP GIỜ CAO ĐIỂM (lazy fetch) */}
+        <section ref={heatmap.ref}>
+          <HourHeatmap cells={hourCells} isLoading={isLoadingHeatmap} />
+        </section>
 
-          <div className="h-72 w-full">
-            {branchChartData.length > 0 ? (
-              <ChartContainer config={branchChartConfig} className="h-full w-full">
-                <BarChart accessibilityLayer data={branchChartData}>
-                  <CartesianGrid vertical={false} stroke="#f1f5f9" />
-                  <XAxis
-                    dataKey="name"
-                    tickLine={false}
-                    tickMargin={10}
-                    axisLine={false}
-                    interval={0}
-                    tick={{ fontSize: 10, fill: '#64748b' }}
-                  />
-                  <ChartTooltip
-                    content={
-                      <ChartTooltipContent
-                        formatter={(value, name) => {
-                          if (name === 'revenue') return formatVND(Number(value));
-                          return value;
-                        }}
-                      />
-                    }
-                  />
-                  <Bar dataKey="revenue" fill="var(--color-revenue)" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ChartContainer>
-            ) : (
-              <div className="flex items-center justify-center h-full text-sm text-slate-400">
-                Không có dữ liệu kinh doanh của chi nhánh nào trong kỳ này!
-              </div>
-            )}
-          </div>
-        </div>
+        {/* CỤM 4: KÊNH ĐẶT ĐƠN — DONUT + XU HƯỚNG (lazy fetch) */}
+        <section ref={trendRef.ref}>
+          <ChannelSection channels={orderChannels} trend={trend} isLoading={isLoadingTrend} />
+        </section>
+
+        {/* CỤM 5: ĐÁNH GIÁ KHÁCH HÀNG — mock, CHỈ hiện ở dev */}
+        <ReviewsPlaceholder />
       </div>
     </div>
   );
 }
 
-// Component nút xuất file tiện ích bọc gọn gàng
-function ButtonExport() {
+function SectionTitle({ icon, text }: { icon?: React.ReactNode; text: string }) {
   return (
-    <button className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl text-xs font-semibold text-slate-700 border border-slate-200 bg-white hover:bg-slate-50 shadow-sm transition-colors">
-      <Download size={14} className="text-slate-500" />
-      Xuất Excel
-    </button>
+    <div className="mb-3 flex items-center gap-2">
+      {icon && (
+        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-cerulean-blue-50 text-cerulean-blue-600">
+          {icon}
+        </span>
+      )}
+      <h2 className="text-sm font-bold uppercase tracking-wide text-slate-500">{text}</h2>
+    </div>
   );
 }
