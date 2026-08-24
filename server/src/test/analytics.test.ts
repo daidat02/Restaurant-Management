@@ -129,4 +129,88 @@ describe('T10 — Analytics', () => {
       expect(res.status).toBe(401);
     });
   });
+
+  describe('top-items (Home — mọi gói)', () => {
+    it('thiếu startDate/endDate → 400', async () => {
+      const res = await request
+        .get('/api/analytics/top-items')
+        .set('Authorization', `Bearer ${managerX()}`);
+      expect(res.status).toBe(400);
+    });
+
+    it('startDate > endDate → 400', async () => {
+      const res = await request
+        .get(`/api/analytics/top-items?startDate=${d(0)}&endDate=${d(7)}`)
+        .set('Authorization', `Bearer ${managerX()}`);
+      expect(res.status).toBe(400);
+    });
+
+    it('hợp lệ (manager X) → 200 mảng có cấu trúc đúng', async () => {
+      const res = await request
+        .get(`/api/analytics/top-items?startDate=${d(30)}&endDate=${d(0)}&limit=5`)
+        .set('Authorization', `Bearer ${managerX()}`);
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body.data)).toBe(true);
+      for (const item of res.body.data) {
+        expect(typeof item.itemName).toBe('string');
+        expect(item.quantity).toBeGreaterThan(0);
+        expect(item.revenue).toBeGreaterThan(0);
+        expect(item.orderCount).toBeGreaterThan(0);
+      }
+      // Sort giảm dần theo quantity
+      const quantities = res.body.data.map((i: any) => i.quantity);
+      expect([...quantities].sort((a: number, b: number) => b - a)).toEqual(quantities);
+    });
+  });
+
+  describe('channel-trend + hour-matrix (Advanced — gate advanced_report)', () => {
+    it('channel-trend thiếu tham số → 400', async () => {
+      const res = await request
+        .get('/api/analytics/channel-trend')
+        .set('Authorization', `Bearer ${adminX()}`);
+      expect(res.status).toBe(400);
+    });
+
+    it('channel-trend hợp lệ (admin X, pro) → 200; mỗi ngày đủ 4 kênh', async () => {
+      const res = await request
+        .get(`/api/analytics/channel-trend?startDate=${d(30)}&endDate=${d(0)}`)
+        .set('Authorization', `Bearer ${adminX()}`);
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body.data)).toBe(true);
+      for (const day of res.body.data) {
+        expect(day.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+        expect(day.channels).toHaveLength(4);
+        const totalRevenue = day.channels.reduce((s: number, c: any) => s + c.revenue, 0);
+        expect(totalRevenue).toBeGreaterThanOrEqual(0);
+      }
+      // Sắp tăng dần theo ngày
+      const dates = res.body.data.map((x: any) => x.date);
+      expect([...dates].sort()).toEqual(dates);
+    });
+
+    it('hour-matrix hợp lệ (admin X, pro) → 200 ô thô dow/hour hợp lệ', async () => {
+      const res = await request
+        .get(`/api/analytics/hour-matrix?startDate=${d(30)}&endDate=${d(0)}`)
+        .set('Authorization', `Bearer ${adminX()}`);
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body.data)).toBe(true);
+      for (const cell of res.body.data) {
+        expect(cell.dow).toBeGreaterThanOrEqual(1); // 1=CN
+        expect(cell.dow).toBeLessThanOrEqual(7);
+        expect(cell.hour).toBeGreaterThanOrEqual(0);
+        expect(cell.hour).toBeLessThanOrEqual(23);
+        expect(cell.orderCount).toBeGreaterThan(0);
+      }
+    });
+
+    it('revenue-hourly trả đủ 24 giờ kể cả ngoài khung 09-22', async () => {
+      const res = await request
+        .get(`/api/analytics/revenue-hourly?startDate=${d(30)}&endDate=${d(0)}`)
+        .set('Authorization', `Bearer ${adminX()}`);
+      expect(res.status).toBe(200);
+      expect(res.body.data).toHaveLength(24);
+      expect(res.body.data[0].hour).toBe('0:00');
+      expect(res.body.data[23].hour).toBe('23:00');
+    });
+  });
 });
