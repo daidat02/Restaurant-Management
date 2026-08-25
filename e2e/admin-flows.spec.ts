@@ -41,9 +41,13 @@ test.describe('T12/T13 — Admin & manager flows', () => {
     await page.getByRole('button', { name: /Đơn mới/ }).click();
     await expect(page).toHaveURL(/\/staff\/orders\/pos/, { timeout: 15_000 });
 
-    // Chọn món X
+    // Chọn món X — món có optionGroups → modal chọn option mở ra, phải xác nhận mới vào bill
     await expect(page.getByText('Cà phê sữa')).toBeVisible({ timeout: 20_000 });
     await page.getByText('Cà phê sữa').click();
+
+    // Modal option: group single bắt buộc tự chọn sẵn → bấm Thêm vào đơn luôn
+    await expect(page.getByRole('dialog')).toBeVisible({ timeout: 10_000 });
+    await page.getByRole('button', { name: 'Thêm vào đơn' }).click();
 
     // Panel bill hiển thị món đã chọn (tiền format vi-VN: 35.000đ)
     const bill = page.locator('aside');
@@ -80,8 +84,9 @@ test.describe('T12/T13 — Admin & manager flows', () => {
     await page.goto(`/manager/orders/edit/${order._id}`);
     await expect(page.getByText('Cập nhật trạng thái')).toBeVisible({ timeout: 20_000 });
 
-    // Đổi status qua stepper: bấm bước "Đã xác nhận" (chấm tròn đầu tiên kích hoạt onStatusChange)
-    await page.getByRole('button', { name: 'Đã xác nhận' }).first().click();
+    // Đổi status qua select trạng thái (stepper đã thay bằng Select theo loại đơn)
+    await page.getByRole('combobox').click();
+    await page.getByRole('option', { name: 'Đã xác nhận' }).click();
 
     // Xác nhận status thực sự đổi qua API (poll vì request async)
     await expect

@@ -9,9 +9,9 @@ test.describe('T07 — /admin/reports: so sánh chi nhánh với số liệu th�
     await expect(page).toHaveURL(/\/admin/, { timeout: 15_000 });
     await waitAuthPersisted(page, null);
 
-    // Điều hướng sang trang Báo Cáo Kinh Doanh
+    // Điều hướng sang trang Báo Cáo Nâng Cao
     await page.goto('/admin/reports');
-    await expect(page.getByRole('heading', { name: 'Báo Cáo Kinh Doanh' })).toBeVisible({
+    await expect(page.getByRole('heading', { name: 'Báo Cáo Nâng Cao' })).toBeVisible({
       timeout: 20_000,
     });
 
@@ -26,18 +26,20 @@ test.describe('T07 — /admin/reports: so sánh chi nhánh với số liệu th�
     await expect(page.getByText('Lẩu Nấm Sườn Sụn Gia Truyền')).toHaveCount(0);
   });
 
-  test('admin.test thấy biểu đồ so sánh doanh thu các chi nhánh', async ({ page }) => {
+  test('admin.test thấy cụm so sánh doanh thu các chi nhánh', async ({ page }) => {
     await login(page, USERS.admin.email);
     await expect(page).toHaveURL(/\/admin/, { timeout: 15_000 });
     await waitAuthPersisted(page, null);
 
     await page.goto('/admin/reports');
     await expect(
-      page.getByRole('heading', { name: 'Báo Cáo Kinh Doanh' }),
+      page.getByRole('heading', { name: 'Báo Cáo Nâng Cao' }),
     ).toBeVisible({ timeout: 20_000 });
 
-    // Cụm so sánh doanh thu giữa các chi nhánh hiển thị
-    await expect(page.getByText('So Sánh Doanh Thu Giữa Các Chi Nhánh')).toBeVisible({
+    // Cụm so sánh doanh thu giữa các chi nhánh hiển thị (bảng xếp hạng trong ChartsSection)
+    await expect(
+      page.getByText('Xếp hạng doanh thu và sản lượng đơn hàng thực tế giữa các cơ sở nhà hàng'),
+    ).toBeVisible({
       timeout: 15_000,
     });
   });

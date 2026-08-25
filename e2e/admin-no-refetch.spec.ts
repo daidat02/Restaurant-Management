@@ -40,7 +40,7 @@ async function assertNoRefetch(page: Page, path: string, waitForText: string) {
 
 test.describe('T11 — reports & dashboard không gọi lại API liên tục', () => {
   test('trang /admin/reports không refetch khi idle', async ({ page }) => {
-    await assertNoRefetch(page, '/admin/reports', 'Báo Cáo Kinh Doanh');
+    await assertNoRefetch(page, '/admin/reports', 'Báo Cáo Nâng Cao');
   });
 
   test('trang /admin (dashboard) không refetch khi idle', async ({ page }) => {

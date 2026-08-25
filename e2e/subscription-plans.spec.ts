@@ -185,8 +185,9 @@ test.describe('T07 — Subscription plans: gate + vòng đời mới', () => {
     expect((await kdsFree.json()).errorCode).toBe('PLAN_LIMIT_REACHED');
     expect((await kdsFree.json()).meta).toMatchObject({ feature: 'kds', planKey: 'free' });
 
-    // Free: báo cáo nâng cao → 403 meta.feature advanced_report
-    const reportFree = await request.get(`${API_BASE}/analytics/overview`, {
+    // Free: báo cáo nâng cao (endpoint GATE advanced_report) → 403 meta.feature advanced_report
+    // LƯU Ý: /analytics/overview thuộc nhóm HOME (mọi gói, không gate) — không dùng để test gate
+    const reportFree = await request.get(`${API_BASE}/analytics/order-channels`, {
       headers: auth(freeOwnerToken),
       params: { restaurantIds: freeId },
     });
@@ -201,7 +202,7 @@ test.describe('T07 — Subscription plans: gate + vòng đời mới', () => {
     });
     expect(kdsPro.status()).toBe(200);
 
-    const reportPro = await request.get(`${API_BASE}/analytics/overview`, {
+    const reportPro = await request.get(`${API_BASE}/analytics/order-channels`, {
       headers: auth(managerToken),
       params: { restaurantIds: SEED_IDS.tenantX, startDate: '2026-01-01', endDate: '2026-01-31' },
     });
