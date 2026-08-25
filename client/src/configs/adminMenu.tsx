@@ -29,6 +29,8 @@ export type MenuItem = {
   title: string;
   icon: LucideIcon;
   path?: string;
+  /** Link ngoài (vd mailto:) — mở trực tiếp, không điều hướng SPA. */
+  href?: string;
   children?: { title: string; path: string }[];
   /** Tính năng gói yêu cầu — ẩn mục menu khi gói hiện tại không có (không đặt = luôn hiện). */
   feature?: FeatureKey;
@@ -54,6 +56,11 @@ export function getRoleLabel(role?: string): string {
   if (role && role in ROLE_LABEL) return ROLE_LABEL[role as AppRole];
   return role || '';
 }
+
+/** Email hỗ trợ + mailto kèm sẵn subject — dùng cho nút "Trợ Giúp" sidebar. */
+export const SUPPORT_EMAIL = 'nhahangos.suport@gmail.com';
+const SUPPORT_SUBJECT = 'Yêu cầu hỗ trợ NhaHang OS';
+export const SUPPORT_MAILTO = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(SUPPORT_SUBJECT)}`;
 
 const ADMIN_MENU: MenuGroup[] = [
   {
@@ -105,7 +112,7 @@ const MANAGER_MENU: MenuGroup[] = [
       { title: 'Tin Nhắn', icon: MessageCircle, path: '/manager/messages', feature: 'messaging_group' },
       { title: 'Nhật Ký Hệ Thống', icon: History, path: '/manager/logs' },
       { title: 'Cài Đặt Chung', icon: Settings, path: '/manager/settings' },
-      { title: 'Trợ Giúp', icon: HelpCircle, path: '/manager/help' },
+      { title: 'Trợ Giúp', icon: HelpCircle, href: SUPPORT_MAILTO },
     ],
   },
 ];

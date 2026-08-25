@@ -139,19 +139,51 @@ describe('T02 — Plan gate (tính năng theo gói)', () => {
     expect(res.body.errorCode).not.toBe('PLAN_LIMIT_REACHED');
   });
 
-  it('basic: báo cáo nâng cao → 403 PLAN_LIMIT_REACHED', async () => {
+  it('basic: báo cáo nâng cao (order-channels) → 403 PLAN_LIMIT_REACHED', async () => {
     const res = await request
-      .get('/api/analytics/overview')
+      .get('/api/analytics/order-channels')
       .set('Authorization', `Bearer ${ownerSubAdmin(TRIAL)}`)
-      .query({ restaurantId: TRIAL });
+      .query({ restaurantId: TRIAL, startDate: '2026-01-01', endDate: '2026-01-31' });
     expect(res.status).toBe(403);
     expect(res.body.errorCode).toBe('PLAN_LIMIT_REACHED');
     expect(res.body.meta).toMatchObject({ feature: 'advanced_report', planKey: 'basic' });
   });
 
-  it('pro: báo cáo nâng cao OK', async () => {
+  it('basic: channel-trend → 403 PLAN_LIMIT_REACHED', async () => {
+    const res = await request
+      .get('/api/analytics/channel-trend')
+      .set('Authorization', `Bearer ${ownerSubAdmin(TRIAL)}`)
+      .query({ restaurantId: TRIAL, startDate: '2026-01-01', endDate: '2026-01-31' });
+    expect(res.status).toBe(403);
+    expect(res.body.meta).toMatchObject({ feature: 'advanced_report', planKey: 'basic' });
+  });
+
+  it('basic: hour-matrix → 403 PLAN_LIMIT_REACHED', async () => {
+    const res = await request
+      .get('/api/analytics/hour-matrix')
+      .set('Authorization', `Bearer ${ownerSubAdmin(TRIAL)}`)
+      .query({ restaurantId: TRIAL, startDate: '2026-01-01', endDate: '2026-01-31' });
+    expect(res.status).toBe(403);
+    expect(res.body.meta).toMatchObject({ feature: 'advanced_report', planKey: 'basic' });
+  });
+
+  // Home hiển thị cho MỌI gói → overview/revenue-hourly/top-items KHÔNG gate advanced_report.
+  it('basic: overview home (mọi gói) → 200, không bị gate', async () => {
     const res = await request
       .get('/api/analytics/overview')
+      .set('Authorization', `Bearer ${ownerSubAdmin(TRIAL)}`)
+      .query({
+        restaurantId: TRIAL,
+        startDate: new Date().toISOString().slice(0, 10),
+        endDate: new Date().toISOString().slice(0, 10),
+      });
+    expect(res.status).toBe(200);
+    expect(res.body.data).toBeTruthy();
+  });
+
+  it('pro: order-channels OK', async () => {
+    const res = await request
+      .get('/api/analytics/order-channels')
       .set('Authorization', `Bearer ${tokenFor('manager', X)}`)
       .query({ restaurantId: X, startDate: '2026-01-01', endDate: '2026-01-31' });
     expect(res.status).toBe(200);

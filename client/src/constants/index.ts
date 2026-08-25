@@ -160,6 +160,10 @@ export const API_ENDPOINTS = {
     ORDER_CHANNELS: '/analytics/order-channels',
     REVENUE_CHANNELS: '/analytics/revenue-channels',
     REVENUE_BRANCHES: '/analytics/revenue-branches',
+    TOP_ITEMS: '/analytics/top-items',
+    CHANNEL_TREND: '/analytics/channel-trend',
+    HOUR_MATRIX: '/analytics/hour-matrix',
+    EXPORT: '/analytics/export',
   },
 
   // --- PHÂN HỆ QUẢN TRỊ NỀN TẢNG (SUPER-ADMIN) ---

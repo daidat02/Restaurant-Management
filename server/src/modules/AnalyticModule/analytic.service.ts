@@ -74,6 +74,16 @@ class AnalyticsService {
     };
   }
 
+  /** Top món bán chạy trong kỳ (Home — mọi gói). */
+  async getTopItems(
+    startDate: Date,
+    endDate: Date,
+    restaurantIds: string[],
+    limit = 5,
+  ) {
+    return orderRepository.getTopItemsStats(startDate, endDate, restaurantIds, limit);
+  }
+
   async getRevenueByHour(restaurantIds: string[], startDate: Date, endDate: Date) {
     // 1. Gọi Repo lấy dữ liệu các giờ có doanh thu từ DB
     const rawData = await orderRepository.getRevenueByHourStats(startDate, endDate, restaurantIds);
@@ -81,31 +91,11 @@ class AnalyticsService {
     // 2. Tạo một Map để tra cứu nhanh dữ liệu từ DB
     const dataMap = new Map(rawData.map((item) => [item.hour, item]));
 
-    // 3. Quy định các khung giờ hoạt động chính muốn hiển thị lên Chart (Ví dụ: Từ 9:00 sáng đến 22:00 đêm)
-    // Bạn có thể đổi mảng này thành đủ 24 tiếng nếu muốn hiển thị trọn ngày
-    const activeHours = [
-      '09:00',
-      '10:00',
-      '11:00',
-      '12:00',
-      '13:00',
-      '14:00',
-      '15:00',
-      '16:00',
-      '17:00',
-      '18:00',
-      '19:00',
-      '20:00',
-      '21:00',
-      '22:00',
-    ];
-
-    // 4. Lắp đầy các khoảng trống: Khung giờ nào DB không có thì tự cho amount = 0
-    const finalChartData = activeHours.map((hour) => {
-      if (dataMap.has(hour)) {
-        return dataMap.get(hour);
-      }
-      return { hour, amount: 0, orderCount: 0 };
+    // 3. Điền đầy đủ 24 giờ (0h → 23h): khung giờ nào DB không có thì amount = 0.
+    //    Việc thu gọn khoảng hiển thị (cắt giờ rỗng hai đầu) do phía UI quyết định.
+    const finalChartData = Array.from({ length: 24 }, (_, h) => {
+      const hour = `${h}:00`;
+      return dataMap.get(hour) ?? { hour, amount: 0, orderCount: 0 };
     });
 
     return finalChartData;
@@ -120,44 +110,112 @@ class AnalyticsService {
 
     // Mẫu dữ liệu mặc định nếu nhà hàng chưa có đơn nào
     const defaultResult = [
-      { channel: 'Khách quét mã QR', count: 0, percentage: 0 },
-      { channel: 'Nhân viên lên đơn', count: 0, percentage: 0 },
-      { channel: 'Giao hàng tận nơi', count: 0, percentage: 0 },
-      { channel: 'Mua mang về', count: 0, percentage: 0 },
+      { channel: 'Khách quét mã QR', count: 0, percentage: 0, revenue: 0, revenuePercentage: 0 },
+      { channel: 'Nhân viên lên đơn', count: 0, percentage: 0, revenue: 0, revenuePercentage: 0 },
+      { channel: 'Giao hàng tận nơi', count: 0, percentage: 0, revenue: 0, revenuePercentage: 0 },
+      { channel: 'Mua mang về', count: 0, percentage: 0, revenue: 0, revenuePercentage: 0 },
     ];
 
     if (!rawStats || rawStats.length === 0) return defaultResult;
 
-    const { qrDineInCount, staffDineInCount, deliveryCount, toGoCount, totalValidOrders } =
-      rawStats[0];
+    const {
+      qrDineInCount,
+      staffDineInCount,
+      deliveryCount,
+      toGoCount,
+      qrDineInRevenue,
+      staffDineInRevenue,
+      deliveryRevenue,
+      toGoRevenue,
+      totalValidOrders,
+      totalRevenue,
+    } = rawStats[0];
 
     if (totalValidOrders === 0) return defaultResult;
 
     // Hàm helper tính % làm tròn 1 chữ số thập phân
-    const calcPercent = (count: number) => Number(((count / totalValidOrders) * 100).toFixed(1));
+    const calcPercent = (value: number, total: number) =>
+      total > 0 ? Number(((value / total) * 100).toFixed(1)) : 0;
+    const roundVnd = (v: number) => Math.round(v);
 
     return [
       {
         channel: 'Khách quét mã QR',
         count: qrDineInCount,
-        percentage: calcPercent(qrDineInCount),
+        percentage: calcPercent(qrDineInCount, totalValidOrders),
+        revenue: roundVnd(qrDineInRevenue),
+        revenuePercentage: calcPercent(qrDineInRevenue, totalRevenue),
       },
       {
         channel: 'Nhân viên lên đơn',
         count: staffDineInCount,
-        percentage: calcPercent(staffDineInCount),
+        percentage: calcPercent(staffDineInCount, totalValidOrders),
+        revenue: roundVnd(staffDineInRevenue),
+        revenuePercentage: calcPercent(staffDineInRevenue, totalRevenue),
       },
       {
         channel: 'Giao hàng tận nơi',
         count: deliveryCount,
-        percentage: calcPercent(deliveryCount),
+        percentage: calcPercent(deliveryCount, totalValidOrders),
+        revenue: roundVnd(deliveryRevenue),
+        revenuePercentage: calcPercent(deliveryRevenue, totalRevenue),
       },
       {
         channel: 'Mua mang về',
         count: toGoCount,
-        percentage: calcPercent(toGoCount),
+        percentage: calcPercent(toGoCount, totalValidOrders),
+        revenue: roundVnd(toGoRevenue),
+        revenuePercentage: calcPercent(toGoRevenue, totalRevenue),
       },
     ];
+  }
+
+  /**
+   * Xu hướng doanh thu theo ngày × kênh (Advanced): điền đủ 4 kênh cho từng ngày
+   * có dữ liệu trong kỳ (ngày không đơn không trả về — UI tự nối trục thời gian).
+   */
+  async getChannelTrend(startDate: Date, endDate: Date, restaurantIds: string[]) {
+    const rawRows = await orderRepository.getChannelTrendStats(
+      startDate,
+      endDate,
+      restaurantIds,
+    );
+
+    const CHANNEL_LABELS: Record<string, string> = {
+      'qr-dine-in': 'Khách quét mã QR',
+      'staff-dine-in': 'Nhân viên lên đơn',
+      delivery: 'Giao hàng tận nơi',
+      'to-go': 'Mua mang về',
+    };
+
+    const byDay = new Map<string, Map<string, { revenue: number; count: number }>>();
+    for (const row of rawRows) {
+      if (!byDay.has(row.day)) byDay.set(row.day, new Map());
+      byDay.get(row.day)!.set(row.channel, { revenue: row.revenue, count: row.count });
+    }
+
+    return Array.from(byDay.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([day, channels]) => ({
+        date: day,
+        channels: Object.entries(CHANNEL_LABELS).map(([key, label]) => {
+          const cell = channels.get(key);
+          return {
+            channel: key,
+            label,
+            revenue: cell?.revenue ?? 0,
+            count: cell?.count ?? 0,
+          };
+        }),
+      }));
+  }
+
+  /**
+   * Ma trận thứ × giờ cho heatmap (Advanced). `dow` theo MongoDB $dayOfWeek:
+   * 1=Chủ nhật … 7=Thứ bảy. Trả đủ ô thô, UI tự dựng ma trận + cắt rỗng.
+   */
+  async getHourMatrix(startDate: Date, endDate: Date, restaurantIds: string[]) {
+    return orderRepository.getHourMatrixStats(startDate, endDate, restaurantIds);
   }
 
   async getBranchRevenueStatsService(startDate: Date, endDate: Date) {

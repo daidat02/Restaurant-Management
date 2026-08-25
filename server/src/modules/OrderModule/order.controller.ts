@@ -2,8 +2,6 @@ import type { Request, Response } from 'express';
 import type { AuthRequest } from '../../middlewares/auth.middleware.js';
 import orderService from './order.service.js';
 import orderRepository from './order.repository.js';
-import { getIO } from '../../configs/socketsConfig.js';
-import notificationRepository from '../Notification/notification.repository.js';
 import { generateId } from '../../configs/constants.js';
 import { writeAuditLog } from '../../services/auditLog.service.js';
 
@@ -129,14 +127,6 @@ class OrderController {
     try {
       const result = await orderService.updateOrderService(id || '', orderData);
       res.status(result.code).json(result);
-
-      const notification = await notificationRepository.createNotification({
-        type: 'new_order',
-        message: 'Đơn Hàng Có Sự Thay Đổi. Vui Lòng Kiểm Tra Chi Tiết',
-        data: result.data,
-      });
-      const resRestaurantId = result.data?.restaurant?.toString?.() || '';
-      if (resRestaurantId) getIO().to(`restaurant_${resRestaurantId}`).emit('new_Notification', notification);
     } catch (error) {
       console.log(error);
       res.status(500).json({ message: 'Lỗi server...' });
@@ -148,14 +138,12 @@ class OrderController {
     const { status } = req.body;
     try {
       const result = await orderService.updateStatusOrderService(id || '', status || '');
-      const notification = await notificationRepository.createNotification({
-        type: 'new_order',
-        message: 'Trạng Thái Đơn Hàng Đã Thay Đổi. Vui Lòng Kiểm Tra Chi Tiết',
-        data: result.data,
-      });
-      const resRestaurantId = result.data?.restaurant?.toString?.() || '';
-      if (resRestaurantId) getIO().to(`restaurant_${resRestaurantId}`).emit('new_Notification', notification);
+      // Realtime UI đã do service phát (order_event UPDATE_STATUS tới room nhà hàng).
+      // Bell notification cho đơn chỉ thuộc luồng CREATE/ADD_ITEMS qua queue order-fanout —
+      // KHÔNG tạo notification ở đây (trước đây thiếu trường restaurant nên rò vào feed
+      // nền tảng của super-admin do query { restaurant: null } match cả field bị thiếu).
       if (result.code === 200) {
+        const resRestaurantId = result.data?.restaurant?.toString?.() || '';
         await writeAuditLog({
           action: 'order.update.status',
           restaurant: resRestaurantId || req.tenantId || req.user?.restaurantId || null,

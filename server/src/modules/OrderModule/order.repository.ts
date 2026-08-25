@@ -238,6 +238,163 @@ class OrderRepository {
     ]);
   }
 
+  /**
+   * Top món bán chạy trong kỳ (Home — mọi gói): group OrderItem theo menuItem,
+   * loại item deleted/refunded, chỉ đếm đơn paid/completed.
+   */
+  async getTopItemsStats(
+    startDate: Date,
+    endDate: Date,
+    restaurantIds: string[],
+    limit = 5,
+  ) {
+    const ObjectId = DB_Connection.Order.base.Types.ObjectId;
+    const matchQuery: any = {
+      createdAt: { $gte: startDate, $lte: endDate },
+      status: { $in: ['paid', 'completed'] },
+    };
+    if (restaurantIds && restaurantIds.length > 0) {
+      matchQuery.restaurant = { $in: restaurantIds.map((id) => new ObjectId(id)) };
+    }
+
+    return await DB_Connection.Order.aggregate([
+      { $match: matchQuery },
+      {
+        $lookup: {
+          from: 'orderitems',
+          localField: '_id',
+          foreignField: 'order',
+          as: 'items',
+        },
+      },
+      { $unwind: '$items' },
+      { $match: { 'items.status': { $nin: ['deleted', 'refunded'] } } },
+      {
+        $group: {
+          _id: '$items.menuItem',
+          itemName: { $first: '$items.nameSnapshot' },
+          quantity: { $sum: '$items.quantity' },
+          revenue: { $sum: { $multiply: ['$items.priceSnapshot', '$items.quantity'] } },
+          orderIds: { $addToSet: '$_id' },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          menuItemId: '$_id',
+          itemName: 1,
+          quantity: 1,
+          revenue: { $round: ['$revenue'] },
+          orderCount: { $size: '$orderIds' },
+        },
+      },
+      { $sort: { quantity: -1, revenue: -1 } },
+      { $limit: Math.min(Math.max(1, limit), 50) },
+    ]);
+  }
+
+  /**
+   * Xu hướng theo ngày × kênh (Advanced): loại cancelled, phân loại kênh giống
+   * getOrderChannelStats (dine-in không staff = QR; có staff = nhân viên).
+   */
+  async getChannelTrendStats(startDate: Date, endDate: Date, restaurantIds: string[]) {
+    const ObjectId = DB_Connection.Order.base.Types.ObjectId;
+    const matchQuery: any = {
+      createdAt: { $gte: startDate, $lte: endDate },
+      status: { $ne: 'cancelled' },
+    };
+    if (restaurantIds && restaurantIds.length > 0) {
+      matchQuery.restaurant = { $in: restaurantIds.map((id) => new ObjectId(id)) };
+    }
+
+    return await DB_Connection.Order.aggregate([
+      { $match: matchQuery },
+      {
+        $project: {
+          totalAmount: 1,
+          day: {
+            $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: '+07:00' },
+          },
+          channel: {
+            $switch: {
+              branches: [
+                { case: { $eq: ['$orderType', 'delivery'] }, then: 'delivery' },
+                { case: { $eq: ['$orderType', 'to-go'] }, then: 'to-go' },
+                {
+                  case: {
+                    $and: [{ $eq: ['$orderType', 'dine-in'] }, { $not: ['$staff'] }],
+                  },
+                  then: 'qr-dine-in',
+                },
+              ],
+              default: 'staff-dine-in',
+            },
+          },
+        },
+      },
+      {
+        $group: {
+          _id: { day: '$day', channel: '$channel' },
+          revenue: { $sum: '$totalAmount' },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { '_id.day': 1 } },
+      {
+        $project: {
+          _id: 0,
+          day: '$_id.day',
+          channel: '$_id.channel',
+          revenue: { $round: ['$revenue'] },
+          count: 1,
+        },
+      },
+    ]);
+  }
+
+  /**
+   * Ma trận ngày-trong-tuần × giờ (heatmap Advanced): đủ 0–23h × 7 thứ,
+   * nhóm theo createdAt (+07:00). Trả đủ dữ liệu thô — việc cắt ô rỗng là của UI.
+   */
+  async getHourMatrixStats(startDate: Date, endDate: Date, restaurantIds: string[]) {
+    const ObjectId = DB_Connection.Order.base.Types.ObjectId;
+    const matchQuery: any = {
+      createdAt: { $gte: startDate, $lte: endDate },
+      status: { $in: ['paid', 'completed'] },
+    };
+    if (restaurantIds && restaurantIds.length > 0) {
+      matchQuery.restaurant = { $in: restaurantIds.map((id) => new ObjectId(id)) };
+    }
+
+    return await DB_Connection.Order.aggregate([
+      { $match: matchQuery },
+      {
+        $project: {
+          totalAmount: 1,
+          dow: { $dayOfWeek: { date: '$createdAt', timezone: '+07:00' } }, // 1=CN .. 7=Thứ 7
+          hour: { $hour: { date: '$createdAt', timezone: '+07:00' } },
+        },
+      },
+      {
+        $group: {
+          _id: { dow: '$dow', hour: '$hour' },
+          revenue: { $sum: '$totalAmount' },
+          orderCount: { $sum: 1 },
+        },
+      },
+      { $sort: { '_id.dow': 1, '_id.hour': 1 } },
+      {
+        $project: {
+          _id: 0,
+          dow: '$_id.dow',
+          hour: '$_id.hour',
+          revenue: { $round: ['$revenue'] },
+          orderCount: 1,
+        },
+      },
+    ]);
+  }
+
   async getOrderChannelStats(startDate: Date, endDate: Date, restaurantIds: string[]) {
     const matchQuery: any = {
       createdAt: { $gte: startDate, $lte: endDate },
@@ -284,6 +441,70 @@ class OrderRepository {
           toGoCount: {
             $sum: {
               $cond: [{ $eq: ['$orderType', 'to-go'] }, 1, 0],
+            },
+          },
+          // Doanh thu theo kênh (chỉ đơn paid/completed được tính tiền)
+          qrDineInRevenue: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $in: ['$status', ['paid', 'completed']] },
+                    { $eq: ['$orderType', 'dine-in'] },
+                    { $not: ['$staff'] },
+                  ],
+                },
+                '$totalAmount',
+                0,
+              ],
+            },
+          },
+          staffDineInRevenue: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $in: ['$status', ['paid', 'completed']] },
+                    { $eq: ['$orderType', 'dine-in'] },
+                    { $ifNull: ['$staff', false] },
+                  ],
+                },
+                '$totalAmount',
+                0,
+              ],
+            },
+          },
+          deliveryRevenue: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $in: ['$status', ['paid', 'completed']] },
+                    { $eq: ['$orderType', 'delivery'] },
+                  ],
+                },
+                '$totalAmount',
+                0,
+              ],
+            },
+          },
+          toGoRevenue: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $in: ['$status', ['paid', 'completed']] },
+                    { $eq: ['$orderType', 'to-go'] },
+                  ],
+                },
+                '$totalAmount',
+                0,
+              ],
+            },
+          },
+          totalRevenue: {
+            $sum: {
+              $cond: [{ $in: ['$status', ['paid', 'completed']] }, '$totalAmount', 0],
             },
           },
           // Tổng số đơn để tính tỷ lệ % ở tầng Service

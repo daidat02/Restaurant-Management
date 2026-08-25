@@ -5,7 +5,8 @@ import { DatePickerWithRange } from '@/components/DatePickerRange';
 import { format, startOfMonth } from 'date-fns';
 import { useAuth } from '@/hooks/use-auth';
 import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
-import { OverviewCards, TopDishesTable } from './components/OverView';
+import { OverviewCards } from './components/OverviewCards';
+import { TopDishesTable } from './components/TopDishesTable';
 import { ChartsSection } from './components/ChartsSection';
 import { SubscriptionAlertsTable } from '../components/SubscriptionAlertsTable';
 import { extractId } from '@/utils/helpers';
@@ -51,12 +52,12 @@ function GlobalHeader({ value, onSelectDate }: IHeaderProps) {
 }
 
 export default function Home() {
-  // Bóc tách thêm 'branchRevenueList' từ hook phân tích (nếu bạn đã cấu hình lưu dữ liệu aggregate chi nhánh)
   const {
     overviewStats,
     revenueHourly,
-    orderChannels,
     revenueBranch,
+    topItems,
+    isLoading,
     fetchDashboardData,
   } = useAnalytic();
   const { user } = useAuth();
@@ -117,10 +118,9 @@ export default function Home() {
             userRole={user?.role} // Truyền role để component con tự đổi giao diện
             revenueBranch={revenueBranch} // Dữ liệu bảng chi nhánh cho Admin (Nếu là manager mảng này sẽ tự rỗng)
             revenueHourly={revenueHourly}
-            orderChannels={orderChannels}
           />
-          {/* Cụm 3: Bảng xếp hạng món ăn */}
-          <TopDishesTable />
+          {/* Cụm 3: Bảng xếp hạng món ăn — dữ liệu thật từ /analytics/top-items */}
+          <TopDishesTable items={topItems} isLoading={isLoading} />
         </div>
       </div>
     </div>
