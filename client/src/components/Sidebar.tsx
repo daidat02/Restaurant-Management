@@ -104,6 +104,7 @@ export default function SidebarApp() {
         <SidebarMenuItem>
           <SidebarMenuButton
             onClick={() => handleItemClick(item)}
+            asChild={!!item.href}
             className={`flex items-center justify-between rounded-lg px-3 py-2 h-10 transition mb-1
               ${
                 isActive(item.path) || isParentActive(item)
@@ -112,15 +113,27 @@ export default function SidebarApp() {
               }
             `}
           >
-            <div className="flex items-center gap-3">
-              <item.icon className="h-4 w-4" />
-              <span>{item.title}</span>
-            </div>
+            {item.href ? (
+              // Link ngoài (mailto:) — mở ứng dụng email mặc định, không điều hướng SPA
+              <a href={item.href}>
+                <div className="flex items-center gap-3">
+                  <item.icon className="h-4 w-4" />
+                  <span>{item.title}</span>
+                </div>
+              </a>
+            ) : (
+              <>
+                <div className="flex items-center gap-3">
+                  <item.icon className="h-4 w-4" />
+                  <span>{item.title}</span>
+                </div>
 
-            {hasChildren && (
-              <ChevronDown
-                className={`h-4 w-4 transition ${openMenu === item.title ? 'rotate-180' : ''}`}
-              />
+                {hasChildren && (
+                  <ChevronDown
+                    className={`h-4 w-4 transition ${openMenu === item.title ? 'rotate-180' : ''}`}
+                  />
+                )}
+              </>
             )}
           </SidebarMenuButton>
         </SidebarMenuItem>
