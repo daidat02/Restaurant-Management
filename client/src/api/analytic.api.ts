@@ -3,7 +3,7 @@ import { type ApiResponse } from '@/types/api.type';
 import type {
   IOverviewStats,
   IRevenueHourly,
-  IOrderChannel,
+  IOrderChannelV2,
   IAnalyticQueryParams,
   IRevenueBranch,
   ITopItem,
@@ -30,7 +30,8 @@ export const getRevenueHourly = async (params: IAnalyticQueryParams) => {
 };
 
 export const getOrderChannels = async (params: IAnalyticQueryParams) => {
-  const res = await axiosClient.get<any, ApiResponse<IOrderChannel[]>>(ANALYTIC.ORDER_CHANNELS, {
+  // Endpoint advanced trả đủ revenue + revenuePercentage (server tự tính %)
+  const res = await axiosClient.get<any, ApiResponse<IOrderChannelV2[]>>(ANALYTIC.ORDER_CHANNELS, {
     params,
   });
   return res.data;

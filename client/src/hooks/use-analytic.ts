@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import type {
   IOverviewStats,
   IRevenueHourly,
-  IOrderChannel,
+  IOrderChannelV2,
   IAnalyticQueryParams,
   IRevenueBranch,
   ITopItem,
@@ -26,7 +26,7 @@ export const useAnalytic = () => {
   // Quản lý các state dữ liệu riêng biệt để dễ destructure ở Component
   const [overviewStats, setOverviewStats] = useState<IOverviewStats | null>(null);
   const [revenueHourly, setRevenueHourly] = useState<IRevenueHourly[]>([]);
-  const [orderChannels, setOrderChannels] = useState<IOrderChannel[]>([]);
+  const [orderChannels, setOrderChannels] = useState<IOrderChannelV2[]>([]);
   const [revenueBranch, setRevenueBranch] = useState<IRevenueBranch[]>([]);
   const [topItems, setTopItems] = useState<ITopItem[]>([]);
 
