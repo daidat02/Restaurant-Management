@@ -74,13 +74,6 @@ export default function OrderDetail() {
 
           {/* ===== SIDEBAR ===== */}
           <div className="flex flex-col gap-5">
-            {/* CẬP NHẬT TRẠNG THÁI — stepper tiến trình */}
-            <OrderStatusControl
-              order={currentOrder}
-              onStatusChange={(orderId, status) => changeOrderStatus(orderId, status)}
-              variant="vertical"
-            />
-
             {/* KHÁCH HÀNG */}
             <div className="rounded-2xl border border-slate-200 bg-white shadow-card">
               <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-4">
@@ -91,6 +84,12 @@ export default function OrderDetail() {
                 <OrderInfoCard order={currentOrder} />
               </div>
             </div>
+
+            {/* CẬP NHẬT TRẠNG THÁI — select theo loại đơn */}
+            <OrderStatusControl
+              order={currentOrder}
+              onStatusChange={(orderId, status) => changeOrderStatus(orderId, status)}
+            />
 
             {/* THANH TOÁN */}
             <div className="rounded-2xl border border-slate-200 bg-white shadow-card">
