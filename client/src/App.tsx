@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { Routes, Route, Navigate, Outlet, useNavigate } from 'react-router-dom';
 import LayoutAdmin from './layouts/LayoutAdmin';
 import LayoutBlank from './layouts/LayoutBlank';
 import LayoutSuperAdmin from './layouts/LayoutSuperAdmin';
@@ -21,7 +21,7 @@ import CartPage from './pages/Customer/cart';
 import KitchenOrder from './pages/Admin/KdsPage/kitchen';
 import { useSocket } from './hooks/use-socket';
 import { useActiveRestaurantId } from './hooks/use-active-restaurant';
-import { LoadingProvider } from './components/LoadingOverlay';
+import { LoadingProvider, useGlobalLoading } from './components/LoadingOverlay';
 import ReservationCustomerPage from './pages/Customer/reservation';
 import AccountLayout from './pages/Customer/account/account-layout';
 import AccountProfile from './pages/Customer/account/profile';
@@ -150,10 +150,57 @@ const CustomerRoute = ({
   return <Outlet />;
 };
 
+/** Thời gian hiển thị màn chuyển cảnh trước khi điều hướng về trang chủ theo role (ms). */
+const GUEST_REDIRECT_DELAY_MS = 800;
+
+const guestRedirectPath = (userRole: string) => {
+  switch (userRole) {
+    case 'super-admin':
+      return '/super-admin';
+    case 'admin':
+      return '/admin';
+    case 'manager':
+      return '/manager';
+    case 'staff':
+      return '/staff';
+    default:
+      return '/';
+  }
+};
+
+/**
+ * Màn chuyển cảnh khi đã đăng nhập mà vào lại trang auth (vd: bấm "Đăng nhập" từ landing):
+ * phủ LoadingOverlay lên trang auth trong một nhịp rồi hẳn điều hướng về trang chủ theo role,
+ * tránh cảm giác "nhảy" thẳng vào app.
+ * (admin chưa có nhà hàng vẫn được chuỗi ProtectedRoute đưa sang /onboarding)
+ */
+const GuestRedirectScreen = ({ userRole }: { userRole: string }) => {
+  const { showLoading } = useGlobalLoading();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Hiện overlay qua timeout (không gọi setState đồng bộ trong effect body).
+    const showTimer = setTimeout(
+      () => showLoading('Phiên đăng nhập còn hiệu lực, đang đưa bạn vào hệ thống...'),
+      0,
+    );
+    const navTimer = setTimeout(() => {
+      navigate(guestRedirectPath(userRole), { replace: true });
+    }, GUEST_REDIRECT_DELAY_MS);
+    return () => {
+      clearTimeout(showTimer);
+      clearTimeout(navTimer);
+    };
+  }, [userRole, navigate, showLoading]);
+
+  return null;
+};
+
 /**
  * Guard trang auth (login/register) — chỉ dành cho khách CHƯA đăng nhập.
- * Đã đăng nhập mà vào lại trang này thì điều hướng ngay về trang chủ theo role
- * (admin chưa có nhà hàng vẫn được chuỗi ProtectedRoute đưa sang /onboarding).
+ * Đã đăng nhập mà vào lại trang này thì giữ nguyên trang auth bên dưới, phủ overlay chuyển cảnh
+ * một nhịp rồi mới điều hướng về trang chủ theo role (tránh cảm giác "nhảy" thẳng vào app
+ * khi bấm Đăng nhập từ landing trong khi phiên đăng nhập vẫn còn hiệu lực).
  */
 const GuestRoute = ({
   children,
@@ -165,11 +212,14 @@ const GuestRoute = ({
   userRole: string;
 }) => {
   if (!isAuthenticated) return <>{children}</>;
-  if (userRole === 'super-admin') return <Navigate to="/super-admin" replace />;
-  if (userRole === 'admin') return <Navigate to="/admin" replace />;
-  if (userRole === 'manager') return <Navigate to="/manager" replace />;
-  if (userRole === 'staff') return <Navigate to="/staff" replace />;
-  return <Navigate to="/" replace />;
+
+  // Đã có phiên (user + refresh token còn hiệu lực) → chờ một nhịp cho tự nhiên rồi hẳn điều hướng.
+  return (
+    <LoadingProvider spinnerColor="text-cerulean-blue-600">
+      <GuestRedirectScreen userRole={userRole} />
+      {children}
+    </LoadingProvider>
+  );
 };
 
 export default function App() {
