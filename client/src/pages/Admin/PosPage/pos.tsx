@@ -11,6 +11,7 @@ import { useOrder } from '@/hooks/use-order';
 import { useActiveRestaurantId } from '@/hooks/use-active-restaurant';
 import { useAuth } from '@/hooks/use-auth';
 import { PaymentModal } from '../components/PaymentModal';
+import PosItemOptionsModal from '../components/PosItemOptionsModal';
 import PosBill from '../components/PosBill';
 import {
   Drawer,
@@ -179,6 +180,8 @@ export default function POS() {
   const [selectedTable, setSelectedTable] = useState<ITable | null>(null);
   const [orderIdSelected, setOrderIdSelected] = useState<string | null>(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  // Món đang mở modal chọn option (món có optionGroups phải chọn đủ trước khi thêm)
+  const [optionItem, setOptionItem] = useState<IMenuItem | null>(null);
 
   // STATE: Quản lý ẩn/hiện giỏ hàng trên Mobile
   const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
@@ -248,7 +251,11 @@ export default function POS() {
   // ==========================================
   // LOGIC XỬ LÝ GIỎ HÀNG
   // ==========================================
-  const handleAddItem = (selectedItem: IMenuItem) => {
+  // Thêm món vào giỏ — toppings (từ modal option) tính thẳng vào giá dòng, khớp cách server snapshot.
+  const addItemToCart = (
+    selectedItem: IMenuItem,
+    toppings: { name: string; price: number }[] = [],
+  ) => {
     setOrderItems((prevItems) => {
       const existingItemIndex = prevItems.findIndex((item) => {
         const itemId =
@@ -256,7 +263,7 @@ export default function POS() {
         return itemId === selectedItem._id;
       });
 
-      if (existingItemIndex >= 0) {
+      if (toppings.length === 0 && existingItemIndex >= 0) {
         const updatedItems = [...prevItems];
         const currentItem = updatedItems[existingItemIndex];
         updatedItems[existingItemIndex] = {
@@ -264,25 +271,42 @@ export default function POS() {
           quantity: currentItem.quantity + 1,
         };
         return updatedItems;
-      } else {
-        const newItem = {
-          menuItem: selectedItem._id as string,
-          nameSnapshot: selectedItem.name,
-          priceSnapshot: selectedItem.price,
-          quantity: 1,
-        } as IOrderItem;
-
-        return [...prevItems, newItem];
       }
+
+      const toppingsPrice = toppings.reduce((sum, t) => sum + t.price, 0);
+      const newItem = {
+        // Mỗi dòng cần định danh riêng: cùng món nhưng khác topping phải là dòng độc lập
+        lineId:
+          typeof crypto !== 'undefined' && 'randomUUID' in crypto
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        menuItem: selectedItem._id as string,
+        nameSnapshot: selectedItem.name,
+        priceSnapshot: selectedItem.price + toppingsPrice,
+        quantity: 1,
+        ...(toppings.length > 0 ? { toppings } : {}),
+      } as IOrderItem;
+
+      return [...prevItems, newItem];
     });
   };
 
-  const handleUpdateQuantity = (id: string | number, delta: number) => {
+  const handleAddItem = (selectedItem: IMenuItem) => {
+    // Món có nhóm lựa chọn → bắt buộc mở modal chọn option rồi hẳn thêm vào giỏ
+    const hasOptions = (selectedItem.optionGroups || []).some(
+      (group) => (group.choices?.length ?? 0) > 0,
+    );
+    if (hasOptions) {
+      setOptionItem(selectedItem);
+      return;
+    }
+    addItemToCart(selectedItem);
+  };
+
+  const handleUpdateQuantity = (lineId: string | number, delta: number) => {
     setOrderItems((prev) =>
       prev.map((item) => {
-        const itemId =
-          typeof item.menuItem === 'object' ? (item.menuItem as any)._id : item.menuItem;
-        if (itemId === id) {
+        if (item.lineId === lineId) {
           const newQty = Math.max(1, item.quantity + delta);
           return { ...item, quantity: newQty };
         }
@@ -291,14 +315,8 @@ export default function POS() {
     );
   };
 
-  const handleRemoveItem = (id: string | number) => {
-    setOrderItems((prev) =>
-      prev.filter((item) => {
-        const itemId =
-          typeof item.menuItem === 'object' ? (item.menuItem as any)._id : item.menuItem;
-        return itemId !== id;
-      }),
-    );
+  const handleRemoveItem = (lineId: string | number) => {
+    setOrderItems((prev) => prev.filter((item) => item.lineId !== lineId));
   };
 
   useEffect(() => {
@@ -468,6 +486,22 @@ export default function POS() {
           </div>
         </DrawerContent>
       </Drawer>
+
+      {/* Modal chọn option cho món có optionGroups — chọn xong mới thêm vào giỏ */}
+      {optionItem && (
+        <PosItemOptionsModal
+          key={optionItem._id}
+          open
+          item={optionItem}
+          onOpenChange={(o) => {
+            if (!o) setOptionItem(null);
+          }}
+          onConfirm={(item, toppings) => {
+            addItemToCart(item, toppings);
+            setOptionItem(null);
+          }}
+        />
+      )}
 
       {/* Modal thanh toán */}
       <PaymentModal

@@ -43,6 +43,8 @@ export interface IOrder {
 
 export interface IOrderItem {
   _id?: string;
+  /** Client-only: định danh dòng trong giỏ POS — cùng món nhưng khác topping là dòng riêng. */
+  lineId?: string;
   order?: IOrder;
   menuItem: string;
   nameSnapshot: string;

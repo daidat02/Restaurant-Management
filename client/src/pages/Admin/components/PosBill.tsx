@@ -103,7 +103,8 @@ interface PosBillItemProps {
 }
 
 const PosBillItem = ({ item, onIncrease, onDecrease, onRemove }: PosBillItemProps) => {
-  const id = extractId(item.menuItem);
+  // Mỗi dòng có lineId riêng — cùng món khác topping là dòng độc lập
+  const id = item.lineId ?? extractId(item.menuItem);
   const { nameSnapshot, priceSnapshot, quantity, note } = item;
 
   return (
@@ -267,6 +268,7 @@ const PosBill = ({
           quantity: item.quantity,
           priceSnapshot: item.priceSnapshot,
           nameSnapshot: item.nameSnapshot,
+          ...(item.toppings?.length ? { toppings: item.toppings } : {}),
         }));
 
         await addItemToOrder({ orderId: existingOrderId, items: itemsToSend });
@@ -277,6 +279,7 @@ const PosBill = ({
           quantity: item.quantity,
           priceSnapshot: item.priceSnapshot,
           nameSnapshot: item.nameSnapshot,
+          ...(item.toppings?.length ? { toppings: item.toppings } : {}),
         }));
 
         const createPayload = {
@@ -338,15 +341,16 @@ const PosBill = ({
           </div>
         ) : (
           <div className="flex flex-col gap-2">
-            {orderItems.map((item) => {
-              const itemId = extractId(item.menuItem);
+            {orderItems.map((item, index) => {
+              // Key theo dòng (lineId) — không dùng menuItem vì cùng món khác topping trùng key
+              const lineKey = item.lineId || `${extractId(item.menuItem)}-${index}`;
               return (
                 <PosBillItem
-                  key={itemId}
+                  key={lineKey}
                   item={item}
-                  onIncrease={() => onUpdateQuantity?.(itemId, 1)}
-                  onDecrease={() => onUpdateQuantity?.(itemId, -1)}
-                  onRemove={() => onRemoveItem?.(itemId)}
+                  onIncrease={() => onUpdateQuantity?.(item.lineId ?? extractId(item.menuItem), 1)}
+                  onDecrease={() => onUpdateQuantity?.(item.lineId ?? extractId(item.menuItem), -1)}
+                  onRemove={() => onRemoveItem?.(item.lineId ?? extractId(item.menuItem))}
                 />
               );
             })}
