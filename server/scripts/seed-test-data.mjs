@@ -124,7 +124,7 @@ await db.collection('restaurants').insertMany([
   {
     _id: ID.tenantX,
     name: 'NhamNhi Cơ Sở 1',
-    email: 'cs1@nhamnhi.vn',
+    email: 'cs1@nhahangos.me',
     status: 'active',
     ownerId: ID.adminX,
     subscription: 'active',
@@ -137,7 +137,7 @@ await db.collection('restaurants').insertMany([
   {
     _id: ID.tenantY,
     name: 'NhamNhi Cơ Sở 2',
-    email: 'cs2@nhamnhi.vn',
+    email: 'cs2@nhahangos.me',
     status: 'active',
     ownerId: ID.adminX,
     subscription: 'active',
@@ -150,7 +150,7 @@ await db.collection('restaurants').insertMany([
   {
     _id: ID.tenantSubTrial,
     name: 'NhamNhi Sub Trial',
-    email: 'sub.trial@nhamnhi.vn',
+    email: 'sub.trial@nhahangos.me',
     status: 'active',
     ownerId: ID.ownerSub,
     subscription: 'trial',
@@ -163,7 +163,7 @@ await db.collection('restaurants').insertMany([
   {
     _id: ID.tenantSubExpiring,
     name: 'NhamNhi Sub Sắp Hết Hạn',
-    email: 'sub.expiring@nhamnhi.vn',
+    email: 'sub.expiring@nhahangos.me',
     status: 'active',
     ownerId: ID.ownerSub,
     subscription: 'trial',
@@ -176,7 +176,7 @@ await db.collection('restaurants').insertMany([
   {
     _id: ID.tenantSubLocked,
     name: 'NhamNhi Sub Bị Khoá',
-    email: 'sub.locked@nhamnhi.vn',
+    email: 'sub.locked@nhahangos.me',
     status: 'active',
     ownerId: ID.ownerSub,
     subscription: 'locked',
@@ -191,13 +191,13 @@ console.log('[seed-test-data] restaurants OK (5)');
 
 // ─── 2. NGƯỜI DÙNG ──────────────────────────────────────────────────────────
 await db.collection('users').insertMany([
-  { _id: ID.adminX, name: 'Admin Test', email: 'admin.test@nhamnhi.vn', role: 'admin', restaurantIds: [ID.tenantX, ID.tenantY], password: hashed, isActive: true, notificationEnabled: true, createdAt: now, updatedAt: now },
-  { _id: ID.managerX, name: 'Manager Test', email: 'manager.test@nhamnhi.vn', role: 'manager', restaurantIds: [ID.tenantX], password: hashed, isActive: true, notificationEnabled: true, createdAt: now, updatedAt: now },
-  { _id: ID.staffX, name: 'Staff Test', email: 'staff.test@nhamnhi.vn', role: 'staff', restaurantIds: [ID.tenantX], password: hashed, isActive: true, notificationEnabled: true, createdAt: now, updatedAt: now },
-  { _id: ID.staffY, name: 'Staff Y Test', email: 'staffY.test@nhamnhi.vn', role: 'staff', restaurantIds: [ID.tenantY], password: hashed, isActive: true, notificationEnabled: true, createdAt: now, updatedAt: now },
-  { _id: ID.customer, name: 'Customer Test', email: 'customer.test@nhamnhi.vn', role: 'customer', restaurantIds: [], password: hashed, isActive: true, notificationEnabled: true, createdAt: now, updatedAt: now },
-  { _id: ID.superAdmin, name: 'Super Admin', email: 'super.admin@nhamnhi.vn', role: 'super-admin', restaurantIds: [], password: hashed, isActive: true, notificationEnabled: true, createdAt: now, updatedAt: now },
-  { _id: ID.ownerSub, name: 'Owner Sub Test', email: 'owner.sub@nhamnhi.vn', role: 'admin', restaurantIds: [ID.tenantSubTrial, ID.tenantSubExpiring, ID.tenantSubLocked], password: hashed, isActive: true, notificationEnabled: true, createdAt: now, updatedAt: now },
+  { _id: ID.adminX, name: 'Admin Test', email: 'admin.test@nhahangos.me', role: 'admin', restaurantIds: [ID.tenantX, ID.tenantY], password: hashed, isActive: true, notificationEnabled: true, createdAt: now, updatedAt: now },
+  { _id: ID.managerX, name: 'Manager Test', email: 'manager.test@nhahangos.me', role: 'manager', restaurantIds: [ID.tenantX], password: hashed, isActive: true, notificationEnabled: true, createdAt: now, updatedAt: now },
+  { _id: ID.staffX, name: 'Staff Test', email: 'staff.test@nhahangos.me', role: 'staff', restaurantIds: [ID.tenantX], password: hashed, isActive: true, notificationEnabled: true, createdAt: now, updatedAt: now },
+  { _id: ID.staffY, name: 'Staff Y Test', email: 'staffY.test@nhahangos.me', role: 'staff', restaurantIds: [ID.tenantY], password: hashed, isActive: true, notificationEnabled: true, createdAt: now, updatedAt: now },
+  { _id: ID.customer, name: 'Customer Test', email: 'customer.test@nhahangos.me', role: 'customer', restaurantIds: [], password: hashed, isActive: true, notificationEnabled: true, createdAt: now, updatedAt: now },
+  { _id: ID.superAdmin, name: 'Super Admin', email: 'super.admin@nhahangos.me', role: 'super-admin', restaurantIds: [], password: hashed, isActive: true, notificationEnabled: true, createdAt: now, updatedAt: now },
+  { _id: ID.ownerSub, name: 'Owner Sub Test', email: 'owner.sub@nhahangos.me', role: 'admin', restaurantIds: [ID.tenantSubTrial, ID.tenantSubExpiring, ID.tenantSubLocked], password: hashed, isActive: true, notificationEnabled: true, createdAt: now, updatedAt: now },
 ]);
 console.log('[seed-test-data] users OK (7)');
 
@@ -340,13 +340,13 @@ await db.collection('orders').updateMany(
 );
 
 console.log('[seed-test-data] DONE');
-console.log('  super-admin : super.admin@nhamnhi.vn / Test@NhamNhi2026');
-console.log('  admin (2 CS) : admin.test@nhamnhi.vn   / Test@NhamNhi2026');
-console.log('  manager      : manager.test@nhamnhi.vn  / Test@NhamNhi2026');
-console.log('  staff        : staff.test@nhamnhi.vn    / Test@NhamNhi2026');
-console.log('  staff Y      : staffY.test@nhamnhi.vn   / Test@NhamNhi2026');
-console.log('  customer     : customer.test@nhamnhi.vn / Test@NhamNhi2026');
-console.log('  owner (3 sub): owner.sub@nhamnhi.vn     / Test@NhamNhi2026');
+console.log('  super-admin : super.admin@nhahangos.me / Test@NhamNhi2026');
+console.log('  admin (2 CS) : admin.test@nhahangos.me   / Test@NhamNhi2026');
+console.log('  manager      : manager.test@nhahangos.me  / Test@NhamNhi2026');
+console.log('  staff        : staff.test@nhahangos.me    / Test@NhamNhi2026');
+console.log('  staff Y      : staffY.test@nhahangos.me   / Test@NhamNhi2026');
+console.log('  customer     : customer.test@nhahangos.me / Test@NhamNhi2026');
+console.log('  owner (3 sub): owner.sub@nhahangos.me     / Test@NhamNhi2026');
 console.log(`  kitchen code CS1=456734  CS2=553572`);
 
 await mongoose.disconnect();

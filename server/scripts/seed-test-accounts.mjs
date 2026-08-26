@@ -95,39 +95,39 @@ async function upsertUser(name, email, role, restaurantIds, extra = {}) {
 // Chủ admin.test: 2 cơ sở đang active (test tenant switcher + multi-tenant)
 const tenantX = await upsertRestaurant(
   'NhamNhi TEST Cơ Sở 1',
-  'test.cs1@nhamnhi.vn',
+  'test.cs1@nhahangos.me',
   { subscription: 'active', paidUntil: new Date(now.getTime() + 30 * DAY) },
 );
 const tenantY = await upsertRestaurant(
   'NhamNhi TEST Cơ Sở 2',
-  'test.cs2@nhamnhi.vn',
+  'test.cs2@nhahangos.me',
   { subscription: 'active', paidUntil: new Date(now.getTime() + 30 * DAY) },
 );
 // Chủ owner.sub: 3 nhà hàng ở 3 trạng thái subscription (test banner/billing)
 const tenantSubTrial = await upsertRestaurant(
   'NhamNhi TEST Sub Trial',
-  'test.sub.trial@nhamnhi.vn',
+  'test.sub.trial@nhahangos.me',
   { subscription: 'trial', trialEndsAt: new Date(now.getTime() + 10 * DAY) },
 );
 const tenantSubExpiring = await upsertRestaurant(
   'NhamNhi TEST Sub Sắp Hết Hạn',
-  'test.sub.expiring@nhamnhi.vn',
+  'test.sub.expiring@nhahangos.me',
   { subscription: 'trial', trialEndsAt: new Date(now.getTime() + 3 * DAY) },
 );
 const tenantSubLocked = await upsertRestaurant(
   'NhamNhi TEST Sub Bị Khoá',
-  'test.sub.locked@nhamnhi.vn',
+  'test.sub.locked@nhahangos.me',
   { subscription: 'locked', paidUntil: new Date(now.getTime() - 5 * DAY) },
 );
 
 // ─── 2. NGƯỜI DÙNG (từng role) ─────────────────────────────────────────────
-const idSuperAdmin = await upsertUser('Super Admin Test', 'super.admin@nhamnhi.vn', 'super-admin', []);
-const idAdmin = await upsertUser('Admin Test', 'admin.test@nhamnhi.vn', 'admin', [tenantX, tenantY]);
-const idManager = await upsertUser('Manager Test', 'manager.test@nhamnhi.vn', 'manager', [tenantX]);
-const idStaff = await upsertUser('Staff Test', 'staff.test@nhamnhi.vn', 'staff', [tenantX]);
-const idCustomer = await upsertUser('Customer Test', 'customer.test@nhamnhi.vn', 'customer', []);
+const idSuperAdmin = await upsertUser('Super Admin Test', 'super.admin@nhahangos.me', 'super-admin', []);
+const idAdmin = await upsertUser('Admin Test', 'admin.test@nhahangos.me', 'admin', [tenantX, tenantY]);
+const idManager = await upsertUser('Manager Test', 'manager.test@nhahangos.me', 'manager', [tenantX]);
+const idStaff = await upsertUser('Staff Test', 'staff.test@nhahangos.me', 'staff', [tenantX]);
+const idCustomer = await upsertUser('Customer Test', 'customer.test@nhahangos.me', 'customer', []);
 // Chủ có 3 nhà hàng subscription để test trial / sắp hết hạn / bị khoá
-const idOwnerSub = await upsertUser('Owner Sub Test', 'owner.sub@nhamnhi.vn', 'admin', [
+const idOwnerSub = await upsertUser('Owner Sub Test', 'owner.sub@nhahangos.me', 'admin', [
   tenantSubTrial,
   tenantSubExpiring,
   tenantSubLocked,
@@ -198,12 +198,12 @@ for (const [name, price] of [['Cà phê sữa', 35000], ['Trà đào', 40000]]) 
 }
 
 console.log('[seed-test-accounts] DONE');
-console.log('  super-admin : super.admin@nhamnhi.vn / Test@NhamNhi2026');
-console.log('  admin (2 CS) : admin.test@nhamnhi.vn   / Test@NhamNhi2026');
-console.log('  manager      : manager.test@nhamnhi.vn  / Test@NhamNhi2026');
-console.log('  staff        : staff.test@nhamnhi.vn    / Test@NhamNhi2026');
-console.log('  customer     : customer.test@nhamnhi.vn / Test@NhamNhi2026');
-console.log('  owner (3 sub): owner.sub@nhamnhi.vn     / Test@NhamNhi2026');
+console.log('  super-admin : super.admin@nhahangos.me / Test@NhamNhi2026');
+console.log('  admin (2 CS) : admin.test@nhahangos.me   / Test@NhamNhi2026');
+console.log('  manager      : manager.test@nhahangos.me  / Test@NhamNhi2026');
+console.log('  staff        : staff.test@nhahangos.me    / Test@NhamNhi2026');
+console.log('  customer     : customer.test@nhahangos.me / Test@NhamNhi2026');
+console.log('  owner (3 sub): owner.sub@nhahangos.me     / Test@NhamNhi2026');
 console.log(`  kitchen code CS1=456734  CS2=553572`);
 console.log(`  id admin=${idAdmin} manager=${idManager} staff=${idStaff} superAdmin=${idSuperAdmin} customer=${idCustomer} ownerSub=${idOwnerSub}`);
 

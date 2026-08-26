@@ -67,12 +67,12 @@ export const KITCHEN_CODE_X = '456734';
 export const KITCHEN_CODE_Y = '553572';
 
 export const USERS = {
-  admin: { email: 'admin.test@nhamnhi.vn', name: 'Admin Test' },
-  manager: { email: 'manager.test@nhamnhi.vn', name: 'Manager Test' },
-  staff: { email: 'staff.test@nhamnhi.vn', name: 'Staff Test' },
-  staffY: { email: 'staffY.test@nhamnhi.vn', name: 'Staff Y Test' },
-  customer: { email: 'customer.test@nhamnhi.vn', name: 'Customer Test' },
-  superAdmin: { email: 'super.admin@nhamnhi.vn', name: 'Super Admin' },
+  admin: { email: 'admin.test@nhahangos.me', name: 'Admin Test' },
+  manager: { email: 'manager.test@nhahangos.me', name: 'Manager Test' },
+  staff: { email: 'staff.test@nhahangos.me', name: 'Staff Test' },
+  staffY: { email: 'staffY.test@nhahangos.me', name: 'Staff Y Test' },
+  customer: { email: 'customer.test@nhahangos.me', name: 'Customer Test' },
+  superAdmin: { email: 'super.admin@nhahangos.me', name: 'Super Admin' },
 } as const;
 
 /** Trang đăng nhập (route riêng — auth modal trên landing đã bị gỡ ở ticket auth-pages). */

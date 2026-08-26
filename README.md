@@ -13,14 +13,14 @@ Mật khẩu dùng chung: `Test@NhamNhi2026` — seed bằng `cd server && node 
 
 | Role                         | Email                         | Ghi chú                                                                                        |
 | ---------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------- |
-| Super Admin                  | `super.admin@nhamnhi.vn`      | Nền tảng: tenants, pricing (4 gói + featureKeys), transactions, audit, **gateway PayOS/VNPay** |
-| Admin — Gói **Pro**          | `admin.test@nhamnhi.vn`       | `/admin/*` (quản toàn chuỗi), billing & subscription, 16 bàn · 50 món · KDS                    |
-| Admin — Gói **Cơ Bản**       | `admin.basic@nhamnhi.vn`      | 12 bàn · 22 món — không KDS / báo cáo nâng cao                                                 |
-| Admin — Gói **Miễn Phí**     | `admin.free@nhamnhi.vn`       | 5 bàn · 12 món — test plan gate (bàn 6/món 31/NV 3 bị chặn)                                    |
-| Admin — Gói **Doanh Nghiệp** | `admin.enterprise@nhamnhi.vn` | 20 bàn · 50 món — không giới hạn                                                               |
-| Manager                      | `manager.test@nhamnhi.vn`     | `/manager/*`: menu, POS, bàn, đặt bàn, nhân viên, báo cáo                                      |
-| Staff                        | `staff.test@nhamnhi.vn`       | POS, sơ đồ bàn, đơn hàng, đặt chỗ                                                              |
-| Customer                     | `customer.test@nhamnhi.vn`    | Login khách, lịch sử đơn, đặt chỗ                                                              |
+| Super Admin                  | `super.admin@nhahangos.me`      | Nền tảng: tenants, pricing (4 gói + featureKeys), transactions, audit, **gateway PayOS/VNPay** |
+| Admin — Gói **Pro**          | `admin.test@nhahangos.me`       | `/admin/*` (quản toàn chuỗi), billing & subscription, 16 bàn · 50 món · KDS                    |
+| Admin — Gói **Cơ Bản**       | `admin.basic@nhahangos.me`      | 12 bàn · 22 món — không KDS / báo cáo nâng cao                                                 |
+| Admin — Gói **Miễn Phí**     | `admin.free@nhahangos.me`       | 5 bàn · 12 món — test plan gate (bàn 6/món 31/NV 3 bị chặn)                                    |
+| Admin — Gói **Doanh Nghiệp** | `admin.enterprise@nhahangos.me` | 20 bàn · 50 món — không giới hạn                                                               |
+| Manager                      | `manager.test@nhahangos.me`     | `/manager/*`: menu, POS, bàn, đặt bàn, nhân viên, báo cáo                                      |
+| Staff                        | `staff.test@nhahangos.me`       | POS, sơ đồ bàn, đơn hàng, đặt chỗ                                                              |
+| Customer                     | `customer.test@nhahangos.me`    | Login khách, lịch sử đơn, đặt chỗ                                                              |
 
 **Mã nhà bếp (KDS):** Pro `456734` · Cơ Bản `553572` · Miễn Phí `653780` · Doanh Nghiệp `772915`. Mật khẩu dùng chung: `Test@NhamNhi2026`. Seed lại toàn bộ data demo: `node server/scripts/seed-restaurant-demo.mjs`. Reset super-admin: `SUPER_ADMIN_PASSWORD='...' node server/scripts/reset-super-admin.mjs`.
 

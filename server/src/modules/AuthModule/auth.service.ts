@@ -726,8 +726,9 @@ class AuthService {
       // Nhà hàng chính + thời điểm khởi tạo mật khẩu (nhân sự mới được admin/manager tạo)
       primaryRestaurantId: restaurantIds[0] as unknown as ObjectId,
       passwordChangedAt: new Date(),
-      // Nhân sự do admin/manager tạo không qua xác thực email OTP → coi như đã xác thực.
+      // Nhân sự do admin/manager tạo không qua xác thực email OTP → xác thực trực tiếp.
       emailVerified: true,
+      emailVerifiedAt: new Date(),
       // Token đặt mật khẩu (dùng cho email account-created; đặt trước để user không phải chờ).
       resetPasswordToken: resetToken,
       resetPasswordExpires: new Date(Date.now() + RESET_PASSWORD_TTL_MS),

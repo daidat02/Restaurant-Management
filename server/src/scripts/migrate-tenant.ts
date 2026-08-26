@@ -21,7 +21,7 @@ import bcrypt from 'bcrypt';
 import DB_Connection from '../models/DB_Connection.js';
 
 const TENANT_NHA_MN_NHI = '69fccba996a14809070b9ef2';
-const SUPER_ADMIN_EMAIL = 'super.admin@nhamnhi.vn';
+const SUPER_ADMIN_EMAIL = 'super.admin@nhahangos.me';
 const SUPER_ADMIN_PASSWORD = 'Super@NhamNhi2026';
 const SUPER_ADMIN_NAME = 'Super Admin';
 

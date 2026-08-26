@@ -8,9 +8,9 @@
 
 | Thành phần | URL | Ghi chú |
 |---|---|---|
-| Website khách hàng + Panel quản trị | `https://nhamnhitidi.vercel.app` | Client (Vercel) |
-| API Server | `https://nhamnhitidi-server.onrender.com` | Backend (Render) |
-| Màn hình nhà bếp (KDS) | `https://nhamnhitidi.vercel.app/kds` | Vào bằng mã nhà bếp (không cần tài khoản) |
+| Website khách hàng + Panel quản trị | `https://www.nhahangos.me` | Client (Vercel) |
+| API Server | `https://api.nhahangos.me` | Backend (Render) |
+| Màn hình nhà bếp (KDS) | `https://www.nhahangos.me/kds` | Vào bằng mã nhà bếp (không cần tài khoản) |
 | Cơ sở dữ liệu | MongoDB Atlas (cloud) | Tài khoản test đã seed + verify login trên prod |
 
 Kiến trúc: **React (Vite) + Node/Express + MongoDB + Socket.IO (real-time)**. Hệ thống **đa nhà hàng (multi-tenant)**: một tài khoản chủ (role `admin`) sở hữu nhiều chi nhánh (Cơ sở). **Từ T04 trở đi: admin vào thẳng `/admin` và quản toàn chuỗi — màn hình "Chọn cơ sở" đã bị gỡ.** Mô hình kinh doanh: **4 gói dịch vụ** — **Miễn Phí** (nhà hàng đầu của chủ), **Cơ Bản / Pro / Doanh Nghiệp** (trả phí theo chu kỳ 1/3/6/12 tháng).
@@ -44,15 +44,15 @@ Quyền chi tiết (sau redesign T01–T10):
 
 | Role | Email | Nhà hàng (gói) | Mục đích test |
 |---|---|---|---|
-| **super-admin** | `super.admin@nhamnhi.vn` | — | Dashboard KPI, tenants, pricing, transactions, audit, khoá/mở chủ |
-| **admin — Gói Pro** | `admin.test@nhamnhi.vn` | `NhamNhi — Cơ Sở Chính` (Pro) | Full tính năng: 16 bàn · 7 danh mục · 50 món · KDS · báo cáo nâng cao |
-| **admin — Gói Cơ Bản** | `admin.basic@nhamnhi.vn` | `NhamNhi — Gói Cơ Bản` (Basic) | 12 bàn · 5 danh mục · 22 món; **không** KDS/báo cáo nâng cao |
-| **admin — Gói Miễn Phí** | `admin.free@nhamnhi.vn` | `NhamNhi — Gói Miễn Phí` (Free) | 5 bàn · 3 danh mục · 12 món · 1 NV — **test plan gate** (bàn 6/món 31/NV 3 bị chặn) |
-| **admin — Gói Doanh Nghiệp** | `admin.enterprise@nhamnhi.vn` | `NhamNhi — Gói Doanh Nghiệp` (Enterprise) | 20 bàn · 7 danh mục · 50 món · không giới hạn |
-| **manager** | `manager.test@nhamnhi.vn` | `NhamNhi — Cơ Sở Chính` | `/manager/*`: menu, POS, bàn, đặt bàn, nhân viên |
-| **manager 2** | `manager2.test@nhamnhi.vn` | `NhamNhi — Cơ Sở Chính` | Thu ngân |
-| **staff** | `staff.test@nhamnhi.vn` | `NhamNhi — Cơ Sở Chính` | POS, sơ đồ bàn, đơn hàng |
-| **customer** | `customer.test@nhamnhi.vn` | — | Đăng nhập khách, lịch sử đơn, đặt bàn |
+| **super-admin** | `super.admin@nhahangos.me` | — | Dashboard KPI, tenants, pricing, transactions, audit, khoá/mở chủ |
+| **admin — Gói Pro** | `admin.test@nhahangos.me` | `NhamNhi — Cơ Sở Chính` (Pro) | Full tính năng: 16 bàn · 7 danh mục · 50 món · KDS · báo cáo nâng cao |
+| **admin — Gói Cơ Bản** | `admin.basic@nhahangos.me` | `NhamNhi — Gói Cơ Bản` (Basic) | 12 bàn · 5 danh mục · 22 món; **không** KDS/báo cáo nâng cao |
+| **admin — Gói Miễn Phí** | `admin.free@nhahangos.me` | `NhamNhi — Gói Miễn Phí` (Free) | 5 bàn · 3 danh mục · 12 món · 1 NV — **test plan gate** (bàn 6/món 31/NV 3 bị chặn) |
+| **admin — Gói Doanh Nghiệp** | `admin.enterprise@nhahangos.me` | `NhamNhi — Gói Doanh Nghiệp` (Enterprise) | 20 bàn · 7 danh mục · 50 món · không giới hạn |
+| **manager** | `manager.test@nhahangos.me` | `NhamNhi — Cơ Sở Chính` | `/manager/*`: menu, POS, bàn, đặt bàn, nhân viên |
+| **manager 2** | `manager2.test@nhahangos.me` | `NhamNhi — Cơ Sở Chính` | Thu ngân |
+| **staff** | `staff.test@nhahangos.me` | `NhamNhi — Cơ Sở Chính` | POS, sơ đồ bàn, đơn hàng |
+| **customer** | `customer.test@nhahangos.me` | — | Đăng nhập khách, lịch sử đơn, đặt bàn |
 
 **Mã nhà bếp (KDS):** Pro `456734` · Cơ Bản `553572` · Miễn Phí `653780` · Doanh Nghiệp `772915`.
 
@@ -77,7 +77,7 @@ Script sẽ:
 
 ### 4.1. Khách đặt món tại bàn (luồng chính — QR scan-to-order)
 
-1. Khách quét mã QR tại bàn → mở `https://nhamnhitidi.vercel.app/scan-to-order?restaurantId=<id>&tableId=<id bàn>` → thấy **"Bàn số: XXX"**.
+1. Khách quét mã QR tại bàn → mở `https://www.nhahangos.me/scan-to-order?restaurantId=<id>&tableId=<id bàn>` → thấy **"Bàn số: XXX"**.
 2. Chọn danh mục / món → bấm **"Add +"** để thêm vào giỏ.
 3. Bấm **"Xem giỏ hàng"** → sheet giỏ: chỉnh số lượng, xem tạm tính.
 4. Bấm **"Xác nhận gửi đơn Bàn XXX"** → tạo đơn **tại quán (dine-in)**, thành công `201`.
@@ -87,7 +87,7 @@ Script sẽ:
 
 ### 4.2. Màn hình nhà bếp (KDS)
 
-1. Vào `https://nhamnhitidi.vercel.app/kds` → nhập **mã nhà bếp** (xem mục 3 — mỗi gói demo có mã riêng).
+1. Vào `https://www.nhahangos.me/kds` → nhập **mã nhà bếp** (xem mục 3 — mỗi gói demo có mã riêng).
 2. Mã do **admin/manager cấp** tại Cài đặt nhà hàng (`/manager` → Cài Đặt) — nút tạo mã mới (mã cũ vô hiệu).
 3. Bếp thấy danh sách đơn active theo tab: **Tất cả / Tại quán / Giao hàng / Mang về**, kèm số bàn, mã đơn, thời gian.
 4. **Bấm 1 lần vào món** → "Chờ" → "Đang nấu"; **bấm lần 2** → hoàn thành. Đơn hết món active sẽ **tự ẩn** khỏi màn hình.
@@ -127,20 +127,37 @@ Script sẽ:
 - **Audit log** (`/super-admin/audit`): nhật ký sự kiện subscription/thanh toán/khoá.
 - Không còn màn hình vận hành nhà hàng (menu/đơn/bàn) — đã loại bỏ khi chuyển sang mô hình SaaS.
 
-### 4.7. Plan gating theo gói (bàn / món / nhân viên / tính năng)
+### 4.7. Plan gating theo gói (bàn / món / nhân viên / đơn mỗi ngày / nhóm chat / tính năng)
 
-Hệ thống gate ở **2 tầng**: server (`plan-gate.service.ts` — `assertLimit`/`assertFeature`, lưới cuối) + client (`hooks/use-plan.ts` — ẩn menu, chặn nút, upsell). Giới hạn mặc định theo gói (super-admin chỉnh tại `/super-admin/pricing`):
+Hệ thống gate ở **2 tầng**: server (`plan-gate.service.ts` — `assertLimit`/`assertFeature`, lưới cuối) + client (`hooks/use-plan.ts` — ẩn menu, chặn nút, upsell). Giới hạn & tính năng theo gói (super-admin chỉnh tại `/super-admin/pricing`; nguồn thật là `PricingConfig` trong DB, `DEFAULT_PLANS` chỉ là fallback khi chưa cấu hình).
 
-| Gói | Bàn | Món | Nhân viên | Tính năng nổi bật |
-|---|---|---|---|---|
-| **Miễn Phí** | 5 | 30 | 2 | Cơ bản (POS, bàn, đơn, đặt bàn) |
-| **Cơ Bản** | 20 | 100 | 5 | Báo cáo 7 ngày |
-| **Pro** | 100 | 500 | 20 | + KDS, đặt món online (scan QR), báo cáo nâng cao, chat nhóm, white-label |
-| **Doanh Nghiệp** | Không giới hạn | Không giới hạn | Không giới hạn | Mọi tính năng + API |
+**Giới hạn số lượng** (theo `IPlanLimits` — `0` = không giới hạn):
 
-- Vượt trần → server trả `403 { errorCode: 'PLAN_LIMIT_REACHED', meta: { resource, limit, used, planKey, feature } }` → client bật modal upsell "Nâng cấp gói".
+| Gói | Bàn | Món | Nhân viên | Đơn / ngày | Nhóm chat |
+|---|---|---|---|---|---|
+| **Miễn Phí** | 5 | 30 | 2 | 30 | 0 (không giới hạn) |
+| **Cơ Bản** | 20 | 100 | 5 | 100 | 2 |
+| **Pro** | 100 | 500 | 20 | 0 (không giới hạn) | 5 |
+| **Doanh Nghiệp** | 0 | 0 | 0 | 0 | 0 |
+
+> Lưu ý: `daily_orders` đếm số đơn tạo từ 00:00 giờ Việt Nam (tính cả đơn đã huỷ); `group_chats` đếm hội thoại loại `group`. Với Free/Basic, giới hạn `group_chats = 0` (không giới hạn) chỉ có nghĩa khi gói có tính năng `messaging_group` — do 2 gói này không được cấp `messaging_group` nên **không tạo được nhóm chat** dù limit là 0.
+
+**Tính năng cốt lõi (có ở mọi gói, không bị gate):** POS, sơ đồ bàn, đơn hàng, đặt bàn, menu khách hàng.
+
+**Tính năng nâng cao được cấp** (theo `featureKeys` của gói — super-admin tick tại `/super-admin/pricing`):
+
+| Gói | `featureKeys` được cấp |
+|---|---|
+| **Miễn Phí** | — (rỗng) |
+| **Cơ Bản** | — (rỗng) |
+| **Pro** | `kds`, `cart`, `scan_to_order`, `reservation`, `advanced_report`, `messaging_group`, `white_label` |
+| **Doanh Nghiệp** | toàn bộ Pro + `api`, `payos`, `qr_manual` |
+
+> ⚠️ **Phân biệt "được cấp" và "được kiểm tra":** mới chỉ có **5 tính năng thực sự bị gate ở server** qua `assertFeature`/`assertAnyFeature`: **`kds`** (route đơn `/kds`), **`advanced_report`** (route analytics), **`messaging_group`** (tạo chat nhóm + giới hạn `group_chats`), **`payos`** + **`qr_manual`** (thanh toán, dùng `assertAnyFeature(['qr_manual','payos'])`). Các key `reservation`, `scan_to_order`, `cart`, `white_label`, `api` hiện **được cấp trong `featureKeys` nhưng chưa có `assertFeature` tương ứng ở đâu** — tức chưa bị phân biệt bằng gate, mọi gói về lý thuyết đều dùng được. Khi bổ sung gate, dev chèn `assertFeature(...)` vào route tương ứng (tham chiếu `FEATURE_CATALOG` cố định trong code).
+
+- Vượt trần → server trả `403 { errorCode: 'PLAN_LIMIT_REACHED', meta: { resource, limit, used, planKey, feature } }` → client bật modal upsell "Nâng cấp gói". `resource` có thể là `tables` / `items` / `staff` / `daily_orders` / `group_chats`.
 - Thiếu tính năng → ẩn mục menu (Sidebar), route hiển thị màn hình upsell (`RequireFeature`), nút action bị disable.
-- Demo: login `admin.free@nhamnhi.vn` → tạo bàn thứ 6 / món thứ 31 / nhân viên thứ 3 → bị chặn; login `admin.test@nhamnhi.vn` (Pro) → không bị chặn.
+- Demo: login `admin.free@nhahangos.me` → tạo bàn thứ 6 / món thứ 31 / nhân viên thứ 3 → bị chặn; login `admin.test@nhahangos.me` (Pro) → không bị chặn.
 
 ### 4.6b. Chat nội bộ (Messaging — staff/manager/admin)
 
@@ -180,7 +197,7 @@ Hệ thống gate ở **2 tầng**: server (`plan-gate.service.ts` — `assertLi
   - `POST /api/subscriptions/pay` (`restaurantId`, `cycleMonths`, `planId`) dùng làm **mock pay** cho E2E/verify nhanh (hỗ trợ upgrade/downgrade).
 - **Khoá tài khoản chủ** (super-admin): đặt `isActive=false` → toàn bộ user (admin/manager/staff) của chủ không đăng nhập được.
 
-> 💡 **Cách test 4 gói nhanh:** login lần lượt `admin.free@nhamnhi.vn` (Miễn Phí — tạo bàn thứ 6 bị chặn), `admin.basic@nhamnhi.vn` (Cơ Bản — không KDS), `admin.test@nhamnhi.vn` (Pro — đầy đủ), `admin.enterprise@nhamnhi.vn` (Doanh Nghiệp). Tại `/admin/billing`, thử **nâng cấp** (trả chênh lệch pro-rate) và **hạ gói** (badge "đã lên lịch hạ gói" — áp dụng cuối kỳ).
+> 💡 **Cách test 4 gói nhanh:** login lần lượt `admin.free@nhahangos.me` (Miễn Phí — tạo bàn thứ 6 bị chặn), `admin.basic@nhahangos.me` (Cơ Bản — không KDS), `admin.test@nhahangos.me` (Pro — đầy đủ), `admin.enterprise@nhahangos.me` (Doanh Nghiệp). Tại `/admin/billing`, thử **nâng cấp** (trả chênh lệch pro-rate) và **hạ gói** (badge "đã lên lịch hạ gói" — áp dụng cuối kỳ).
 
 ---
 

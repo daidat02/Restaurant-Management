@@ -252,9 +252,9 @@ async function seedRestaurant({
 // ─── SEED 4 NHÀ HÀNG (1 mỗi gói) ─────────────────────────────────────────────
 const pro = await seedRestaurant({
   name: 'NhamNhi — Cơ Sở Chính',
-  email: 'cs1@nhamnhi.vn',
+  email: 'cs1@nhahangos.me',
   planKey: 'pro',
-  ownerEmail: 'admin.test@nhamnhi.vn',
+  ownerEmail: 'admin.test@nhahangos.me',
   ownerName: 'Admin Test',
   kitchenCode: '456734',
   categories: {
@@ -272,9 +272,9 @@ const pro = await seedRestaurant({
 
 const basic = await seedRestaurant({
   name: 'NhamNhi — Gói Cơ Bản',
-  email: 'cs2@nhamnhi.vn',
+  email: 'cs2@nhahangos.me',
   planKey: 'basic',
-  ownerEmail: 'admin.basic@nhamnhi.vn',
+  ownerEmail: 'admin.basic@nhahangos.me',
   ownerName: 'Admin Gói Cơ Bản',
   kitchenCode: '553572',
   categories: {
@@ -291,9 +291,9 @@ const basic = await seedRestaurant({
 
 const free = await seedRestaurant({
   name: 'NhamNhi — Gói Miễn Phí',
-  email: 'cs3@nhamnhi.vn',
+  email: 'cs3@nhahangos.me',
   planKey: 'free',
-  ownerEmail: 'admin.free@nhamnhi.vn',
+  ownerEmail: 'admin.free@nhahangos.me',
   ownerName: 'Admin Gói Miễn Phí',
   kitchenCode: '653780',
   categories: {
@@ -308,9 +308,9 @@ const free = await seedRestaurant({
 
 const enterprise = await seedRestaurant({
   name: 'NhamNhi — Gói Doanh Nghiệp',
-  email: 'cs4@nhamnhi.vn',
+  email: 'cs4@nhahangos.me',
   planKey: 'enterprise',
-  ownerEmail: 'admin.enterprise@nhamnhi.vn',
+  ownerEmail: 'admin.enterprise@nhahangos.me',
   ownerName: 'Admin Gói Doanh Nghiệp',
   kitchenCode: '772915',
   categories: {
@@ -334,11 +334,11 @@ const customerId = id();
 const superAdminId = id();
 const userBase = { password: hashed, isActive: true, notificationEnabled: true, createdAt: now, updatedAt: now };
 await db.collection('users').insertMany([
-  { _id: manager1Id, name: 'Manager Test', email: 'manager.test@nhamnhi.vn', role: 'manager', restaurantIds: [pro.restaurantId], ...userBase },
-  { _id: manager2Id, name: 'Manager Thu Ngân', email: 'manager2.test@nhamnhi.vn', role: 'manager', restaurantIds: [pro.restaurantId], ...userBase },
-  ...staffIds.map((sid, i) => ({ _id: sid, name: `Nhân Viên ${i + 1}`, email: `staff${i === 0 ? '' : i + 1}.test@nhamnhi.vn`, role: 'staff', restaurantIds: [pro.restaurantId], ...userBase })),
-  { _id: customerId, name: 'Customer Test', email: 'customer.test@nhamnhi.vn', role: 'customer', restaurantIds: [], ...userBase },
-  { _id: superAdminId, name: 'Super Admin', email: 'super.admin@nhamnhi.vn', role: 'super-admin', restaurantIds: [], ...userBase },
+  { _id: manager1Id, name: 'Manager Test', email: 'manager.test@nhahangos.me', role: 'manager', restaurantIds: [pro.restaurantId], ...userBase },
+  { _id: manager2Id, name: 'Manager Thu Ngân', email: 'manager2.test@nhahangos.me', role: 'manager', restaurantIds: [pro.restaurantId], ...userBase },
+  ...staffIds.map((sid, i) => ({ _id: sid, name: `Nhân Viên ${i + 1}`, email: `staff${i === 0 ? '' : i + 1}.test@nhahangos.me`, role: 'staff', restaurantIds: [pro.restaurantId], ...userBase })),
+  { _id: customerId, name: 'Customer Test', email: 'customer.test@nhahangos.me', role: 'customer', restaurantIds: [], ...userBase },
+  { _id: superAdminId, name: 'Super Admin', email: 'super.admin@nhahangos.me', role: 'super-admin', restaurantIds: [], ...userBase },
 ]);
 console.log('[seed-restaurant-demo] users OK (4 admin chủ + 2 manager + 5 staff + customer + super-admin)');
 
@@ -423,14 +423,14 @@ await mongoose.connection.syncIndexes();
 console.log('[seed-restaurant-demo] indexes synced');
 
 console.log('[seed-restaurant-demo] DONE');
-console.log('  super-admin : super.admin@nhamnhi.vn     / Test@NhamNhi2026');
-console.log('  admin Pro   : admin.test@nhamnhi.vn      / Test@NhamNhi2026  → NhamNhi — Cơ Sở Chính');
-console.log('  admin Basic : admin.basic@nhamnhi.vn     / Test@NhamNhi2026  → NhamNhi — Gói Cơ Bản');
-console.log('  admin Free  : admin.free@nhamnhi.vn      / Test@NhamNhi2026  → NhamNhi — Gói Miễn Phí');
-console.log('  admin Ent   : admin.enterprise@nhamnhi.vn/ Test@NhamNhi2026  → NhamNhi — Gói Doanh Nghiệp');
-console.log('  manager     : manager.test@nhamnhi.vn    / Test@NhamNhi2026');
-console.log('  manager 2   : manager2.test@nhamnhi.vn   / Test@NhamNhi2026');
-console.log('  staff       : staff.test@nhamnhi.vn      / Test@NhamNhi2026');
+console.log('  super-admin : super.admin@nhahangos.me     / Test@NhamNhi2026');
+console.log('  admin Pro   : admin.test@nhahangos.me      / Test@NhamNhi2026  → NhamNhi — Cơ Sở Chính');
+console.log('  admin Basic : admin.basic@nhahangos.me     / Test@NhamNhi2026  → NhamNhi — Gói Cơ Bản');
+console.log('  admin Free  : admin.free@nhahangos.me      / Test@NhamNhi2026  → NhamNhi — Gói Miễn Phí');
+console.log('  admin Ent   : admin.enterprise@nhahangos.me/ Test@NhamNhi2026  → NhamNhi — Gói Doanh Nghiệp');
+console.log('  manager     : manager.test@nhahangos.me    / Test@NhamNhi2026');
+console.log('  manager 2   : manager2.test@nhahangos.me   / Test@NhamNhi2026');
+console.log('  staff       : staff.test@nhahangos.me      / Test@NhamNhi2026');
 console.log('  kitchen code: Pro=456734 · Basic=553572 · Free=653780 · Ent=772915');
 for (const [plan, r] of [['free', free], ['basic', basic], ['pro', pro], ['enterprise', enterprise]]) {
   const c = await db.collection('menucategories').countDocuments({ restaurant: r.restaurantId });
