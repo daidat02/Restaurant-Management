@@ -4,6 +4,7 @@ import orderService from './order.service.js';
 import orderRepository from './order.repository.js';
 import { generateId } from '../../configs/constants.js';
 import { writeAuditLog } from '../../services/auditLog.service.js';
+import orderExportService from './order.export.service.js';
 
 class OrderController {
   async createOrder(req: AuthRequest, res: Response) {
@@ -56,6 +57,64 @@ class OrderController {
       res.status(500).json({ message: 'Lỗi server...' });
     }
   }
+
+  /**
+   * GET /orders/management — trang Quản Lý Đơn Hàng: filter/search/sort/phân trang
+   * SERVER-SIDE kèm stats tính trên cùng bộ filter.
+   * Query: search, orderType, status, fromDate/toDate (yyyy-MM-dd), sortBy, sortDir, page, limit.
+   */
+  async getManagementOrders(req: AuthRequest, res: Response) {
+    const restaurantId = req.tenantId;
+    if (!restaurantId) return res.status(400).json({ message: 'Thiếu nhà hàng' });
+    try {
+      const result = await orderService.getManagementOrdersService({
+        restaurantId,
+        ...(req.query.search ? { search: String(req.query.search) } : {}),
+        ...(req.query.orderType ? { orderType: String(req.query.orderType) } : {}),
+        ...(req.query.status ? { status: String(req.query.status) } : {}),
+        ...(req.query.fromDate ? { fromDate: String(req.query.fromDate) } : {}),
+        ...(req.query.toDate ? { toDate: String(req.query.toDate) } : {}),
+        ...(req.query.sortBy ? { sortBy: String(req.query.sortBy) } : {}),
+        ...(req.query.sortDir ? { sortDir: String(req.query.sortDir) } : {}),
+        page: req.query.page ? Number(req.query.page) : 1,
+        limit: req.query.limit ? Number(req.query.limit) : 10,
+      });
+      return res.status(result.code).json(result);
+    } catch (error) {
+      console.error('Lỗi getManagementOrders:', error);
+      return res.status(500).json({ message: 'Lỗi server...' });
+    }
+  }
+
+  /** GET /orders/management/export — Excel toàn bộ đơn khớp filter (mọi trang). */
+  async exportManagementOrders(req: AuthRequest, res: Response) {
+    const restaurantId = req.tenantId;
+    if (!restaurantId) return res.status(400).json({ message: 'Thiếu nhà hàng' });
+    try {
+      const orders = await orderService.getManagementOrdersForExport({
+        restaurantId,
+        ...(req.query.search ? { search: String(req.query.search) } : {}),
+        ...(req.query.orderType ? { orderType: String(req.query.orderType) } : {}),
+        ...(req.query.status ? { status: String(req.query.status) } : {}),
+        ...(req.query.fromDate ? { fromDate: String(req.query.fromDate) } : {}),
+        ...(req.query.toDate ? { toDate: String(req.query.toDate) } : {}),
+      });
+
+      const { buffer, fileName } = await orderExportService.buildWorkbook(orders);
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      );
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.setHeader('Access-Control-Allow-Expose-Headers', 'Content-Disposition');
+      res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+      return res.status(200).send(Buffer.from(buffer));
+    } catch (error) {
+      console.error('Lỗi exportManagementOrders:', error);
+      return res.status(500).json({ message: 'Lỗi server khi xuất file' });
+    }
+  }
+
   async getActiveOrders(req: AuthRequest, res: Response) {
     try {
       const restaurantId = req.tenantId;

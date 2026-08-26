@@ -91,6 +91,8 @@ export const API_ENDPOINTS = {
     UPDATE_STATUS: (id: string) => `${API_BASE_URL}/orders/${id}/status`,
     GET_BY_TABLE: (tableId: string) => `${API_BASE_URL}/orders/table/${tableId}`,
     MY_ORDERS: `${API_BASE_URL}/orders/my-orders`,
+    MANAGEMENT: `${API_BASE_URL}/orders/management`,
+    MANAGEMENT_EXPORT: `${API_BASE_URL}/orders/management/export`,
     CALL_STAFF: `${API_BASE_URL}/orders/call-staff`,
     REQUEST_PAYMENT: `${API_BASE_URL}/orders/request-payment`,
     // POS: xoá món / sửa món trong đơn / chuyển bàn

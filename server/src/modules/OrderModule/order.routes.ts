@@ -21,6 +21,19 @@ router.post('/call-staff', publicRateLimit(20, 60 * 1000), orderController.callS
 router.post('/request-payment', publicRateLimit(20, 60 * 1000), orderController.requestPayment);
 
 router.get('/my-orders', verifyToken, verifyRole(['customer']), orderController.getMyOrders);
+// Quản lý đơn hàng — PHẢI đứng trước '/:id' để không bị bắt làm id
+router.get(
+  '/management',
+  verifyToken,
+  verifyTenant,
+  orderController.getManagementOrders,
+);
+router.get(
+  '/management/export',
+  verifyToken,
+  verifyTenant,
+  orderController.exportManagementOrders,
+);
 router.get(
   '/:id',
   verifyToken,

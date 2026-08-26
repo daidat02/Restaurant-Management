@@ -15,6 +15,22 @@ import { QUEUE_NAMES } from '../../queues/queue.js';
 
 const ObjectId = Types.ObjectId;
 
+/** Parse ngày yyyy-MM-dd từ query — đầu ngày / cuối ngày; trả undefined nếu thiếu hoặc sai. */
+function parseManagementDates(
+  fromDate?: string,
+  toDate?: string,
+): { fromDate?: Date; toDate?: Date } | undefined {
+  const parse = (raw: string | undefined, endOfDay: boolean): Date | undefined => {
+    if (!raw) return undefined;
+    const d = new Date(`${raw}T${endOfDay ? '23:59:59.999' : '00:00:00'}`);
+    return Number.isNaN(d.getTime()) ? undefined : d;
+  };
+  const from = parse(fromDate, false);
+  const to = parse(toDate, true);
+  if (!from && !to) return undefined;
+  return { ...(from ? { fromDate: from } : {}), ...(to ? { toDate: to } : {}) };
+}
+
 class OrderService {
   private emitOrderUpdate({
     targetRoom,
@@ -758,6 +774,70 @@ class OrderService {
     });
 
     return { code: 200, message: 'Cập nhật trạng thái đơn hàng thành công', data: order };
+  }
+
+  /**
+   * Danh sách đơn cho trang Quản Lý Đơn Hàng — filter/search/sort/phân trang SERVER-SIDE
+   * kèm thống kê (stats) tính trên cùng bộ filter.
+   */
+  async getManagementOrdersService(params: {
+    restaurantId: string;
+    search?: string;
+    orderType?: string;
+    status?: string;
+    fromDate?: string;
+    toDate?: string;
+    sortBy?: string;
+    sortDir?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{
+    code: number;
+    message: string;
+    data?: IOrderPopulate[];
+    total?: number;
+    stats?: { totalOrders: number; revenue: number; completedCount: number; cancelledCount: number };
+  }> {
+    const parsed = parseManagementDates(params.fromDate, params.toDate);
+    const result = await orderRepository.getManagementOrders({
+      restaurantId: params.restaurantId,
+      ...(params.search ? { search: params.search } : {}),
+      ...(params.orderType ? { orderType: params.orderType } : {}),
+      ...(params.status ? { status: params.status } : {}),
+      ...(parsed?.fromDate ? { fromDate: parsed.fromDate } : {}),
+      ...(parsed?.toDate ? { toDate: parsed.toDate } : {}),
+      ...(params.sortBy ? { sortBy: params.sortBy } : {}),
+      sortDir: params.sortDir === 'asc' ? 'asc' : 'desc',
+      page: Number(params.page) || 1,
+      limit: Number(params.limit) || 10,
+    });
+    return {
+      code: 200,
+      message: 'Lấy danh sách đơn hàng thành công',
+      data: result.data,
+      total: result.total,
+      stats: result.stats,
+    };
+  }
+
+  /** Dữ liệu xuất Excel cho trang quản lý đơn hàng — toàn bộ kết quả khớp filter. */
+  async getManagementOrdersForExport(params: {
+    restaurantId: string;
+    search?: string;
+    orderType?: string;
+    status?: string;
+    fromDate?: string;
+    toDate?: string;
+  }): Promise<IOrderPopulate[]> {
+    const parsed = parseManagementDates(params.fromDate, params.toDate);
+    return await orderRepository.getManagementOrdersForExport({
+      restaurantId: params.restaurantId,
+      ...(params.search ? { search: params.search } : {}),
+      ...(params.orderType ? { orderType: params.orderType } : {}),
+      ...(params.status ? { status: params.status } : {}),
+      ...(parsed?.fromDate ? { fromDate: parsed.fromDate } : {}),
+      ...(parsed?.toDate ? { toDate: parsed.toDate } : {}),
+    });
   }
 
   /**

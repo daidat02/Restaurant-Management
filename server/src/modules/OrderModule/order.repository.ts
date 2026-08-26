@@ -1,7 +1,7 @@
 import type { IOrderDocument, IOrderPopulate } from './../../models/Schema/OrderSchema.js';
 import DB_Connection from '../../models/DB_Connection.js';
 import type { IOrderItemDocument } from '../../models/Schema/OrderItemSchema.js';
-import type { ClientSession, FilterQuery } from 'mongoose';
+import { Types, type ClientSession, type FilterQuery } from 'mongoose';
 
 class OrderRepository {
   // ==========================================
@@ -616,6 +616,128 @@ class OrderRepository {
       },
     ]);
   }
+
+  // ==========================================
+  // QUẢN LÝ ĐƠN HÀNG (trang /orders/management) — filter/search/sort/phân trang server-side
+  // ==========================================
+
+  async getManagementOrders(params: {
+    restaurantId: string;
+    search?: string;
+    orderType?: string;
+    status?: string;
+    fromDate?: Date;
+    toDate?: Date;
+    sortBy?: string;
+    sortDir?: 'asc' | 'desc';
+    page?: number;
+    limit?: number;
+  }): Promise<{
+    data: IOrderPopulate[];
+    total: number;
+    stats: { totalOrders: number; revenue: number; completedCount: number; cancelledCount: number };
+  }> {
+    const filter = buildOrderManagementFilter(params);
+    const sortWhitelist = ['createdAt', 'orderId', 'totalAmount'];
+    const sortBy = sortWhitelist.includes(String(params.sortBy)) ? String(params.sortBy) : 'createdAt';
+    const sortDir = params.sortDir === 'asc' ? 1 : -1;
+    const page = Math.max(1, Number(params.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(params.limit) || 10));
+
+    // Phòng hờ: aggregate $match không tự cast string → ObjectId như find()
+    const matchFilter =
+      typeof filter.restaurant === 'string'
+        ? { ...filter, restaurant: new Types.ObjectId(filter.restaurant) }
+        : { ...filter };
+
+    const [data, total, statRows] = await Promise.all([
+      DB_Connection.Order.find(filter)
+        .sort({ [sortBy]: sortDir })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .populate([
+          { path: 'table', select: 'tableNumber capacity status' },
+          { path: 'customer', select: 'name email phone' },
+        ])
+        .lean()
+        .exec(),
+      DB_Connection.Order.countDocuments(filter),
+      DB_Connection.Order.aggregate([
+        { $match: matchFilter },
+        {
+          $group: {
+            _id: null,
+            // Doanh thu loại trừ đơn đã huỷ
+            revenue: {
+              $sum: { $cond: [{ $ne: ['$status', 'cancelled'] }, '$totalAmount', 0] },
+            },
+            completedCount: {
+              $sum: { $cond: [{ $in: ['$status', ['completed', 'paid']] }, 1, 0] },
+            },
+            cancelledCount: {
+              $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, 1, 0] },
+            },
+          },
+        },
+      ]),
+    ]);
+
+    const stats = statRows[0] ?? { revenue: 0, completedCount: 0, cancelledCount: 0 };
+    return {
+      data: data as unknown as IOrderPopulate[],
+      total,
+      stats: { totalOrders: total, ...stats },
+    };
+  }
+
+  /** Toàn bộ đơn khớp filter (không phân trang) — phục vụ xuất Excel. */
+  async getManagementOrdersForExport(params: {
+    restaurantId: string;
+    search?: string;
+    orderType?: string;
+    status?: string;
+    fromDate?: Date;
+    toDate?: Date;
+  }): Promise<IOrderPopulate[]> {
+    const filter = buildOrderManagementFilter(params);
+    return await DB_Connection.Order.find(filter)
+      .sort({ createdAt: -1 })
+      .populate([
+        { path: 'table', select: 'tableNumber capacity status' },
+        { path: 'customer', select: 'name email phone' },
+      ])
+      .lean()
+      .exec() as unknown as IOrderPopulate[];
+  }
+}
+
+/** Escape ký tự đặc biệt regex cho search an toàn. */
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Bộ lọc chung cho list + export + stats của trang quản lý đơn hàng. */
+function buildOrderManagementFilter(opts: {
+  restaurantId: string;
+  search?: string;
+  orderType?: string;
+  status?: string;
+  fromDate?: Date;
+  toDate?: Date;
+}): Record<string, unknown> {
+  const filter: Record<string, unknown> = { restaurant: opts.restaurantId };
+  if (opts.search && opts.search.trim()) {
+    filter.orderId = { $regex: escapeRegex(opts.search.trim()), $options: 'i' };
+  }
+  if (opts.orderType) filter.orderType = opts.orderType;
+  if (opts.status) filter.status = opts.status;
+  if (opts.fromDate || opts.toDate) {
+    filter.createdAt = {
+      ...(opts.fromDate ? { $gte: opts.fromDate } : {}),
+      ...(opts.toDate ? { $lte: opts.toDate } : {}),
+    };
+  }
+  return filter;
 }
 
 export default new OrderRepository();

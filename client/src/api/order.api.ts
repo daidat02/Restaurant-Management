@@ -115,3 +115,39 @@ export const moveOrderToTableApi = async (orderId: string, targetTableId: string
   });
   return res.data;
 };
+
+// ==========================================
+// QUẢN LÝ ĐƠN HÀNG (trang /orders/management) — server-side filter/search/sort/phân trang
+// ==========================================
+export interface OrderManagementStats {
+  totalOrders: number;
+  revenue: number;
+  completedCount: number;
+  cancelledCount: number;
+}
+
+export interface OrderManagementQuery {
+  search?: string;
+  orderType?: string;
+  status?: string;
+  /** yyyy-MM-dd */
+  fromDate?: string;
+  /** yyyy-MM-dd */
+  toDate?: string;
+  sortBy?: 'createdAt' | 'orderId' | 'totalAmount';
+  sortDir?: 'asc' | 'desc';
+  page?: number;
+  limit?: number;
+}
+
+export const getManagementOrders = async (params: OrderManagementQuery) => {
+  const res = await axiosClient.get<
+    any,
+    ApiResponse<IOrder[]> & { stats?: OrderManagementStats; total?: number }
+  >(ORDERS.MANAGEMENT, { params });
+  return {
+    data: res.data ?? [],
+    total: res.total ?? 0,
+    stats: res.stats ?? { totalOrders: 0, revenue: 0, completedCount: 0, cancelledCount: 0 },
+  };
+};
