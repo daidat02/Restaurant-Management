@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import auditLogService from './auditLog.service.js';
 import type { AuthRequest } from '../../middlewares/auth.middleware.js';
 import { SUPER_ADMIN_ALLOWED_ACTIONS } from '../../services/auditAction.js';
+import DB_Connection from '../../models/DB_Connection.js';
 
 class AuditLogController {
   /**
@@ -35,13 +36,17 @@ class AuditLogController {
         if (restaurantId) restaurantIds = [restaurantId];
         allowedActions = [...SUPER_ADMIN_ALLOWED_ACTIONS];
       } else {
-        // admin/manager: mặc định toàn chuỗi / chi nhánh mình (intersect);
-        // được phép thu hẹp xuống 1 chi nhánh CỦA CHÍNH HỌ qua query.restaurantId
-        const ownIds = req.user?.restaurantIds ?? [];
+        // admin/manager: phạm vi = danh sách chi nhánh CỦA CHÍNH USER trong DB
+        // (token chỉ chứa restaurantId đơn — KHÔNG có restaurantIds, phải tra DB).
+        const user = (await DB_Connection.User.findById(req.user?.userId)
+          .select('restaurantIds')
+          .lean()) as { restaurantIds?: unknown[] } | null;
+        const ownIds = (user?.restaurantIds ?? []).map((id: unknown) => String(id));
         const requestedBranch = (req.query.restaurantId as string) || undefined;
-        if (requestedBranch && ownIds.map(String).includes(String(requestedBranch))) {
+        if (requestedBranch && ownIds.includes(String(requestedBranch))) {
+          // Thu hẹp xuống 1 chi nhánh thuộc quyền — chống soi chéo tenant
           restaurantIds = [requestedBranch];
-        } else {
+        } else if (ownIds.length > 0) {
           restaurantIds = ownIds;
         }
       }
@@ -81,7 +86,11 @@ class AuditLogController {
       };
       const startDate = parseDay(req.query.startDate as string | undefined, false);
       const endDate = parseDay(req.query.endDate as string | undefined, true);
-      const ownIds = (req.user?.restaurantIds ?? []).map(String);
+      // restaurantId phải thuộc chuỗi của chủ — danh sách chi nhánh tra từ DB (token không chứa)
+      const user = (await DB_Connection.User.findById(ownerId)
+        .select('restaurantIds')
+        .lean()) as { restaurantIds?: unknown[] } | null;
+      const ownIds = (user?.restaurantIds ?? []).map((id: unknown) => String(id));
       const requestedBranch = (req.query.restaurantId as string) || undefined;
       const restaurantId =
         requestedBranch && ownIds.includes(String(requestedBranch)) ? requestedBranch : undefined;
