@@ -35,23 +35,31 @@ export function DatePickerWithRange({ mode, value, onChange }: DatePickerProps) 
   const [singleDate, setSingleDate] = useState<Date | undefined>(
     mode === 'single' && typeof value === 'string' ? new Date(value) : new Date(),
   );
-  const [rangeDate, setRangeDate] = useState<DateRange | undefined>({
-    from: mode === 'range' && typeof value === 'object' ? new Date(value.from) : new Date(),
-    to: mode === 'range' && typeof value === 'object' ? new Date(value.to) : addDays(new Date(), 7),
-  });
+  // Range: value undefined → trạng thái RỖNG (chưa filter, hiện placeholder)
+  const [rangeDate, setRangeDate] = useState<DateRange | undefined>(
+    mode === 'range' && typeof value === 'object' && value?.from
+      ? { from: new Date(value.from), to: value.to ? new Date(value.to) : undefined }
+      : mode === 'range'
+        ? undefined
+        : { from: new Date(), to: addDays(new Date(), 7) },
+  );
 
-  // Đồng bộ hóa khi prop `value` từ bên ngoài thay đổi
+  // Đồng bộ hóa khi prop `value` từ bên ngoài thay đổi (kể cả clear về undefined)
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (!value) return;
-    if (mode === 'single' && typeof value === 'string') {
+    if (mode === 'single') {
+      if (!value || typeof value !== 'string') return;
       setSingleDate(new Date(value));
-    } else if (mode === 'range' && typeof value === 'object') {
-      setRangeDate({
-        from: value.from ? new Date(value.from) : undefined,
-        to: value.to ? new Date(value.to) : undefined,
-      });
+      return;
     }
+    if (!value || typeof value !== 'object') {
+      setRangeDate(undefined);
+      return;
+    }
+    setRangeDate({
+      from: value.from ? new Date(value.from) : undefined,
+      to: value.to ? new Date(value.to) : undefined,
+    });
   }, [value, mode]);
   /* eslint-enable react-hooks/set-state-in-effect */
 

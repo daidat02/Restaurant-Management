@@ -17,6 +17,17 @@ class AuditLogController {
       const page = req.query.page ? Number(req.query.page) : undefined;
       const limit = req.query.limit ? Number(req.query.limit) : undefined;
 
+      // Filter nâng cao (client gửi ngày dạng yyyy-MM-dd)
+      const action = (req.query.action as string) || undefined;
+      const search = (req.query.search as string) || undefined;
+      const parseDay = (raw: string | undefined, endOfDay: boolean): Date | undefined => {
+        if (!raw) return undefined;
+        const d = new Date(`${raw}T${endOfDay ? '23:59:59.999' : '00:00:00'}`);
+        return Number.isNaN(d.getTime()) ? undefined : d;
+      };
+      const startDate = parseDay(req.query.startDate as string | undefined, false);
+      const endDate = parseDay(req.query.endDate as string | undefined, true);
+
       let restaurantIds: string[] | undefined;
       let allowedActions: string[] | undefined;
       if (req.user?.role === 'super-admin') {
@@ -24,13 +35,24 @@ class AuditLogController {
         if (restaurantId) restaurantIds = [restaurantId];
         allowedActions = [...SUPER_ADMIN_ALLOWED_ACTIONS];
       } else {
-        // admin/manager: danh sách chi nhánh đã intersect (mặc định toàn chuỗi / chi nhánh mình)
-        restaurantIds = req.user?.restaurantIds;
+        // admin/manager: mặc định toàn chuỗi / chi nhánh mình (intersect);
+        // được phép thu hẹp xuống 1 chi nhánh CỦA CHÍNH HỌ qua query.restaurantId
+        const ownIds = req.user?.restaurantIds ?? [];
+        const requestedBranch = (req.query.restaurantId as string) || undefined;
+        if (requestedBranch && ownIds.map(String).includes(String(requestedBranch))) {
+          restaurantIds = [requestedBranch];
+        } else {
+          restaurantIds = ownIds;
+        }
       }
 
       const result = await auditLogService.getAuditLogs({
         ...(restaurantIds && restaurantIds.length > 0 ? { restaurantIds } : {}),
         ...(allowedActions && allowedActions.length > 0 ? { allowedActions } : {}),
+        ...(action ? { action } : {}),
+        ...(startDate ? { startDate } : {}),
+        ...(endDate ? { endDate } : {}),
+        ...(search ? { search } : {}),
         ...(page !== undefined ? { page } : {}),
         ...(limit !== undefined ? { limit } : {}),
       });
@@ -50,8 +72,25 @@ class AuditLogController {
       if (!ownerId) {
         return res.status(403).json({ message: 'Bạn không có quyền truy cập!' });
       }
+
+      // Filter nâng cao (ngày yyyy-MM-dd; restaurantId phải thuộc chuỗi của chủ)
+      const parseDay = (raw: string | undefined, endOfDay: boolean): Date | undefined => {
+        if (!raw) return undefined;
+        const d = new Date(`${raw}T${endOfDay ? '23:59:59.999' : '00:00:00'}`);
+        return Number.isNaN(d.getTime()) ? undefined : d;
+      };
+      const startDate = parseDay(req.query.startDate as string | undefined, false);
+      const endDate = parseDay(req.query.endDate as string | undefined, true);
+      const ownIds = (req.user?.restaurantIds ?? []).map(String);
+      const requestedBranch = (req.query.restaurantId as string) || undefined;
+      const restaurantId =
+        requestedBranch && ownIds.includes(String(requestedBranch)) ? requestedBranch : undefined;
+
       const result = await auditLogService.getPaymentLogs({
         ownerId,
+        ...(restaurantId ? { restaurantId } : {}),
+        ...(startDate ? { startDate } : {}),
+        ...(endDate ? { endDate } : {}),
         ...(page !== undefined ? { page } : {}),
         ...(limit !== undefined ? { limit } : {}),
       });

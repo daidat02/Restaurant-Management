@@ -71,6 +71,14 @@ export const updatePricingConfig = async (
 /** GET /api/audit-logs — danh sách audit log + phân trang. */
 export const getAuditLogs = async (params?: {
   restaurantId?: string;
+  /** Lọc đúng một action (nằm trong whitelist super-admin). */
+  action?: string;
+  /** yyyy-MM-dd */
+  startDate?: string;
+  /** yyyy-MM-dd */
+  endDate?: string;
+  /** Tìm trong nội dung / người thực hiện / action. */
+  search?: string;
   page?: number;
   limit?: number;
 }) => {

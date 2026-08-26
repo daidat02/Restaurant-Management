@@ -52,21 +52,59 @@ async function resolveTargetNames(
   return result;
 }
 
-/** Truy vấn audit log theo restaurant (optional, hỗ trợ mảng $in) + phân trang. */
+/** Escape ký tự đặc biệt regex cho search an toàn. */
+const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** Truy vấn audit log theo restaurant (optional, hỗ trợ mảng $in) + filter action/ngày/search + phân trang. */
 export async function listAuditLogs(params: {
   restaurantIds?: string[];
   /** Whitelist action được phép xem (super-admin — chỉ thấy action nền tảng). */
   allowedActions?: string[];
+  /** Lọc đúng một action — chỉ có hiệu lực khi nằm trong whitelist (nếu có). */
+  action?: string;
+  /** Lọc theo khoảng thời gian tạo log (createdAt). */
+  startDate?: Date;
+  endDate?: Date;
+  /** Tìm kiếm không dấu hoa thị trong summary / tên người thực hiện / action. */
+  search?: string;
   page?: number;
   limit?: number;
 }): Promise<{ data: any[]; total: number }> {
-  const { restaurantIds, allowedActions, page = 1, limit = 50 } = params;
+  const {
+    restaurantIds,
+    allowedActions,
+    action,
+    startDate,
+    endDate,
+    search,
+    page = 1,
+    limit = 50,
+  } = params;
   const filter: Record<string, unknown> = {};
   if (restaurantIds && restaurantIds.length > 0) {
     filter.restaurant = { $in: restaurantIds };
   }
-  if (allowedActions && allowedActions.length > 0) {
+  if (action) {
+    // Có whitelist thì action phải nằm trong whitelist, ngoài ra không khớp dòng nào
+    const permitted =
+      allowedActions && allowedActions.length > 0
+        ? allowedActions.includes(action)
+          ? [action]
+          : ['__khong-khop-whitelist__']
+        : [action];
+    filter.action = { $in: permitted };
+  } else if (allowedActions && allowedActions.length > 0) {
     filter.action = { $in: allowedActions };
+  }
+  if (startDate || endDate) {
+    filter.createdAt = {
+      ...(startDate ? { $gte: startDate } : {}),
+      ...(endDate ? { $lte: endDate } : {}),
+    };
+  }
+  if (search && search.trim()) {
+    const rx = new RegExp(escapeRegex(search.trim()), 'i');
+    filter.$or = [{ summary: rx }, { 'actorInfo.name': rx }, { action: rx }];
   }
 
   const [data, total] = await Promise.all([
@@ -103,14 +141,25 @@ export async function listAuditLogs(params: {
   return { data: enriched, total };
 }
 
-/** Lịch sử thanh toán (Transaction) theo ownerId, populate tên nhà hàng + phân trang. */
+/** Lịch sử thanh toán (Transaction) theo ownerId, populate tên nhà hàng + filter + phân trang. */
 export async function listPaymentLogs(params: {
   ownerId: string;
+  /** Thu hẹp 1 chi nhánh — controller đã kiểm tra thuộc chuỗi của chủ. */
+  restaurantId?: string;
+  startDate?: Date;
+  endDate?: Date;
   page?: number;
   limit?: number;
 }): Promise<{ data: any[]; total: number }> {
-  const { ownerId, page = 1, limit = 50 } = params;
-  const filter = { ownerId };
+  const { ownerId, restaurantId, startDate, endDate, page = 1, limit = 50 } = params;
+  const filter: Record<string, unknown> = { ownerId };
+  if (restaurantId) filter.restaurant = restaurantId;
+  if (startDate || endDate) {
+    filter.createdAt = {
+      ...(startDate ? { $gte: startDate } : {}),
+      ...(endDate ? { $lte: endDate } : {}),
+    };
+  }
   const [data, total] = await Promise.all([
     DB_Connection.Transaction.find(filter)
       .sort({ createdAt: -1 })
