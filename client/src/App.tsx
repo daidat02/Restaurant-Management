@@ -64,6 +64,7 @@ import VerifyOtpPage from './pages/Auth/VerifyOtp';
 import AuthLayout from './layouts/AuthLayout';
 import TermsPage from './pages/Landing/Terms';
 import PrivacyPage from './pages/Landing/Privacy';
+import NotFoundPage from './pages/NotFoundPage';
 
 /**
  * Kiểm tra admin có nhà hàng chưa (theo restaurantIds — nguồn chính thức của scope).
@@ -482,6 +483,9 @@ export default function App() {
           </LoadingProvider>
         }
       />
+
+      {/* ---------------- 404 NOT FOUND — bắt mọi URL không khớp ---------------- */}
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
 }
