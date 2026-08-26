@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, Search, X } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { getAdminTransactions } from '@/api/superadmin.api';
 import type { ITransaction } from '@/types/superadmin.type';
 import { formatVND } from '@/utils/helpers';
 import { CustomSelect } from '@/components/SelectCustom';
+import { DatePickerWithRange } from '@/components/DatePickerRange';
 
 import { DataTable, type ColumnDef } from '@/components/TableData';
 import { FilterToolbar } from '../Admin/OrderPage/management-order';
@@ -22,8 +23,8 @@ export default function SuperAdminTransactions() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
+  // Khoảng ngày lọc (yyyy-MM-dd) — undefined = chưa lọc
+  const [dateRange, setDateRange] = useState<{ from: string; to: string } | undefined>(undefined);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
 
@@ -41,13 +42,13 @@ export default function SuperAdminTransactions() {
     if (statusFilter !== 'all') {
       result = result.filter((item) => item.status === statusFilter);
     }
-    if (fromDate) {
-      const from = new Date(fromDate);
+    if (dateRange?.from) {
+      const from = new Date(dateRange.from);
       from.setHours(0, 0, 0, 0);
       result = result.filter((item) => new Date(item.createdAt) >= from);
     }
-    if (toDate) {
-      const to = new Date(toDate);
+    if (dateRange?.to) {
+      const to = new Date(dateRange.to);
       to.setHours(23, 59, 59, 999);
       result = result.filter((item) => new Date(item.createdAt) <= to);
     }
@@ -69,16 +70,15 @@ export default function SuperAdminTransactions() {
       });
     }
     return result;
-  }, [transactions, searchTerm, statusFilter, fromDate, toDate]);
+  }, [transactions, searchTerm, statusFilter, dateRange]);
 
   const hasActiveFilters =
-    statusFilter !== 'all' || fromDate !== '' || toDate !== '' || searchTerm.trim() !== '';
+    statusFilter !== 'all' || !!dateRange || searchTerm.trim() !== '';
 
   const clearFilters = () => {
     setSearchTerm('');
     setStatusFilter('all');
-    setFromDate('');
-    setToDate('');
+    setDateRange(undefined);
     setCurrentPage(1);
   };
 
@@ -231,32 +231,14 @@ export default function SuperAdminTransactions() {
             triggerClass="h-9"
           />
 
-          <div className="flex items-center gap-2">
-            <CalendarDays className="h-4 w-4 shrink-0 text-slate-400" />
-            <input
-              type="date"
-              title="Từ ngày"
-              value={fromDate}
-              max={toDate || undefined}
-              onChange={(e) => {
-                setFromDate(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="h-9 rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-sm text-slate-700 outline-none transition-colors focus:border-cerulean-blue-500 focus:bg-white"
-            />
-            <span className="text-xs text-slate-400">→</span>
-            <input
-              type="date"
-              title="Đến ngày"
-              value={toDate}
-              min={fromDate || undefined}
-              onChange={(e) => {
-                setToDate(e.target.value);
-                setCurrentPage(1);
-              }}
-              className="h-9 rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-sm text-slate-700 outline-none transition-colors focus:border-cerulean-blue-500 focus:bg-white"
-            />
-          </div>
+          <DatePickerWithRange
+            mode="range"
+            value={dateRange}
+            onChange={(val: { from?: string; to?: string } | undefined) => {
+              setDateRange(val?.from && val?.to ? { from: val.from, to: val.to } : undefined);
+              setCurrentPage(1);
+            }}
+          />
         </FilterToolbar>
 
         <DataTable
