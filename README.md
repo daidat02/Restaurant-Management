@@ -11,16 +11,16 @@
 
 Mật khẩu dùng chung: `Test@NhamNhi2026` — seed bằng `cd server && node scripts/seed-test-accounts.mjs` (idempotent, theo `MONGODB_URL` trong `server/.env`).
 
-| Role                        | Email                      | Ghi chú                                                                                    |
-| --------------------------- | -------------------------- | ------------------------------------------------------------------------------------------ |
-| Super Admin                 | `super.admin@nhamnhi.vn`   | Nền tảng: tenants, pricing (4 gói + featureKeys), transactions, audit, **gateway PayOS/VNPay** |
-| Admin — Gói **Pro**         | `admin.test@nhamnhi.vn`    | `/admin/*` (quản toàn chuỗi), billing & subscription, 16 bàn · 50 món · KDS                |
-| Admin — Gói **Cơ Bản**      | `admin.basic@nhamnhi.vn`   | 12 bàn · 22 món — không KDS / báo cáo nâng cao                                             |
-| Admin — Gói **Miễn Phí**    | `admin.free@nhamnhi.vn`    | 5 bàn · 12 món — test plan gate (bàn 6/món 31/NV 3 bị chặn)                                |
-| Admin — Gói **Doanh Nghiệp**| `admin.enterprise@nhamnhi.vn` | 20 bàn · 50 món — không giới hạn                                                        |
-| Manager                     | `manager.test@nhamnhi.vn`  | `/manager/*`: menu, POS, bàn, đặt bàn, nhân viên, báo cáo                                  |
-| Staff                       | `staff.test@nhamnhi.vn`    | POS, sơ đồ bàn, đơn hàng, đặt chỗ                                                          |
-| Customer                    | `customer.test@nhamnhi.vn` | Login khách, lịch sử đơn, đặt chỗ                                                          |
+| Role                         | Email                         | Ghi chú                                                                                        |
+| ---------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------- |
+| Super Admin                  | `super.admin@nhamnhi.vn`      | Nền tảng: tenants, pricing (4 gói + featureKeys), transactions, audit, **gateway PayOS/VNPay** |
+| Admin — Gói **Pro**          | `admin.test@nhamnhi.vn`       | `/admin/*` (quản toàn chuỗi), billing & subscription, 16 bàn · 50 món · KDS                    |
+| Admin — Gói **Cơ Bản**       | `admin.basic@nhamnhi.vn`      | 12 bàn · 22 món — không KDS / báo cáo nâng cao                                                 |
+| Admin — Gói **Miễn Phí**     | `admin.free@nhamnhi.vn`       | 5 bàn · 12 món — test plan gate (bàn 6/món 31/NV 3 bị chặn)                                    |
+| Admin — Gói **Doanh Nghiệp** | `admin.enterprise@nhamnhi.vn` | 20 bàn · 50 món — không giới hạn                                                               |
+| Manager                      | `manager.test@nhamnhi.vn`     | `/manager/*`: menu, POS, bàn, đặt bàn, nhân viên, báo cáo                                      |
+| Staff                        | `staff.test@nhamnhi.vn`       | POS, sơ đồ bàn, đơn hàng, đặt chỗ                                                              |
+| Customer                     | `customer.test@nhamnhi.vn`    | Login khách, lịch sử đơn, đặt chỗ                                                              |
 
 **Mã nhà bếp (KDS):** Pro `456734` · Cơ Bản `553572` · Miễn Phí `653780` · Doanh Nghiệp `772915`. Mật khẩu dùng chung: `Test@NhamNhi2026`. Seed lại toàn bộ data demo: `node server/scripts/seed-restaurant-demo.mjs`. Reset super-admin: `SUPER_ADMIN_PASSWORD='...' node server/scripts/reset-super-admin.mjs`.
 
@@ -397,11 +397,11 @@ Khi bật, các endpoint đọc menu theo nhà hàng (`GET /api/menu/category/:r
 
 Hệ thống có **3 queue nền (BullMQ)** để tách side-effect khỏi request chính — bật TẮT cùng `ENABLE_REDIS` / `REDIS_URL` (không cần env mới):
 
-| Queue          | Job                  | Chạy khi                                      | Side-effect                                                                        |
-| -------------- | -------------------- | --------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `payment-webhook` | `complete-payment` | Webhook PayOS sau khi verify chữ ký (sync)    | Hoàn tất thanh toán (atomic + idempotent), emit `payment_success` / `order_event`, audit |
-| `notification` | `create-notification`| Enqueue từ order-fanout (và nơi khác)          | Persist + emit `new_notification` qua room `restaurant_<id>`                        |
-| `order-fanout` | `new-order`          | Tạo đơn / thêm món (`POST /api/orders*`, POS) | (a) emit socket `order_event`, (b) enqueue `notification`, (c) tăng `orderCount` MenuItem |
+| Queue             | Job                   | Chạy khi                                      | Side-effect                                                                               |
+| ----------------- | --------------------- | --------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `payment-webhook` | `complete-payment`    | Webhook PayOS sau khi verify chữ ký (sync)    | Hoàn tất thanh toán (atomic + idempotent), emit `payment_success` / `order_event`, audit  |
+| `notification`    | `create-notification` | Enqueue từ order-fanout (và nơi khác)         | Persist + emit `new_notification` qua room `restaurant_<id>`                              |
+| `order-fanout`    | `new-order`           | Tạo đơn / thêm món (`POST /api/orders*`, POS) | (a) emit socket `order_event`, (b) enqueue `notification`, (c) tăng `orderCount` MenuItem |
 
 - **Producer typed** (`jobs/handlers.ts` `addJob`): Redis không ready / enqueue lỗi → chạy **fallback inline** CÙNG handler worker (không lệch logic), lỗi inline theo policy: `payment-webhook`=propagate · `notification`/`order-fanout`=swallow (log, không hỏng luồng chính).
 - **Worker**: `startWorkers()` chỉ gọi trong `index.ts` (không trong `createApp` — test không bật worker). Concurrency: payment `1`, notification `5`, order-fanout `5`. Graceful shutdown đợi job active ≤5s.
@@ -433,4 +433,4 @@ Hệ thống có **3 queue nền (BullMQ)** để tách side-effect khỏi reque
 
 ## Tác giả
 
-**datnd.02** — [@daidat02](https://github.com/daidat02) · Deploy: [nhamnhitidi.vercel.app](https://nhamnhitidi.vercel.app/)
+**datnd.02** — [@daidat02](https://github.com/daidat02) · Deploy: [nhahangos.me](https://nhahangos.me/)
