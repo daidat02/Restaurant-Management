@@ -39,7 +39,9 @@ test.describe('T10 — /admin/logs: audit hành động + lịch sử thanh toá
     await expect(page.getByRole('row').filter({ hasText: '1 tháng' }).first()).toBeVisible();
 
     // Lọc theo chi nhánh: chọn cơ sở 2 → cơ sở 1 biến mất, cơ sở 2 còn lại
-    await page.getByRole('combobox').first().selectOption({ label: 'NhamNhi Cơ Sở 2' });
+    // (bộ lọc chi nhánh là CustomSelect tự viết — trigger + option đều là <button> thường)
+    await page.getByRole('button', { name: 'Tất cả chi nhánh' }).click();
+    await page.getByRole('button', { name: 'NhamNhi Cơ Sở 2' }).click();
     await expect(page.getByRole('row').filter({ hasText: 'NhamNhi Cơ Sở 1' })).toHaveCount(0);
     await expect(page.getByRole('row').filter({ hasText: 'NhamNhi Cơ Sở 2' })).toBeVisible();
   });
