@@ -1,10 +1,11 @@
 import type { ITable } from '@/types/table.type';
-import { useRef } from 'react';
-import { Plus, Printer } from 'lucide-react';
-import { extractId, getTimeAgo } from '@/utils/helpers';
+import { useRef, useState } from 'react';
+import { Plus, Printer, Undo2 } from 'lucide-react';
+import { getTimeAgo } from '@/utils/helpers';
 import { QRCodeSVG } from 'qrcode.react';
 import { useReactToPrint } from 'react-to-print';
 import PlanGate from '@/components/PlanGate';
+import { AlertDialogCustom } from '@/components/AlertDialog';
 import type { IOrder } from '@/types/order.type';
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
@@ -54,6 +55,8 @@ export const TableCard = ({
   const isAvailable = table.status === 'available';
   const isReserved = table.status === 'reserved';
   const currentStyle = STYLE_CONFIG[table.status] || STYLE_CONFIG['available'];
+  // Xác nhận "Trả bàn trống" — chỉ cho bàn đang phục vụ mà CHƯA có đơn
+  const [confirmResetOpen, setConfirmResetOpen] = useState(false);
 
   const receiptRef = useRef<HTMLDivElement>(null);
   const triggerPrint = useReactToPrint({
@@ -70,6 +73,9 @@ export const TableCard = ({
     typeof table.currentOrder === 'object' ? table.currentOrder?._id : table.currentOrder;
   const orderTotal =
     typeof table.currentOrder === 'object' ? table.currentOrder?.totalAmount : undefined;
+
+  // Đang phục vụ nhưng chưa có mã đơn — khách vừa quét QR, đang xem menu gọi món
+  const isOccupiedCalling = table.status === 'occupied' && !orderId;
 
   const name =
     customerName ||
@@ -112,9 +118,17 @@ export const TableCard = ({
         </span>
       </div>
 
-      {/* Hàng 2: Mã đơn / Khách / Tổng tiền */}
+      {/* Hàng 2: Mã đơn / Khách / Tổng tiền / Đang gọi món */}
       <div className="mt-3 rounded-xl bg-slate-50/70 p-3">
-        {!isAvailable ? (
+        {isOccupiedCalling ? (
+          <div className="flex items-center gap-2">
+            <span className="relative flex h-2.5 w-2.5 shrink-0">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-500" />
+            </span>
+            <p className="text-xs font-semibold text-amber-700">Khách đang gọi món</p>
+          </div>
+        ) : !isAvailable ? (
           <>
             <div className="flex items-center justify-between gap-2">
               <p className="truncate text-xs text-slate-400">
@@ -141,8 +155,13 @@ export const TableCard = ({
       <div className="mt-3 flex items-center justify-between">
         <span className="text-[11px] text-slate-400">{timeLabel}</span>
         <div className="flex gap-1.5">
-          {isAvailable ? (
-            <PlanGate resource="daily_orders" fallbackMode="upsell">
+          {isAvailable || isOccupiedCalling ? (
+            /* Bàn trống hoặc đang phục vụ CHƯA có đơn → đều tạo được đơn (POS nhận tableId sẵn) */
+            <PlanGate
+              resource="daily_orders"
+              fallbackMode="upsell"
+              restaurantId={restaurantId}
+            >
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -181,18 +200,48 @@ export const TableCard = ({
               Thanh toán
             </button>
           )}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              triggerPrint();
-            }}
-            className="rounded-lg border border-slate-200 p-1.5 text-slate-500 transition hover:border-cerulean-blue-200 hover:text-cerulean-blue-600"
-            title="In QR"
-          >
-            <Printer className="h-4 w-4" />
-          </button>
+          {/* Đang phục vụ mà chưa có đơn → cho trả bàn về trống (hủy nhầm in QR) */}
+          {isOccupiedCalling && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setConfirmResetOpen(true);
+              }}
+              className="flex items-center gap-1 rounded-lg border border-slate-200 p-1.5 text-slate-500 transition hover:border-rose-200 hover:text-rose-600"
+              title="Trả bàn trống"
+              aria-label="Trả bàn trống"
+            >
+              <Undo2 className="h-4 w-4" />
+            </button>
+          )}
+          {/* In QR bàn — gate theo tính năng scan_to_order của gói */}
+          <PlanGate featureKey="scan_to_order" fallbackMode="upsell" restaurantId={restaurantId}>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                triggerPrint();
+              }}
+              className="rounded-lg border border-slate-200 p-1.5 text-slate-500 transition hover:border-cerulean-blue-200 hover:text-cerulean-blue-600"
+              title="In QR"
+            >
+              <Printer className="h-4 w-4" />
+            </button>
+          </PlanGate>
         </div>
       </div>
+
+      {/* Xác nhận trả bàn trống — hủy trạng thái "đang phục vụ" khi in QR nhầm / khách bỏ về */}
+      <AlertDialogCustom
+        open={confirmResetOpen}
+        onOpenChange={setConfirmResetOpen}
+        variant="warning"
+        title={`Trả bàn ${table.tableNumber} về trống?`}
+        description="Bàn sẽ chuyển về trạng thái Bàn trống. Khách vẫn có thể quét lại QR để gọi món sau."
+        confirmText="Trả bàn trống"
+        onConfirm={() => {
+          onChangeStatus?.(table._id, 'available');
+        }}
+      />
 
       {/* Khu in QR (ẩn) */}
       <div className="hidden">
