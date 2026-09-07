@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
-import { GoogleAuthButton } from './Components/GoogleAuthButton';
 import { AuthField } from './Components/AuthField';
 
 const getHomePathByRole = (role?: string) => {
@@ -93,13 +92,6 @@ export default function Login() {
           {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
         </button>
 
-        <div className="flex items-center gap-3 text-xs text-slate-400">
-          <span className="h-px flex-1 bg-slate-200" />
-          hoặc
-          <span className="h-px flex-1 bg-slate-200" />
-        </div>
-
-        <GoogleAuthButton />
       </form>
 
       <p className="mt-6 text-center text-sm text-slate-500">
